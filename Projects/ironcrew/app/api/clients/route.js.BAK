@@ -1,0 +1,24 @@
+import { NextResponse } from 'next/server';
+
+export async function POST(request) {
+  try {
+    // 1. Parse the JSON body from the request
+    const data = await request.json();
+    
+    // 2. Process your data here (e.g., save to a database)
+    console.log("Received data:", data);
+
+    // 3. Return a successful JSON response
+    return NextResponse.json(
+      { message: 'User created successfully!', user: data }, 
+      { status: 201 }
+    );
+  } catch (error) {
+    // Handle parsing errors or server failures
+    return NextResponse.json(
+      { error: 'Invalid request body or server error' }, 
+      { status: 400 }
+    );
+  }
+}
+
