@@ -10,15 +10,24 @@ export default async function TestDatabase() {
     .select("*")
     .limit(10);
 
+  if (error) {
+    return (
+      <div>
+        <h1>🔴 Supabase connection failed</h1>
+        <pre>{error.message}</pre>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: "40px" }}>
-      <h1>Supabase Database Test</h1>
+    <div>
+      <h1>🟢 Supabase connected</h1>
 
-      <h2>Data:</h2>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-
-      <h2>Error:</h2>
-      <pre>{JSON.stringify(error, null, 2)}</pre>
+      {data.map((row) => (
+        <div key={row.id}>
+          {row.message}
+        </div>
+      ))}
     </div>
   );
 }
