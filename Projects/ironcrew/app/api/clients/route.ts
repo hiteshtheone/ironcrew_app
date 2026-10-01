@@ -97,18 +97,74 @@ function parseClientPayload(
     status = input.status as ClientStatus;
   }
 
-  return {
-    payload: {
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      date_of_birth: dateOfBirth,
-      status,
-      onboarding_notes: onboardingNotes,
-      profile_id: profileId,
-    },
+  const payload: ClientInsert = {
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    phone,
+    date_of_birth: dateOfBirth,
+    status,
+    onboarding_notes: onboardingNotes,
+    profile_id: profileId,
   };
+
+  return { payload };
+}
+
+function databaseErrorMessage(error: {
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+}) {
+  return [error.message, error.details, error.hint].filter(Boolean).join(" — ");
+}
+
+async function ensureCurrentUserIsTrainer(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string; email?: string; user_metadata?: Record<string, unknown> },
+) {
+  const { data: trainer, error: trainerLookupError } = await supabase
+    .from("trainers")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (trainerLookupError) return trainerLookupError;
+  if (trainer) return null;
+
+  const metadataName = user.user_metadata?.full_name;
+  const fullName =
+    (typeof metadataName === "string" && metadataName.trim()) ||
+    user.email?.split("@")[0] ||
+    "Trainer";
+
+  const { data: profile, error: profileLookupError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileLookupError) return profileLookupError;
+
+  if (!profile) {
+    const { error: profileInsertError } = await supabase.from("profiles").insert({
+      id: user.id,
+      role: "trainer",
+      full_name: fullName.slice(0, 120),
+    });
+    if (profileInsertError && profileInsertError.code !== "23505") {
+      return profileInsertError;
+    }
+  }
+
+  const { error: trainerInsertError } = await supabase.from("trainers").insert({
+    id: user.id,
+  });
+  if (trainerInsertError && trainerInsertError.code !== "23505") {
+    return trainerInsertError;
+  }
+
+  return null;
 }
 
 export async function GET() {
@@ -147,9 +203,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const trainerSetupError = await ensureCurrentUserIsTrainer(supabase, user);
+  if (trainerSetupError) {
+    return NextResponse.json(
+      { error: databaseErrorMessage(trainerSetupError) },
+      { status: 500 },
+    );
+  }
+
+  const insertPayload: Record<string, unknown> = { ...parsed.payload };
+  if (!insertPayload.profile_id) {
+    delete insertPayload.profile_id;
+  }
+
   const { data, error } = await supabase
     .from("clients")
-    .insert(parsed.payload)
+    .insert(insertPayload)
     .select(CLIENT_FIELDS)
     .single();
 
@@ -166,7 +235,10 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: databaseErrorMessage(error) },
+      { status: 500 },
+    );
   }
 
   const { error: relationshipError } = await supabase
@@ -181,7 +253,7 @@ export async function POST(request: Request) {
   if (relationshipError) {
     await supabase.from("clients").delete().eq("id", data.id);
     return NextResponse.json(
-      { error: relationshipError.message },
+      { error: databaseErrorMessage(relationshipError) },
       { status: 500 },
     );
   }
