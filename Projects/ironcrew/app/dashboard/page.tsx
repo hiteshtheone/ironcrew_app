@@ -102,9 +102,12 @@ async function AuthenticatedDashboard() {
               <Bell className="size-5" />
               <span className="absolute right-2 top-2 size-1.5 rounded-full bg-orange-500 ring-2 ring-white" />
             </button>
-            <button className="hidden items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 sm:flex">
+            <Link
+              href="/clients/new"
+              className="hidden items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 sm:flex"
+            >
               <Plus className="size-4" /> Add client
-            </button>
+            </Link>
           </div>
         </header>
 
@@ -115,7 +118,9 @@ async function AuthenticatedDashboard() {
               <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Your coaching overview</h1>
               <p className="mt-2 text-sm text-slate-500">Here&apos;s what needs your attention today.</p>
             </div>
-            <button className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white sm:hidden"><Plus className="size-4" /> Add client</button>
+            <Link href="/clients/new" className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white sm:hidden">
+              <Plus className="size-4" /> Add client
+            </Link>
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
