@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const CLIENT_STATUSES = ["active", "inactive", "archived"] as const;
 const CLIENT_FIELDS =
-  "id, profile_id, first_name, last_name, email, phone, date_of_birth, status, onboarding_notes, created_at, updated_at";
+  "id, first_name, last_name, email, phone, date_of_birth, status, onboarding_notes, created_at, updated_at";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,7 +18,6 @@ type ClientInsert = {
   date_of_birth: string | null;
   status: ClientStatus;
   onboarding_notes: string | null;
-  profile_id: string | null;
 };
 
 function asTrimmedString(value: unknown) {
@@ -48,7 +47,6 @@ function parseClientPayload(
   const email = asTrimmedString(input.email);
   const phone = asTrimmedString(input.phone);
   const onboardingNotes = asTrimmedString(input.onboarding_notes);
-  const profileId = asTrimmedString(input.profile_id);
   const dateOfBirth = asTrimmedString(input.date_of_birth);
 
   if (
@@ -56,7 +54,6 @@ function parseClientPayload(
     email === undefined ||
     phone === undefined ||
     onboardingNotes === undefined ||
-    profileId === undefined ||
     dateOfBirth === undefined
   ) {
     return { error: "Optional client fields must be strings or null" };
@@ -68,10 +65,6 @@ function parseClientPayload(
 
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "email must be a valid email address" };
-  }
-
-  if (profileId && !UUID_PATTERN.test(profileId)) {
-    return { error: "profile_id must be a valid UUID" };
   }
 
   if (dateOfBirth) {
@@ -105,7 +98,6 @@ function parseClientPayload(
     date_of_birth: dateOfBirth,
     status,
     onboarding_notes: onboardingNotes,
-    profile_id: profileId,
   };
 
   return { payload };
