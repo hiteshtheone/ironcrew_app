@@ -16,6 +16,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { HeaderLogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: Activity, active: true },
   { label: "Clients", href: "#", icon: Users },
@@ -63,6 +65,7 @@ export function TrainerDashboard() {
           <Link href="#" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950">
             <Settings className="size-[18px]" /> Settings
           </Link>
+          <SidebarLogoutButton />
           <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
             <span className="grid size-9 place-items-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">HK</span>
             <div className="min-w-0">
@@ -85,6 +88,7 @@ export function TrainerDashboard() {
               <Bell className="size-5" />
               <span className="absolute right-2 top-2 size-1.5 rounded-full bg-orange-500 ring-2 ring-white" />
             </button>
+            <HeaderLogoutButton />
             <Link
               href="/clients/new"
               className="hidden items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 sm:flex"

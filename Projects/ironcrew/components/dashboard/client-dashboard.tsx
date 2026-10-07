@@ -11,6 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
 import type { AssignmentStatus, ClientDashboardData, ClientDay } from "@/lib/dashboard/client-week";
 import { statusLabel } from "@/lib/dashboard/client-week";
 
@@ -29,6 +30,9 @@ export function ClientDashboard({ data }: { data: ClientDashboardData }) {
         <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <h1 className="text-xl font-bold">Couldn&apos;t load your plan</h1>
           <p className="mt-2 text-sm text-slate-500">{data.message}</p>
+          <LogoutButton className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+            Log out
+          </LogoutButton>
         </div>
       </main>
     );
@@ -62,6 +66,7 @@ export function ClientDashboard({ data }: { data: ClientDashboardData }) {
           <Link href="#" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950">
             <Settings className="size-[18px]" /> Settings
           </Link>
+          <SidebarLogoutButton />
           <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
             <span className="grid size-9 place-items-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">{data.initials}</span>
             <div className="min-w-0">
@@ -78,9 +83,12 @@ export function ClientDashboard({ data }: { data: ClientDashboardData }) {
             <Menu className="size-5" />
           </button>
           <p className="hidden text-sm text-slate-500 sm:block">{data.dateLabel}</p>
-          <button className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications">
-            <Bell className="size-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications">
+              <Bell className="size-5" />
+            </button>
+            <HeaderLogoutButton />
+          </div>
         </header>
 
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
