@@ -5,6 +5,7 @@ import { ClientDashboard } from "@/components/dashboard/client-dashboard";
 import { LogoutButton } from "@/components/logout-button";
 import { DashboardSkeleton, TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
 import { loadClientDashboard } from "@/lib/dashboard/load-client-dashboard";
+import { loadTrainerDashboard } from "@/lib/dashboard/load-trainer-dashboard";
 import { createClient } from "@/lib/supabase/server";
 
 export default function DashboardPage() {
@@ -32,7 +33,11 @@ async function AuthenticatedDashboard() {
     return <DashboardNotice title="Couldn't load your profile" detail={error.message} />;
   }
 
-  if (profile?.role === "client") {
+  if (!profile) {
+    return <DashboardNotice title="Couldn't load your profile" detail="No profile was found for this account." />;
+  }
+
+  if (profile.role === "client") {
     const dashboard = await loadClientDashboard(supabase, {
       userId,
       fullName: profile.full_name,
@@ -41,7 +46,12 @@ async function AuthenticatedDashboard() {
     return <ClientDashboard data={dashboard} />;
   }
 
-  return <TrainerDashboard />;
+  const dashboard = await loadTrainerDashboard(supabase, {
+    userId,
+    fullName: profile.full_name,
+    timezone: profile.timezone,
+  });
+  return <TrainerDashboard data={dashboard} />;
 }
 
 function DashboardNotice({ title, detail }: { title: string; detail: string }) {
