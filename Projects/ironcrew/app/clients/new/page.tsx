@@ -31,7 +31,7 @@ async function AuthenticatedNewClient() {
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Add client</h1>
         <p className="mt-2 text-sm text-slate-500">
           Enter the client record fields: name, contact, date of birth, status,
-          optional linked profile, and onboarding notes. First name is required.
+          and onboarding notes. First name, email and date of birth are required.
         </p>
         <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <AddClientForm />

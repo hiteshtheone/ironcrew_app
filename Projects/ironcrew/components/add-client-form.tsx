@@ -18,7 +18,6 @@ type FormState = {
   date_of_birth: string;
   status: (typeof CLIENT_STATUSES)[number];
   onboarding_notes: string;
-  profile_id: string;
 };
 
 const emptyForm: FormState = {
@@ -29,7 +28,6 @@ const emptyForm: FormState = {
   date_of_birth: "",
   status: "active",
   onboarding_notes: "",
-  profile_id: "",
 };
 
 export function AddClientForm() {
@@ -59,7 +57,6 @@ export function AddClientForm() {
           date_of_birth: form.date_of_birth || null,
           status: form.status,
           onboarding_notes: form.onboarding_notes || null,
-          profile_id: form.profile_id || null,
         }),
       });
 
@@ -108,10 +105,11 @@ export function AddClientForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email *</Label>
           <Input
             id="email"
             name="email"
+            required
             type="email"
             value={form.email}
             onChange={(event) => updateField("email", event.target.value)}
@@ -128,11 +126,12 @@ export function AddClientForm() {
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="date_of_birth">Date of birth</Label>
+          <Label htmlFor="date_of_birth">Date of Birth *</Label>
           <Input
             id="date_of_birth"
             name="date_of_birth"
             type="date"
+            required
             max={new Date().toISOString().slice(0, 10)}
             value={form.date_of_birth}
             onChange={(event) =>
@@ -157,16 +156,6 @@ export function AddClientForm() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="profile_id">Linked profile ID</Label>
-          <Input
-            id="profile_id"
-            name="profile_id"
-            placeholder="Optional UUID from auth.users / profiles"
-            value={form.profile_id}
-            onChange={(event) => updateField("profile_id", event.target.value)}
-          />
         </div>
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="onboarding_notes">Onboarding notes</Label>
