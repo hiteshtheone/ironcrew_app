@@ -17,17 +17,17 @@ import {
 } from "lucide-react";
 
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
-import type { TrainerDashboardData } from "@/lib/dashboard/load-trainer-dashboard";
+import type { ClientListData, ClientRecord } from "@/lib/dashboard/load-client-list";
 
 const navigation = [
-  { label: "Dashboard", href: "/dashboard", icon: Activity, active: true },
-  { label: "Clients", href: "/clients", icon: Users },
+  { label: "Dashboard", href: "/dashboard", icon: Activity},
+  { label: "Clients", href: "/clients", icon: Users , active: true},
   { label: "Programs", href: "#", icon: Dumbbell },
   { label: "Calendar", href: "#", icon: CalendarDays },
   { label: "Messages", href: "#", icon: MessageSquare },
 ];
 
-export function TrainerDashboard({ data }: { data: TrainerDashboardData }) {
+export function ClientListDashboard({ data }: { data: ClientListData}) {
   if (data.kind === "error") {
     return (
       <main className="grid min-h-screen place-items-center bg-[#f7f8fa] px-6 text-slate-950">
@@ -42,7 +42,6 @@ export function TrainerDashboard({ data }: { data: TrainerDashboardData }) {
     );
   }
 
-  const weekDeltaUp = data.weekDeltaLabel.startsWith("+");
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-slate-950">
       <aside className="fixed inset-y-0 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex">
@@ -115,64 +114,33 @@ export function TrainerDashboard({ data }: { data: TrainerDashboardData }) {
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label="Active clients" value={String(data.activeClients)} detail={data.newClientsLabel} icon={Users} tone="bg-violet-50 text-violet-600" />
-            <Metric label="Completed today" value={String(data.completedToday)} detail={data.completedTodayDetail} icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
-            <Metric label="Pending today" value={String(data.pendingToday)} detail={data.pendingTodayDetail} icon={Clock3} tone="bg-amber-50 text-amber-600" />
-            <Metric label="Average adherence" value={data.adherenceLabel} detail={data.adherenceDetail} icon={TrendingUp} tone="bg-orange-50 text-orange-600" />
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-bold">Today&apos;s workouts</h2>
-                  <p className="mt-1 text-sm text-slate-500">{sessionCountLabel(data.todaySessions.length)}</p>
-                </div>
-                <Link href="#" className="flex items-center gap-1 text-sm font-semibold text-slate-700 hover:text-slate-950">View calendar <ChevronRight className="size-4" /></Link>
+              <div className="p-4">
+                <h2 className="text-xl font-bold mb-4">Active Clients</h2>
+                {/* 1. Always check if the array has items */}
+                {data.myClients.length === 0 ? (
+                  <p>No clients found.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {/* 2. Map through the array to output JSX*/}
+                    {data.myClients.map((ClientRecord) => (
+                      <li
+                        key={ClientRecord.name}
+                        className="p-3 border rounded shadow-sm bg-white flex justify-between"
+                      >
+                        <span className="font-medium">{ClientRecord.name}</span>
+                        <span className="text-gray-500">{ClientRecord.email}</span>
+                        <span className="text-gray-500">{ClientRecord.status}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              {data.todaySessions.length === 0 ? (
-                <p className="mt-8 text-sm text-slate-500">No workouts scheduled today</p>
-              ) : (
-                <div className="mt-5 divide-y divide-slate-100">
-                  {data.todaySessions.map((session) => (
-                    <div key={session.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
-                      <span className={`grid size-10 shrink-0 place-items-center rounded-full text-xs font-bold ${session.tone}`}>{session.initials}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{session.clientName}</p>
-                        <p className="truncate text-xs text-slate-500">{session.workoutName}</p>
-                      </div>
-                      <p className="text-xs font-medium text-slate-500 sm:text-sm">{session.statusLabel}</p>
-                      <ChevronRight className="size-5 text-slate-300" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl bg-slate-950 p-5 text-white shadow-sm sm:p-6">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-300"><Activity className="size-4 text-emerald-400" /> This week</div>
-              <p className="mt-6 text-5xl font-bold tracking-tight">{data.weekCompletion}%</p>
-              <p className="mt-2 text-sm text-slate-300">Average client workout completion</p>
-              <div className="mt-7 h-2 overflow-hidden rounded-full bg-slate-700"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${data.weekCompletion}%` }} /></div>
-              <div className="mt-5 flex items-center gap-2 text-sm"><span className={`rounded-full px-2 py-1 font-semibold ${weekDeltaUp ? "bg-emerald-400/15 text-emerald-300" : "bg-slate-700 text-slate-200"}`}>{data.weekDeltaLabel}</span><span className="text-slate-300">{data.weekComparison}</span></div>
             </section>
           </div>
-
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-bold">Client progress</h2><p className="mt-1 text-sm text-slate-500">Workout consistency this month</p></div><Link href="#" className="text-sm font-semibold text-slate-700 hover:text-slate-950">View all clients</Link></div>
-            {data.progress.length === 0 ? (
-              <p className="mt-8 text-sm text-slate-500">No workout history yet</p>
-            ) : (
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {data.progress.map((client) => (
-                  <div key={client.clientId} className="rounded-xl border border-slate-100 p-4">
-                    <div className="flex items-center gap-3"><span className={`grid size-9 place-items-center rounded-full text-xs font-bold ${client.tone}`}>{client.initials}</span><div><p className="text-sm font-semibold">{client.name}</p><p className="text-xs text-slate-500">Workout consistency</p></div></div>
-                    <div className="mt-5 flex items-end justify-between"><p className="text-2xl font-bold">{client.value}</p><span className={`text-xs font-semibold ${changeTone(client.change)}`}>{client.change}</span></div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-slate-900" style={{ width: `${client.width}%` }} /></div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
         </div>
       </section>
     </main>

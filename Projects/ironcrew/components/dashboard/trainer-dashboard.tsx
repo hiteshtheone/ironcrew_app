@@ -21,7 +21,7 @@ import type { TrainerDashboardData } from "@/lib/dashboard/load-trainer-dashboar
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: Activity, active: true },
-  { label: "Clients", href: "/clients", icon: Users },
+  { label: "Clients", href: "/clients/list", icon: Users },
   { label: "Programs", href: "#", icon: Dumbbell },
   { label: "Calendar", href: "#", icon: CalendarDays },
   { label: "Messages", href: "#", icon: MessageSquare },
