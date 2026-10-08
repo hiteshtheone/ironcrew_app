@@ -179,7 +179,7 @@ export function TrainerDashboard({ data }: { data: TrainerDashboardData }) {
   );
 }
 
-export function DashboardSkeleton() {
+export function ClientListSkeleton() {
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-slate-950">
       <aside className="fixed inset-y-0 hidden w-64 border-r border-slate-200 bg-white px-7 py-6 lg:block">
