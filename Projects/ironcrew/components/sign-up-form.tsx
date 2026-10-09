@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+
 export function SignUpForm({
   className,
   ...props
@@ -50,7 +51,7 @@ export function SignUpForm({
       });
       if (errorSignUp) throw errorSignUp;
 
-      // hitesh ... If client user by this name already exist then this is client user otherwise this is trainer
+      // If client user by this name already exist then this is client user otherwise this is trainer
       // set profile accordingly
       console.log("Creating Profile for this new client.")
 
@@ -66,13 +67,17 @@ export function SignUpForm({
 
       if (clientLookupError) throw clientLookupError;
 
+      // If client entry doesn't exist in the DB for this user, then this is new client else it is new trainer.
+      // Populate trainer table and set profile accordingly
       if (!clientUser) {
-        console.log("This is trainer signing up. Do nothing")
+        console.log("This is trainer signing up.")
+        const trainerSetupError = await ensureCurrentUserIsTrainer(supabase, userData.user);
+        if (trainerSetupError) return trainerSetupError
+        router.push("/auth/sign-up-success");
       } else {
         if (!clientUser.profile_id){
           console.log("Client exists but profile is null. Something is wrong. Let us fix by creating new profile.")
         }
-        // copied code from here
         // Profile id is Auth ID not client's ID
         const { data: profile, error: profileLookupError } = await supabase
           .from("profiles")
@@ -190,4 +195,53 @@ export function SignUpForm({
       </Card>
     </div>
   );
+}
+
+
+async function ensureCurrentUserIsTrainer(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string; email?: string; user_metadata?: Record<string, unknown> },
+) {
+  const { data: trainer, error: trainerLookupError } = await supabase
+    .from("trainers")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (trainerLookupError) return trainerLookupError;
+  if (trainer) return null;
+
+  const metadataName = user.user_metadata?.full_name;
+  const fullName =
+    (typeof metadataName === "string" && metadataName.trim()) ||
+    user.email?.split("@")[0] ||
+    "Trainer";
+
+  const { data: profile, error: profileLookupError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileLookupError) return profileLookupError;
+
+  if (!profile) {
+    const { error: profileInsertError } = await supabase.from("profiles").insert({
+      id: user.id,
+      role: "trainer",
+      full_name: fullName.slice(0, 120),
+    });
+    if (profileInsertError && profileInsertError.code !== "23505") {
+      return profileInsertError;
+    }
+  }
+
+  const { error: trainerInsertError } = await supabase.from("trainers").insert({
+    id: user.id,
+  });
+  if (trainerInsertError && trainerInsertError.code !== "23505") {
+    return trainerInsertError;
+  }
+
+  return null;
 }
