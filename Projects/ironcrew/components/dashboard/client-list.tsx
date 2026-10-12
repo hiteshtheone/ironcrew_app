@@ -1,9 +1,27 @@
+"use client";
+
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 
+import { ClientPlan } from "@/components/dashboard/client-plan";
 import type { ClientListData } from "@/lib/dashboard/load-client-list";
+import type { WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 
-export function ClientListPanel({ data }: { data: ClientListData }) {
+type ProgramOption = { id: string; name: string };
+
+export function ClientListPanel({
+  data,
+  programs,
+  workouts,
+}: {
+  data: ClientListData;
+  programs: ProgramOption[];
+  workouts: WorkoutOption[];
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   if (data.kind === "error") {
     return (
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
@@ -12,6 +30,18 @@ export function ClientListPanel({ data }: { data: ClientListData }) {
       </div>
     );
   }
+
+  const selected = data.myClients.find((client) => client.id === searchParams.get("client")) ?? null;
+  if (selected) {
+    return <ClientPlan client={selected} programs={programs} workouts={workouts} />;
+  }
+
+  const openClient = (clientId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", "clients");
+    params.set("client", clientId);
+    router.replace(`/dashboard?${params.toString()}`);
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
@@ -30,29 +60,25 @@ export function ClientListPanel({ data }: { data: ClientListData }) {
         <Metric label="Active clients" value={String(data.activeClients)} detail={data.newClientsLabel} icon={Users} tone="bg-violet-50 text-violet-600" />
       </div>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="p-4">
-            <h2 className="mb-4 text-xl font-bold">Active Clients</h2>
-            {data.myClients.length === 0 ? (
-              <p>No clients found.</p>
-            ) : (
-              <ul className="space-y-2">
-                {data.myClients.map((client) => (
-                  <li
-                    key={client.id}
-                    className="flex justify-between rounded border bg-white p-3 shadow-sm"
-                  >
-                    <span className="font-medium">{client.name}</span>
-                    <span className="text-gray-500">{client.email}</span>
-                    <span className="text-gray-500">{client.status}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-      </div>
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <h2 className="text-lg font-bold">Active clients</h2>
+        {data.myClients.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No clients found.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {data.myClients.map((client) => (
+              <li key={client.id}>
+                <button type="button" onClick={() => openClient(client.id)} className="flex w-full flex-col gap-1 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-semibold">{client.name}</span>
+                  <span className="text-sm text-slate-500">{client.email ?? "No email"}</span>
+                  <span className="text-sm text-slate-700">{client.goalTitle ?? "No goal yet"}</span>
+                  <span className="text-sm text-slate-700">{client.programName ?? "No program yet"}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

@@ -38,11 +38,17 @@ export type TrainerSession = {
 type ClientRecord = {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   initials: string;
   tone: string;
   status: string;
   startedOn: string | null;
+  goalTitle: string | null;
+  goalType: string | null;
+  programName: string | null;
+  programId: string | null;
+  programStartsOn: string | null;
+  hasActiveProgram: boolean;
 };
 
 export type ClientListReady = {
@@ -84,7 +90,9 @@ export async function loadClientList(
   // Get all clients for this trainer and status should be active
   const { data: links, error: linkError } = await supabase
     .from("trainer_clients")
-    .select("client_id, started_at, clients(first_name, last_name, email, status)")
+    .select(
+      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status), program_assignments(id, status, starts_on, program_id, goal_id, programs(name)))",
+    )
     .eq("trainer_id", profile.userId)
     .eq("status", "active");
 
@@ -180,12 +188,13 @@ function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
   const client = asRecord(firstRelation(record.clients));
   const status = stringField(client, "status");
   const firstName = stringField(client, "first_name");
-  if (!id || !firstName || status !== "active") return null;
+  if (!client || !id || !firstName || status !== "active") return null;
 
   const lastName = stringField(client, "last_name");
   const email = stringField(client, "email");
   const name = [firstName, lastName].filter(Boolean).join(" ");
   const startedAt = stringField(record, "started_at");
+  const plan = activePlan(client);
 
   return {
     id,
@@ -195,5 +204,57 @@ function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
     tone: AVATAR_TONES[hashTone(id)],
     status: status,
     startedOn: startedAt ? ymdInTimeZone(startedAt, timeZone) : null,
+    goalTitle: plan.goalTitle,
+    goalType: plan.goalType,
+    programName: plan.programName,
+    programId: plan.programId,
+    programStartsOn: plan.programStartsOn,
+    hasActiveProgram: plan.hasActiveProgram,
   };
+}
+
+function activePlan(client: Record<string, unknown>) {
+  const goals = asArray(client.goals)
+    .map((row) => {
+      const goal = asRecord(row);
+      return {
+        id: stringField(goal, "id"),
+        title: stringField(goal, "title"),
+        goalType: stringField(goal, "goal_type"),
+        status: stringField(goal, "status"),
+      };
+    })
+    .filter((goal) => goal.id && goal.title);
+
+  const assignments = asArray(client.program_assignments)
+    .map((row) => {
+      const assignment = asRecord(row);
+      const program = asRecord(firstRelation(assignment?.programs));
+      return {
+        status: stringField(assignment, "status"),
+        startsOn: stringField(assignment, "starts_on"),
+        programId: stringField(assignment, "program_id"),
+        goalId: stringField(assignment, "goal_id"),
+        programName: stringField(program, "name"),
+      };
+    })
+    .filter((assignment) => assignment.status === "scheduled" || assignment.status === "in_progress")
+    .sort((left, right) => (right.startsOn ?? "").localeCompare(left.startsOn ?? ""));
+
+  const active = assignments[0] ?? null;
+  const linkedGoal = active?.goalId ? goals.find((goal) => goal.id === active.goalId) : null;
+  const goal = linkedGoal ?? goals.find((item) => item.status === "active") ?? null;
+
+  return {
+    goalTitle: goal?.title ?? null,
+    goalType: goal?.goalType ?? null,
+    programName: active?.programName ?? null,
+    programId: active?.programId ?? null,
+    programStartsOn: active?.startsOn ?? null,
+    hasActiveProgram: active !== null,
+  };
+}
+
+function asArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
 }

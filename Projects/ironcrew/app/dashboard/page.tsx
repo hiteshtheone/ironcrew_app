@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ClientListPanel } from "@/components/dashboard/client-list";
 import { ClientDashboard } from "@/components/dashboard/client-dashboard";
+import { ClientListPanel } from "@/components/dashboard/client-list";
 import { LogoutButton } from "@/components/logout-button";
+import { ProgramsPanel } from "@/components/dashboard/programs-panel";
 import { DashboardSkeleton, TrainerLoadError, TrainerOverview } from "@/components/dashboard/trainer-dashboard";
 import { TrainerShell } from "@/components/dashboard/trainer-shell";
 import { loadClientDashboard } from "@/lib/dashboard/load-client-dashboard";
 import { loadClientList } from "@/lib/dashboard/load-client-list";
 import { loadTrainerDashboard } from "@/lib/dashboard/load-trainer-dashboard";
+import { loadTrainerPrograms } from "@/lib/dashboard/load-trainer-programs";
 import { createClient } from "@/lib/supabase/server";
 
 export default function DashboardPage() {
@@ -54,14 +56,18 @@ async function AuthenticatedDashboard() {
     fullName: profile.full_name,
     timezone: profile.timezone,
   };
-  const [dashboard, clientList] = await Promise.all([
+  const [dashboard, clientList, planning] = await Promise.all([
     loadTrainerDashboard(supabase, profileInput),
     loadClientList(supabase, profileInput),
+    loadTrainerPrograms(supabase, userId),
   ]);
 
   if (dashboard.kind === "error") {
     return <TrainerLoadError message={dashboard.message} />;
   }
+
+  const programs = planning.kind === "ready" ? planning.programs.map((program) => ({ id: program.id, name: program.name })) : [];
+  const workouts = planning.kind === "ready" ? planning.workouts : [];
 
   return (
     <TrainerShell
@@ -71,7 +77,8 @@ async function AuthenticatedDashboard() {
         dateLabel: dashboard.dateLabel,
       }}
       overview={<TrainerOverview data={dashboard} />}
-      clients={<ClientListPanel data={clientList} />}
+      clients={<ClientListPanel data={clientList} programs={programs} workouts={workouts} />}
+      programs={<ProgramsPanel data={planning} />}
     />
   );
 }

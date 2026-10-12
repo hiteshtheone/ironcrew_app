@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { type ComponentType, type ReactNode } from "react";
 import {
   Activity,
   Bell,
@@ -33,35 +34,64 @@ const navigation: { id: TrainerSection; label: string; icon: ComponentType<{ cla
   { id: "messages", label: "Messages", icon: MessageSquare },
 ];
 
-const sectionTitle: Record<Exclude<TrainerSection, "dashboard" | "clients">, string> = {
-  programs: "Programs",
+const sectionTitle: Record<Exclude<TrainerSection, "dashboard" | "clients" | "programs">, string> = {
   calendar: "Calendar",
   messages: "Messages",
   settings: "Settings",
 };
 
+function isTrainerSection(value: string | null): value is TrainerSection {
+  return value === "dashboard" || value === "clients" || value === "programs" || value === "calendar" || value === "messages" || value === "settings";
+}
+
 export function TrainerShell({
   profile,
   overview,
   clients,
+  programs,
 }: {
   profile: { fullName: string; initials: string; dateLabel: string };
   overview: ReactNode;
   clients: ReactNode;
+  programs: ReactNode;
 }) {
-  const [section, setSection] = useState<TrainerSection>("dashboard");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requested = searchParams.get("section");
+  const section: TrainerSection = isTrainerSection(requested) ? requested : "dashboard";
+
+  const openSection = (id: TrainerSection) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === "dashboard") {
+      params.delete("section");
+      params.delete("client");
+      params.delete("program");
+      params.delete("phase");
+      params.delete("week");
+    } else {
+      params.set("section", id);
+      if (id !== "clients") params.delete("client");
+      if (id !== "programs") {
+        params.delete("program");
+        params.delete("phase");
+        params.delete("week");
+      }
+    }
+    const query = params.toString();
+    router.replace(query ? `/dashboard?${query}` : "/dashboard");
+  };
 
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-slate-950">
       <aside className="fixed inset-y-0 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex">
-        <button type="button" onClick={() => setSection("dashboard")} className="flex items-center gap-3 px-3">
+        <button type="button" onClick={() => openSection("dashboard")} className="flex items-center gap-3 px-3">
           <span className="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">T</span>
           <span className="text-lg font-semibold tracking-tight">Trainer</span>
         </button>
 
         <nav className="mt-10 space-y-1">
           {navigation.map(({ id, label, icon: Icon }) => (
-            <SectionButton key={id} active={section === id} onClick={() => setSection(id)}>
+            <SectionButton key={id} active={section === id} onClick={() => openSection(id)}>
               <Icon className="size-[18px]" />
               <span>{label}</span>
             </SectionButton>
@@ -69,7 +99,7 @@ export function TrainerShell({
         </nav>
 
         <div className="mt-auto border-t border-slate-100 pt-4">
-          <SectionButton active={section === "settings"} onClick={() => setSection("settings")}>
+          <SectionButton active={section === "settings"} onClick={() => openSection("settings")}>
             <Settings className="size-[18px]" /> Settings
           </SectionButton>
           <SidebarLogoutButton />
@@ -107,7 +137,8 @@ export function TrainerShell({
 
         {section === "dashboard" && overview}
         {section === "clients" && clients}
-        {section !== "dashboard" && section !== "clients" && (
+        {section === "programs" && programs}
+        {section !== "dashboard" && section !== "clients" && section !== "programs" && (
           <EmptySection title={sectionTitle[section]} />
         )}
       </section>
