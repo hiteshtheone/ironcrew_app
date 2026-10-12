@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { ClientListPanel } from "@/components/dashboard/client-list";
 import { ClientDashboard } from "@/components/dashboard/client-dashboard";
 import { LogoutButton } from "@/components/logout-button";
-import { DashboardSkeleton, TrainerDashboard } from "@/components/dashboard/trainer-dashboard";
+import { DashboardSkeleton, TrainerLoadError, TrainerOverview } from "@/components/dashboard/trainer-dashboard";
+import { TrainerShell } from "@/components/dashboard/trainer-shell";
 import { loadClientDashboard } from "@/lib/dashboard/load-client-dashboard";
+import { loadClientList } from "@/lib/dashboard/load-client-list";
 import { loadTrainerDashboard } from "@/lib/dashboard/load-trainer-dashboard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,12 +49,31 @@ async function AuthenticatedDashboard() {
     return <ClientDashboard data={dashboard} />;
   }
 
-  const dashboard = await loadTrainerDashboard(supabase, {
+  const profileInput = {
     userId,
     fullName: profile.full_name,
     timezone: profile.timezone,
-  });
-  return <TrainerDashboard data={dashboard} />;
+  };
+  const [dashboard, clientList] = await Promise.all([
+    loadTrainerDashboard(supabase, profileInput),
+    loadClientList(supabase, profileInput),
+  ]);
+
+  if (dashboard.kind === "error") {
+    return <TrainerLoadError message={dashboard.message} />;
+  }
+
+  return (
+    <TrainerShell
+      profile={{
+        fullName: dashboard.fullName,
+        initials: dashboard.initials,
+        dateLabel: dashboard.dateLabel,
+      }}
+      overview={<TrainerOverview data={dashboard} />}
+      clients={<ClientListPanel data={clientList} />}
+    />
+  );
 }
 
 function DashboardNotice({ title, detail }: { title: string; detail: string }) {
