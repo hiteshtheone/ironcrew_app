@@ -35,7 +35,18 @@ export type TrainerSession = {
   tone: string;
 };
 
-type ClientRecord = {
+export type ClientGoal = {
+  id: string;
+  title: string;
+  goalType: string;
+  status: string;
+  targetValue: number | null;
+  targetUnit: string | null;
+  targetDate: string | null;
+  notes: string | null;
+};
+
+export type ClientRecord = {
   id: string;
   name: string;
   email: string | null;
@@ -45,6 +56,8 @@ type ClientRecord = {
   startedOn: string | null;
   goalTitle: string | null;
   goalType: string | null;
+  linkedGoalId: string | null;
+  goals: ClientGoal[];
   programName: string | null;
   programId: string | null;
   programStartsOn: string | null;
@@ -91,7 +104,7 @@ export async function loadClientList(
   const { data: links, error: linkError } = await supabase
     .from("trainer_clients")
     .select(
-      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status), program_assignments(id, status, starts_on, program_id, goal_id, programs(name)))",
+      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status, target_value, target_unit, target_date, notes), program_assignments(id, status, starts_on, program_id, goal_id, programs(name)))",
     )
     .eq("trainer_id", profile.userId)
     .eq("status", "active");
@@ -206,6 +219,8 @@ function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
     startedOn: startedAt ? ymdInTimeZone(startedAt, timeZone) : null,
     goalTitle: plan.goalTitle,
     goalType: plan.goalType,
+    linkedGoalId: plan.linkedGoalId,
+    goals: plan.goals,
     programName: plan.programName,
     programId: plan.programId,
     programStartsOn: plan.programStartsOn,
@@ -215,16 +230,9 @@ function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
 
 function activePlan(client: Record<string, unknown>) {
   const goals = asArray(client.goals)
-    .map((row) => {
-      const goal = asRecord(row);
-      return {
-        id: stringField(goal, "id"),
-        title: stringField(goal, "title"),
-        goalType: stringField(goal, "goal_type"),
-        status: stringField(goal, "status"),
-      };
-    })
-    .filter((goal) => goal.id && goal.title);
+    .map(normalizeGoal)
+    .filter((goal): goal is ClientGoal => goal !== null)
+    .sort((left, right) => left.title.localeCompare(right.title));
 
   const assignments = asArray(client.program_assignments)
     .map((row) => {
@@ -248,11 +256,38 @@ function activePlan(client: Record<string, unknown>) {
   return {
     goalTitle: goal?.title ?? null,
     goalType: goal?.goalType ?? null,
+    linkedGoalId: goal?.id ?? null,
+    goals,
     programName: active?.programName ?? null,
     programId: active?.programId ?? null,
     programStartsOn: active?.startsOn ?? null,
     hasActiveProgram: active !== null,
   };
+}
+
+function normalizeGoal(row: unknown): ClientGoal | null {
+  const goal = asRecord(row);
+  const id = stringField(goal, "id");
+  const title = stringField(goal, "title");
+  const goalType = stringField(goal, "goal_type");
+  const status = stringField(goal, "status");
+  if (!id || !title || !goalType || !status) return null;
+  return {
+    id,
+    title,
+    goalType,
+    status,
+    targetValue: numberValue(goal?.target_value),
+    targetUnit: stringField(goal, "target_unit"),
+    targetDate: stringField(goal, "target_date"),
+    notes: stringField(goal, "notes"),
+  };
+}
+
+function numberValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
 }
 
 function asArray(value: unknown) {

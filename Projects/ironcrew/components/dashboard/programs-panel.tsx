@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { WorkoutEditor } from "@/components/dashboard/workout-editor";
 import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 
 const fieldClass =
@@ -20,6 +21,8 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [programName, setProgramName] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
   const [phaseName, setPhaseName] = useState("");
   const [workoutName, setWorkoutName] = useState("");
   const [weekStart, setWeekStart] = useState("");
@@ -28,9 +31,15 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-  const selectedProgramId = data.kind === "ready"
-    ? data.programs.find((program) => program.id === searchParams.get("program"))?.id ?? null
+  const selectedProgram = data.kind === "ready"
+    ? data.programs.find((program) => program.id === searchParams.get("program")) ?? null
     : null;
+  const selectedProgramId = selectedProgram?.id ?? null;
+
+  useEffect(() => {
+    setDraftName(selectedProgram?.name ?? "");
+    setDraftDescription(selectedProgram?.description ?? "");
+  }, [selectedProgram?.id, selectedProgram?.name, selectedProgram?.description]);
 
   useEffect(() => {
     setCheckedClients(null);
@@ -69,6 +78,13 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
     router.replace(`/dashboard?${params.toString()}`);
   };
 
+  const openWorkout = (workoutId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", "programs");
+    params.set("workout", workoutId);
+    router.replace(`/dashboard?${params.toString()}`);
+  };
+
   const run = async (key: string, action: () => Promise<void>) => {
     setPending(key);
     setError(null);
@@ -81,6 +97,27 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
     } finally {
       setPending(null);
     }
+  };
+
+  const saveProgram = (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected) return;
+    void run("save-program", async () => {
+      await patchJson(`/api/programs/${selected.id}`, {
+        name: draftName,
+        description: draftDescription.trim() || null,
+      });
+      setNotice("Program saved.");
+    });
+  };
+
+  const duplicateProgram = () => {
+    if (!selected) return;
+    void run("duplicate-program", async () => {
+      const payload = await postJson(`/api/programs/${selected.id}/duplicate`, {});
+      if (typeof payload.id === "string") openProgram(payload.id);
+      setNotice("Program duplicated. This copy can be edited on its own.");
+    });
   };
 
   const createProgram = (event: FormEvent) => {
@@ -204,10 +241,35 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
             </p>
           ) : (
             <div className="space-y-6">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program</p>
-                <h2 className="mt-1 text-2xl font-bold">{selected.name}</h2>
-              </div>
+              <form onSubmit={saveProgram} className="space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program{selected.status === "draft" ? " · Draft copy" : ""}</p>
+                  <button
+                    type="button"
+                    onClick={duplicateProgram}
+                    disabled={pending === "duplicate-program"}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-60"
+                  >
+                    {pending === "duplicate-program" ? "Duplicating..." : "Duplicate program"}
+                  </button>
+                </div>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">Name</span>
+                  <input required maxLength={160} value={draftName} onChange={(event) => setDraftName(event.target.value)} className={fieldClass} />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">Description</span>
+                  <textarea
+                    value={draftDescription}
+                    onChange={(event) => setDraftDescription(event.target.value)}
+                    rows={2}
+                    className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm"
+                  />
+                </label>
+                <button type="submit" disabled={pending === "save-program"} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                  {pending === "save-program" ? "Saving..." : "Save program"}
+                </button>
+              </form>
 
               <div>
                 <h3 className="text-sm font-semibold">Phase</h3>
@@ -361,6 +423,36 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
               ) : null}
             </div>
           )}
+          <div className="mt-6">
+          <WorkoutEditor
+            workouts={data.workouts}
+            exercises={data.exercises}
+            selectedWorkoutId={searchParams.get("workout")}
+            pending={pending}
+            onSelect={openWorkout}
+            onDuplicate={(workoutId) => {
+              void run("duplicate-workout", async () => {
+                const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
+                if (typeof payload.id === "string") openWorkout(payload.id);
+                setNotice("Workout duplicated. This copy can be edited on its own.");
+              });
+            }}
+            onSave={(workoutId, body) => run("save-workout", async () => {
+              await patchJson(`/api/workouts/${workoutId}`, body);
+              setNotice("Workout saved.");
+            })}
+            onCreateExercise={async (name) => {
+              let created: { id: string; name: string } | null = null;
+              await run("exercise", async () => {
+                const payload = await postJson("/api/exercises", { name });
+                if (typeof payload.id === "string" && typeof payload.name === "string") {
+                  created = { id: payload.id, name: payload.name };
+                }
+              });
+              return created;
+            }}
+          />
+          </div>
           {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
           {notice ? <p className="mt-4 text-sm text-emerald-700">{notice}</p> : null}
         </section>
@@ -370,8 +462,16 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
 }
 
 async function postJson(url: string, body: unknown) {
+  return sendJson("POST", url, body);
+}
+
+async function patchJson(url: string, body: unknown) {
+  return sendJson("PATCH", url, body);
+}
+
+async function sendJson(method: string, url: string, body: unknown) {
   const response = await fetch(url, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });

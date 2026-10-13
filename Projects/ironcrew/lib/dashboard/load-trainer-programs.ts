@@ -5,6 +5,32 @@ export type WorkoutOption = {
   name: string;
 };
 
+export type ExerciseOption = {
+  id: string;
+  name: string;
+};
+
+export type WorkoutBlock = {
+  id: string;
+  blockType: string;
+  exerciseId: string | null;
+  exerciseName: string | null;
+  title: string | null;
+  position: number;
+  sets: number | null;
+  repsMin: number | null;
+  repsMax: number | null;
+  load: number | null;
+  loadUnit: string | null;
+  restSeconds: number | null;
+};
+
+export type LibraryWorkout = WorkoutOption & {
+  description: string | null;
+  durationMinutes: number | null;
+  blocks: WorkoutBlock[];
+};
+
 export type AssignedClient = {
   id: string;
   name: string;
@@ -44,7 +70,8 @@ export type TrainerProgram = {
 export type TrainerProgramsReady = {
   kind: "ready";
   programs: TrainerProgram[];
-  workouts: WorkoutOption[];
+  workouts: LibraryWorkout[];
+  exercises: ExerciseOption[];
 };
 
 export type TrainerProgramsData = TrainerProgramsReady | { kind: "error"; message: string };
@@ -53,7 +80,7 @@ export async function loadTrainerPrograms(
   supabase: SupabaseClient,
   trainerId: string,
 ): Promise<TrainerProgramsData> {
-  const [{ data: programRows, error: programError }, { data: workoutRows, error: workoutError }] =
+  const [{ data: programRows, error: programError }, { data: workoutRows, error: workoutError }, { data: exerciseRows, error: exerciseError }] =
     await Promise.all([
       supabase
         .from("programs")
@@ -83,11 +110,37 @@ export async function loadTrainerPrograms(
         `,
         )
         .eq("trainer_id", trainerId),
-      supabase.from("workouts").select("id, name").eq("trainer_id", trainerId),
+      supabase
+        .from("workouts")
+        .select(
+          `
+          id,
+          name,
+          description,
+          estimated_duration_minutes,
+          workout_blocks (
+            id,
+            position,
+            block_type,
+            title,
+            exercise_id,
+            prescribed_sets,
+            prescribed_reps_min,
+            prescribed_reps_max,
+            prescribed_load,
+            load_unit,
+            rest_seconds,
+            exercises ( name )
+          )
+        `,
+        )
+        .eq("trainer_id", trainerId),
+      supabase.from("exercises").select("id, name").or(`trainer_id.eq.${trainerId},trainer_id.is.null`),
     ]);
 
   if (programError) return { kind: "error", message: programError.message };
   if (workoutError) return { kind: "error", message: workoutError.message };
+  if (exerciseError) return { kind: "error", message: exerciseError.message };
 
   const programs = (programRows ?? [])
     .map(normalizeProgram)
@@ -124,10 +177,15 @@ export async function loadTrainerPrograms(
 
   const workouts = (workoutRows ?? [])
     .map(normalizeWorkout)
-    .filter((workout): workout is WorkoutOption => workout !== null)
+    .filter((workout): workout is LibraryWorkout => workout !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
 
-  return { kind: "ready", programs, workouts };
+  const exercises = (exerciseRows ?? [])
+    .map(normalizeExercise)
+    .filter((exercise): exercise is ExerciseOption => exercise !== null)
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  return { kind: "ready", programs, workouts, exercises };
 }
 
 function normalizeProgram(row: unknown): TrainerProgram | null {
@@ -204,7 +262,51 @@ function normalizeSlot(row: unknown): ProgramWorkoutSlot | null {
   };
 }
 
-function normalizeWorkout(row: unknown): WorkoutOption | null {
+function normalizeWorkout(row: unknown): LibraryWorkout | null {
+  const record = asRecord(row);
+  const id = stringField(record, "id");
+  const name = stringField(record, "name");
+  if (!record || !id || !name) return null;
+
+  const blocks = asArray(record.workout_blocks)
+    .map(normalizeBlock)
+    .filter((block): block is WorkoutBlock => block !== null)
+    .sort((left, right) => left.position - right.position);
+
+  return {
+    id,
+    name,
+    description: stringField(record, "description"),
+    durationMinutes: numberField(record, "estimated_duration_minutes"),
+    blocks,
+  };
+}
+
+function normalizeBlock(row: unknown): WorkoutBlock | null {
+  const record = asRecord(row);
+  const id = stringField(record, "id");
+  const blockType = stringField(record, "block_type");
+  const position = numberField(record, "position");
+  if (!record || !id || !blockType || position == null) return null;
+
+  const exercise = asRecord(firstRelation(record.exercises));
+  return {
+    id,
+    blockType,
+    exerciseId: stringField(record, "exercise_id"),
+    exerciseName: stringField(exercise, "name"),
+    title: stringField(record, "title"),
+    position,
+    sets: numberField(record, "prescribed_sets"),
+    repsMin: numberField(record, "prescribed_reps_min"),
+    repsMax: numberField(record, "prescribed_reps_max"),
+    load: numberField(record, "prescribed_load"),
+    loadUnit: stringField(record, "load_unit"),
+    restSeconds: numberField(record, "rest_seconds"),
+  };
+}
+
+function normalizeExercise(row: unknown): ExerciseOption | null {
   const record = asRecord(row);
   const id = stringField(record, "id");
   const name = stringField(record, "name");
