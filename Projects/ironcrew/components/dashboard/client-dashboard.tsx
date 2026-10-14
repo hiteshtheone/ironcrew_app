@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ComponentType, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Bell,
@@ -14,8 +15,16 @@ import {
 } from "lucide-react";
 
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
-import type { AssignmentStatus, ClientDashboardData, ClientDay } from "@/lib/dashboard/client-week";
-import { statusLabel } from "@/lib/dashboard/client-week";
+import {
+  CLIENT_ASSIGNMENT_STATUSES,
+  formatLongDate,
+  isClientAssignmentStatus,
+  statusLabel,
+  type AssignmentStatus,
+  type ClientDashboardData,
+  type ClientDay,
+  type ClientWorkout,
+} from "@/lib/dashboard/client-week";
 
 type ClientSection = "dashboard" | "workouts" | "calendar" | "progress" | "settings";
 
@@ -105,10 +114,76 @@ function ClientShell({ data }: { data: Exclude<ClientDashboardData, { kind: "err
 }
 
 function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
-  const completion =
-    data.kind === "ready" && data.scheduledCount > 0
-      ? Math.round((data.completedCount / data.scheduledCount) * 100)
-      : 0;
+  const router = useRouter();
+  const today = data.kind === "ready" ? (data.days.find((day) => day.isToday)?.date ?? "") : "";
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [statusById, setStatusById] = useState<Record<string, AssignmentStatus>>({});
+  const [pendingIds, setPendingIds] = useState<Record<string, true>>({});
+  const [errorById, setErrorById] = useState<Record<string, string>>({});
+
+  const days =
+    data.kind === "ready"
+      ? data.days.map((day) => ({
+          ...day,
+          workouts: day.workouts.map((workout) => ({
+            ...workout,
+            status: statusById[workout.id] ?? workout.status,
+          })),
+        }))
+      : [];
+  const active = days.flatMap((day) => day.workouts).filter((workout) => workout.status !== "cancelled");
+  const completedCount = active.filter((workout) => workout.status === "completed").length;
+  const remainingCount = active.filter(
+    (workout) => workout.status === "scheduled" || workout.status === "in_progress",
+  ).length;
+  const scheduledCount = data.kind === "ready" ? active.length : 0;
+  const completion = scheduledCount > 0 ? Math.round((completedCount / scheduledCount) * 100) : 0;
+  const selectedDay = days.find((day) => day.date === selectedDate) ?? days.find((day) => day.isToday) ?? days[0];
+  const selectedWorkouts = (selectedDay?.workouts ?? []).filter((workout) => workout.status !== "cancelled");
+  const nextWorkout = days
+    .filter((day) => day.date > today)
+    .flatMap((day) =>
+      day.workouts
+        .filter((workout) => workout.status !== "cancelled")
+        .map((workout) => ({ name: workout.name, dateLabel: formatLongDate(day.date) })),
+    )[0] ?? null;
+
+  const updateStatus = (workout: ClientWorkout, next: string) => {
+    if (!isClientAssignmentStatus(next) || next === workout.status || pendingIds[workout.id]) return;
+    const previous = workout.status;
+    setStatusById((current) => ({ ...current, [workout.id]: next }));
+    setPendingIds((current) => ({ ...current, [workout.id]: true }));
+    setErrorById((current) => {
+      const rest = { ...current };
+      delete rest[workout.id];
+      return rest;
+    });
+
+    void fetch(`/api/workout-assignments/${workout.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "Couldn't update this workout");
+        router.refresh();
+      })
+      .catch((caught: unknown) => {
+        setStatusById((current) => ({ ...current, [workout.id]: previous }));
+        setErrorById((current) => ({
+          ...current,
+          [workout.id]: caught instanceof Error ? caught.message : "Couldn't update this workout",
+        }));
+      })
+      .finally(() => {
+        setPendingIds((current) => {
+          const rest = { ...current };
+          delete rest[workout.id];
+          return rest;
+        });
+      });
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
@@ -130,9 +205,9 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
       ) : (
         <>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label="This week" value={String(data.scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
-            <Metric label="Completed" value={String(data.completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
-            <Metric label="Remaining" value={String(data.remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
+            <Metric label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
+            <Metric label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
+            <Metric label="Remaining" value={String(remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
             <Metric label="Program" value={data.programName ?? "None"} detail={data.programName ? "Active plan" : "No active program"} icon={Activity} tone="bg-orange-50 text-orange-600" compact={Boolean(data.programName)} />
           </div>
 
@@ -140,14 +215,19 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <h2 className="text-lg font-bold">Workout plan</h2>
               <p className="mt-1 text-sm text-slate-500">Monday through Sunday</p>
-              {data.days.every((day) => day.workouts.length === 0) && (
+              {days.every((day) => day.workouts.length === 0) && (
                 <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   Your trainer hasn&apos;t assigned a workout this week.
                 </p>
               )}
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-                {data.days.map((day) => (
-                  <DayCard key={day.date} day={day} />
+                {days.map((day) => (
+                  <DayCard
+                    key={day.date}
+                    day={day}
+                    selected={day.date === selectedDay?.date}
+                    onSelect={() => setSelectedDate(day.date)}
+                  />
                 ))}
               </div>
             </section>
@@ -158,7 +238,7 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
               </div>
               <p className="mt-6 text-5xl font-bold tracking-tight">{completion}%</p>
               <p className="mt-2 text-sm text-slate-300">
-                {data.completedCount} of {data.scheduledCount} workouts completed
+                {completedCount} of {scheduledCount} workouts completed
               </p>
               <div className="mt-7 h-2 overflow-hidden rounded-full bg-slate-700">
                 <div className="h-full rounded-full bg-emerald-400" style={{ width: `${completion}%` }} />
@@ -170,19 +250,25 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
           </div>
 
           <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-bold">Workout of the day</h2>
-            {data.todayWorkouts.length === 0 ? (
+            <h2 className="text-lg font-bold">
+              {selectedDay?.isToday ? "Workout of the day" : `${selectedDay?.weekday ?? "Selected"} workout`}
+            </h2>
+            {selectedWorkouts.length === 0 ? (
               <div className="mt-4">
-                <p className="text-sm text-slate-500">Rest day. Nothing is scheduled for today.</p>
-                {data.nextWorkout && (
+                <p className="text-sm text-slate-500">
+                  {selectedDay?.isToday
+                    ? "Rest day. Nothing is scheduled for today."
+                    : "Nothing is scheduled for this day."}
+                </p>
+                {selectedDay?.isToday && nextWorkout && (
                   <p className="mt-2 text-sm font-medium text-slate-800">
-                    Next up: {data.nextWorkout.name} · {data.nextWorkout.dateLabel}
+                    Next up: {nextWorkout.name} · {nextWorkout.dateLabel}
                   </p>
                 )}
               </div>
             ) : (
               <div className="mt-5 space-y-4">
-                {data.todayWorkouts.map((workout) => (
+                {selectedWorkouts.map((workout) => (
                   <article key={workout.id} className="rounded-xl border border-slate-100 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -191,8 +277,15 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
                           {workout.durationMinutes ? `${workout.durationMinutes} min` : "Duration not set"}
                         </p>
                       </div>
-                      <StatusBadge status={workout.status} />
+                      <StatusControl
+                        workout={workout}
+                        pending={Boolean(pendingIds[workout.id])}
+                        onChange={(status) => updateStatus(workout, status)}
+                      />
                     </div>
+                    {errorById[workout.id] && (
+                      <p className="mt-3 text-sm text-red-600">{errorById[workout.id]}</p>
+                    )}
                     {workout.exercises.length === 0 ? (
                       <p className="mt-4 text-sm text-slate-500">No exercises listed for this workout.</p>
                     ) : (
@@ -248,12 +341,30 @@ function EmptySection({ title }: { title: string }) {
   );
 }
 
-function DayCard({ day }: { day: ClientDay }) {
+function DayCard({
+  day,
+  selected,
+  onSelect,
+}: {
+  day: ClientDay;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const visible = day.workouts.filter((workout) => workout.status !== "cancelled");
   const primary = visible[0] ?? day.workouts[0];
+  const tone = day.isToday
+    ? "border-slate-950 bg-slate-950 text-white"
+    : selected
+      ? "border-slate-950 bg-white"
+      : "border-slate-100 bg-slate-50";
 
   return (
-    <div className={`rounded-xl border p-3 ${day.isToday ? "border-slate-950 bg-slate-950 text-white" : "border-slate-100 bg-slate-50"}`}>
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`rounded-xl border p-3 text-left ${tone}`}
+    >
       <p className={`text-xs font-semibold ${day.isToday ? "text-slate-300" : "text-slate-500"}`}>{day.weekday}</p>
       <p className="mt-1 text-lg font-bold">{day.dayNumber}</p>
       {primary ? (
@@ -266,7 +377,37 @@ function DayCard({ day }: { day: ClientDay }) {
       ) : (
         <p className={`mt-3 text-xs ${day.isToday ? "text-slate-300" : "text-slate-500"}`}>Rest</p>
       )}
-    </div>
+    </button>
+  );
+}
+
+function StatusControl({
+  workout,
+  pending,
+  onChange,
+}: {
+  workout: ClientWorkout;
+  pending: boolean;
+  onChange: (status: string) => void;
+}) {
+  if (!isClientAssignmentStatus(workout.status)) return <StatusBadge status={workout.status} />;
+
+  return (
+    <label className="text-xs font-semibold text-slate-500">
+      <span className="sr-only">Status for {workout.name}</span>
+      <select
+        value={workout.status}
+        disabled={pending}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 disabled:opacity-60"
+      >
+        {CLIENT_ASSIGNMENT_STATUSES.map((status) => (
+          <option key={status} value={status}>
+            {statusLabel(status)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

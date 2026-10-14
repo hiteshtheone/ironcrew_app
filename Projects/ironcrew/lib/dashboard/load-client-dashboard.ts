@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  type AssignmentStatus,
   type ClientDashboardData,
   type ClientExercise,
   type ClientWorkout,
@@ -107,7 +106,7 @@ export async function loadClientDashboard(
     weekday: formatWeekday(date),
     dayNumber: formatDayNumber(date),
     isToday: date === week.today,
-    workouts: (workoutsByDate.get(date) ?? []).map(({ id, name, status }) => ({ id, name, status })),
+    workouts: workoutsByDate.get(date) ?? [],
   }));
 
   const todayWorkouts = workoutsByDate.get(week.today) ?? [];

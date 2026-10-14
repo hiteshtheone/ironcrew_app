@@ -6,7 +6,15 @@ export const ASSIGNMENT_STATUSES = [
   "cancelled",
 ] as const;
 
+export const CLIENT_ASSIGNMENT_STATUSES = [
+  "scheduled",
+  "in_progress",
+  "completed",
+  "skipped",
+] as const;
+
 export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
+export type ClientAssignmentStatus = (typeof CLIENT_ASSIGNMENT_STATUSES)[number];
 
 export type ClientExercise = {
   id: string;
@@ -27,7 +35,7 @@ export type ClientDay = {
   weekday: string;
   dayNumber: string;
   isToday: boolean;
-  workouts: Pick<ClientWorkout, "id" | "name" | "status">[];
+  workouts: ClientWorkout[];
 };
 
 export type ClientDashboardReady = {
@@ -134,6 +142,10 @@ export function firstNameFrom(fullName: string) {
 
 export function isAssignmentStatus(value: string): value is AssignmentStatus {
   return (ASSIGNMENT_STATUSES as readonly string[]).includes(value);
+}
+
+export function isClientAssignmentStatus(value: string): value is ClientAssignmentStatus {
+  return (CLIENT_ASSIGNMENT_STATUSES as readonly string[]).includes(value);
 }
 
 export function statusLabel(status: AssignmentStatus) {
