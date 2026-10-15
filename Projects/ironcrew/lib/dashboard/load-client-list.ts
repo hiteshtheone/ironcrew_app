@@ -18,14 +18,6 @@ type ProfileInput = {
   timezone: string | null;
 };
 
-type AssignmentRecord = {
-  id: string;
-  clientId: string;
-  scheduledFor: string;
-  status: AssignmentStatus;
-  workoutName: string;
-};
-
 export type TrainerSession = {
   id: string;
   clientName: string;
@@ -62,6 +54,33 @@ export type ClientRecord = {
   programId: string | null;
   programStartsOn: string | null;
   hasActiveProgram: boolean;
+  workoutLogs: ClientWorkoutLog[];
+};
+
+export type ClientWorkoutLog = {
+  id: string;
+  scheduledFor: string;
+  dateLabel: string;
+  workoutName: string;
+  status: AssignmentStatus;
+  statusLabel: string;
+  note: string | null;
+  blocks: ClientWorkoutBlockLog[];
+};
+
+export type ClientWorkoutBlockLog = {
+  id: string;
+  name: string;
+  sets: ClientWorkoutSetLog[];
+};
+
+export type ClientWorkoutSetLog = {
+  setNumber: number;
+  repetitions: number | null;
+  load: number | null;
+  loadUnit: string | null;
+  durationSeconds: number | null;
+  notes: string | null;
 };
 
 export type ClientListReady = {
@@ -116,6 +135,14 @@ export async function loadClientList(
     .filter((client): client is ClientRecord => client !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
 
+  const logs = await loadWorkoutLogs(
+    supabase,
+    clients.map((client) => client.id),
+    week.start,
+    week.end,
+  );
+  if (logs.kind === "error") return { kind: "error", message: logs.message };
+
   const newThisMonth = clients.filter(
     (client) => client.startedOn !== null && client.startedOn >= months.thisStart && client.startedOn <= months.thisEnd,
   ).length;
@@ -125,8 +152,65 @@ export async function loadClientList(
     ...shell,
     activeClients: clients.length,
     newClientsLabel: countLabel(newThisMonth, "new this month", "None new this month"),
-    myClients: clients,
+    myClients: clients.map((client) => ({
+      ...client,
+      workoutLogs: logs.byClient.get(client.id) ?? [],
+    })),
   };
+}
+
+async function loadWorkoutLogs(supabase: SupabaseClient, clientIds: string[], start: string, end: string) {
+  const byClient = new Map<string, ClientWorkoutLog[]>();
+  if (clientIds.length === 0) return { kind: "ready" as const, byClient };
+
+  const { data, error } = await supabase
+    .from("workout_assignments")
+    .select(
+      `
+      id,
+      client_id,
+      scheduled_for,
+      status,
+      workout_sessions (
+        client_feedback,
+        exercise_results (
+          workout_block_id,
+          set_number,
+          repetitions,
+          load,
+          load_unit,
+          duration_seconds,
+          notes
+        )
+      ),
+      workouts (
+        name,
+        workout_blocks (
+          id,
+          position,
+          title,
+          block_type,
+          exercises ( name )
+        )
+      )
+    `,
+    )
+    .in("client_id", clientIds)
+    .gte("scheduled_for", start)
+    .lte("scheduled_for", end)
+    .order("scheduled_for", { ascending: true });
+
+  if (error) return { kind: "error" as const, message: error.message };
+
+  for (const row of data ?? []) {
+    const log = normalizeWorkoutLog(row);
+    if (!log) continue;
+    const existing = byClient.get(log.clientId) ?? [];
+    existing.push(log.entry);
+    byClient.set(log.clientId, existing);
+  }
+
+  return { kind: "ready" as const, byClient };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -225,7 +309,95 @@ function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
     programId: plan.programId,
     programStartsOn: plan.programStartsOn,
     hasActiveProgram: plan.hasActiveProgram,
+    workoutLogs: [],
   };
+}
+
+function normalizeWorkoutLog(row: unknown): { clientId: string; entry: ClientWorkoutLog } | null {
+  const record = asRecord(row);
+  const id = stringField(record, "id");
+  const clientId = stringField(record, "client_id");
+  const scheduledFor = stringField(record, "scheduled_for");
+  const status = stringField(record, "status");
+  if (!record || !id || !clientId || !scheduledFor || !status || !isAssignmentStatus(status)) return null;
+
+  const workout = asRecord(firstRelation(record.workouts));
+  const session = asRecord(firstRelation(record.workout_sessions));
+  const setsByBlock = setsForBlocks(session?.exercise_results);
+  const blocks = asArray(workout?.workout_blocks)
+    .map((block) => asRecord(block))
+    .filter((block): block is Record<string, unknown> => block !== null)
+    .sort((left, right) => (finiteNumber(left.position) ?? 0) - (finiteNumber(right.position) ?? 0))
+    .map((block) => normalizeBlockLog(block, setsByBlock))
+    .filter((block): block is ClientWorkoutBlockLog => block !== null);
+
+  return {
+    clientId,
+    entry: {
+      id,
+      scheduledFor,
+      dateLabel: formatLongDate(scheduledFor),
+      workoutName: stringField(workout, "name") || "Workout",
+      status,
+      statusLabel: statusLabel(status),
+      note: stringField(session, "client_feedback"),
+      blocks,
+    },
+  };
+}
+
+function setsForBlocks(value: unknown) {
+  const setsByBlock = new Map<string, ClientWorkoutSetLog[]>();
+  for (const row of asArray(value)) {
+    const record = asRecord(row);
+    const blockId = stringField(record, "workout_block_id");
+    const setNumber = positiveNumber(record?.set_number);
+    if (!record || !blockId || setNumber == null) continue;
+    const existing = setsByBlock.get(blockId) ?? [];
+    existing.push({
+      setNumber,
+      repetitions: nonNegativeNumber(record.repetitions),
+      load: nonNegativeNumber(record.load),
+      loadUnit: stringField(record, "load_unit"),
+      durationSeconds: nonNegativeNumber(record.duration_seconds),
+      notes: stringField(record, "notes"),
+    });
+    setsByBlock.set(blockId, existing);
+  }
+  for (const sets of setsByBlock.values()) {
+    sets.sort((left, right) => left.setNumber - right.setNumber);
+  }
+  return setsByBlock;
+}
+
+function normalizeBlockLog(block: Record<string, unknown>, setsByBlock: Map<string, ClientWorkoutSetLog[]>): ClientWorkoutBlockLog | null {
+  const id = stringField(block, "id");
+  if (!id) return null;
+  const exercise = asRecord(firstRelation(block.exercises));
+  const name = stringField(exercise, "name") || stringField(block, "title") || labelForBlock(stringField(block, "block_type"));
+  if (!name) return null;
+  return { id, name, sets: setsByBlock.get(id) ?? [] };
+}
+
+function labelForBlock(blockType: string | null) {
+  if (!blockType) return null;
+  return blockType.charAt(0).toUpperCase() + blockType.slice(1);
+}
+
+function positiveNumber(value: unknown) {
+  const parsed = finiteNumber(value);
+  return parsed != null && parsed > 0 ? parsed : null;
+}
+
+function nonNegativeNumber(value: unknown) {
+  const parsed = finiteNumber(value);
+  return parsed != null && parsed >= 0 ? parsed : null;
+}
+
+function finiteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
 }
 
 function activePlan(client: Record<string, unknown>) {

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   type ClientDashboardData,
   type ClientExercise,
+  type ClientLoggedSet,
   type ClientWorkout,
   currentWeek,
   firstNameFrom,
@@ -57,17 +58,31 @@ export async function loadClientDashboard(
           id,
           scheduled_for,
           status,
+          workout_sessions (
+            client_feedback,
+            exercise_results (
+              workout_block_id,
+              set_number,
+              repetitions,
+              load,
+              load_unit,
+              duration_seconds,
+              notes
+            )
+          ),
           workouts (
             name,
             estimated_duration_minutes,
             workout_blocks (
               id,
+              exercise_id,
               position,
               title,
               block_type,
               prescribed_sets,
               prescribed_reps_min,
               prescribed_reps_max,
+              load_unit,
               exercises ( name )
             )
           )
@@ -149,6 +164,8 @@ function normalizeWorkout(row: unknown): ClientWorkout | null {
   if (!id || !status || !isAssignmentStatus(status)) return null;
 
   const workout = asRecord(firstRelation(record.workouts));
+  const session = asRecord(firstRelation(record.workout_sessions));
+  const setsByBlock = loggedSetsByBlock(session?.exercise_results);
   const blocks = relationList(workout?.workout_blocks)
     .map((block) => asRecord(block))
     .filter((block): block is Record<string, unknown> => block !== null)
@@ -159,11 +176,39 @@ function normalizeWorkout(row: unknown): ClientWorkout | null {
     name: stringField(workout, "name") || "Workout",
     durationMinutes: positiveNumber(workout?.estimated_duration_minutes),
     status,
-    exercises: blocks.map(normalizeExercise).filter((exercise): exercise is ClientExercise => exercise !== null),
+    sessionNote: stringField(session, "client_feedback"),
+    exercises: blocks
+      .map((block) => normalizeExercise(block, setsByBlock.get(stringField(block, "id") ?? "") ?? []))
+      .filter((exercise): exercise is ClientExercise => exercise !== null),
   };
 }
 
-function normalizeExercise(block: Record<string, unknown>): ClientExercise | null {
+function loggedSetsByBlock(value: unknown) {
+  const setsByBlock = new Map<string, ClientLoggedSet[]>();
+  for (const row of relationList(value)) {
+    const record = asRecord(row);
+    const blockId = stringField(record, "workout_block_id");
+    const setNumber = positiveNumber(record?.set_number);
+    if (!record || !blockId || setNumber == null) continue;
+    const existing = setsByBlock.get(blockId) ?? [];
+    existing.push({
+      setNumber,
+      repetitions: nonNegativeNumber(record.repetitions),
+      load: nonNegativeNumber(record.load),
+      loadUnit: stringField(record, "load_unit"),
+      durationSeconds: nonNegativeNumber(record.duration_seconds),
+      notes: stringField(record, "notes"),
+    });
+    setsByBlock.set(blockId, existing);
+  }
+
+  for (const sets of setsByBlock.values()) {
+    sets.sort((left, right) => left.setNumber - right.setNumber);
+  }
+  return setsByBlock;
+}
+
+function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet[]): ClientExercise | null {
   const id = stringField(block, "id");
   if (!id) return null;
 
@@ -173,12 +218,16 @@ function normalizeExercise(block: Record<string, unknown>): ClientExercise | nul
 
   return {
     id,
+    exerciseId: stringField(block, "exercise_id"),
     name,
     detail: prescriptionDetail(
       positiveNumber(block.prescribed_sets),
       positiveNumber(block.prescribed_reps_min),
       positiveNumber(block.prescribed_reps_max),
     ),
+    prescribedSets: positiveNumber(block.prescribed_sets),
+    loadUnit: stringField(block, "load_unit"),
+    sets,
   };
 }
 
@@ -218,5 +267,17 @@ function numberField(record: Record<string, unknown>, key: string) {
 }
 
 function positiveNumber(value: unknown) {
-  return typeof value === "number" && value > 0 ? value : null;
+  const parsed = finiteNumber(value);
+  return parsed != null && parsed > 0 ? parsed : null;
+}
+
+function nonNegativeNumber(value: unknown) {
+  const parsed = finiteNumber(value);
+  return parsed != null && parsed >= 0 ? parsed : null;
+}
+
+function finiteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
 }

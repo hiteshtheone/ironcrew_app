@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+import { WorkoutLog } from "@/components/dashboard/workout-log";
 import {
   CLIENT_ASSIGNMENT_STATUSES,
   formatLongDate,
@@ -286,21 +287,7 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
                     {errorById[workout.id] && (
                       <p className="mt-3 text-sm text-red-600">{errorById[workout.id]}</p>
                     )}
-                    {workout.exercises.length === 0 ? (
-                      <p className="mt-4 text-sm text-slate-500">No exercises listed for this workout.</p>
-                    ) : (
-                      <ol className="mt-4 divide-y divide-slate-100">
-                        {workout.exercises.map((exercise, index) => (
-                          <li key={exercise.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{index + 1}</span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{exercise.name}</p>
-                              {exercise.detail && <p className="text-xs text-slate-500">{exercise.detail}</p>}
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
+                    <WorkoutLog workout={workout} />
                   </article>
                 ))}
               </div>

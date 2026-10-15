@@ -16,10 +16,23 @@ export const CLIENT_ASSIGNMENT_STATUSES = [
 export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 export type ClientAssignmentStatus = (typeof CLIENT_ASSIGNMENT_STATUSES)[number];
 
+export type ClientLoggedSet = {
+  setNumber: number;
+  repetitions: number | null;
+  load: number | null;
+  loadUnit: string | null;
+  durationSeconds: number | null;
+  notes: string | null;
+};
+
 export type ClientExercise = {
   id: string;
+  exerciseId: string | null;
   name: string;
   detail: string | null;
+  prescribedSets: number | null;
+  loadUnit: string | null;
+  sets: ClientLoggedSet[];
 };
 
 export type ClientWorkout = {
@@ -27,6 +40,7 @@ export type ClientWorkout = {
   name: string;
   durationMinutes: number | null;
   status: AssignmentStatus;
+  sessionNote: string | null;
   exercises: ClientExercise[];
 };
 
