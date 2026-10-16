@@ -129,6 +129,7 @@ async function ensureCurrentUserIsTrainer(
     (typeof metadataName === "string" && metadataName.trim()) ||
     user.email?.split("@")[0] ||
     "Trainer";
+  const { firstName, lastName } = splitPersonName(fullName);
 
   const { data: profile, error: profileLookupError } = await supabase
     .from("profiles")
@@ -151,12 +152,21 @@ async function ensureCurrentUserIsTrainer(
 
   const { error: trainerInsertError } = await supabase.from("trainers").insert({
     id: user.id,
+    first_name: firstName,
+    last_name: lastName,
   });
   if (trainerInsertError && trainerInsertError.code !== "23505") {
     return trainerInsertError;
   }
 
   return null;
+}
+
+function splitPersonName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const firstName = (parts[0] ?? "Trainer").slice(0, 80);
+  const lastName = parts.slice(1).join(" ").slice(0, 80) || null;
+  return { firstName, lastName };
 }
 
 export async function GET() {

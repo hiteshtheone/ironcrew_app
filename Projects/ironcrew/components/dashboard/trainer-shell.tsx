@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, SidebarLogoutButton } from "@/components/logout-button";
 
 export type TrainerSection =
@@ -138,7 +139,8 @@ export function TrainerShell({
         {section === "dashboard" && overview}
         {section === "clients" && clients}
         {section === "programs" && programs}
-        {section !== "dashboard" && section !== "clients" && section !== "programs" && (
+        {section === "settings" && <MyInfoForm />}
+        {section !== "dashboard" && section !== "clients" && section !== "programs" && section !== "settings" && (
           <EmptySection title={sectionTitle[section]} />
         )}
       </section>
