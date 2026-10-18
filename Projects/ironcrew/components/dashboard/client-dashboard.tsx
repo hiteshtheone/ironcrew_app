@@ -70,7 +70,7 @@ function ClientShell({ data }: { data: Exclude<ClientDashboardData, { kind: "err
       <aside className="fixed inset-y-0 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex">
         <button type="button" onClick={() => setSection("dashboard")} className="flex items-center gap-3 px-3">
           <span className="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">IC</span>
-          <span className="text-lg font-semibold tracking-tight">Ironcrew</span>
+          <span className="text-lg font-semibold tracking-tight">{data.trainer_business_name}</span>
         </button>
         <nav className="mt-10 space-y-1">
           {navigation.map(({ id, label, icon: Icon }) => (

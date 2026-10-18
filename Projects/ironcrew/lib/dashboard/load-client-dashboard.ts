@@ -47,6 +47,31 @@ export async function loadClientDashboard(
   if (clientError) return { kind: "error", message: clientError.message };
   if (!client) return { kind: "unlinked", ...shell };
 
+  const { data:trainerClient, error: clientTrainerError } = await supabase
+    .from("trainer_clients")
+    .select("trainer_id")
+    .eq("client_id", client.id)
+    .maybeSingle();
+
+  let trainer_business_db
+  if (trainerClient){
+    const { data:trainerData, error: trainerError } = await supabase
+      .from("trainers")
+      .select("business_name")
+      .eq("id", trainerClient.trainer_id)
+      .maybeSingle();
+
+    if (trainerData){
+      trainer_business_db = trainerData.business_name
+    } else {
+      console.log("Failed to get trainer Data. Not crashing. Moving on!")
+    }
+  } else {
+    console.log("No tainer associated with this client. Not crashing. Moving on!")
+  }
+
+  const trainer_business_name = trainer_business_db?.trim() || "Trainer"
+
   const firstName = client.first_name?.trim() || fallbackName;
 
   const [{ data: assignments, error: assignmentError }, { data: programAssignment, error: programError }] =
@@ -141,6 +166,7 @@ export async function loadClientDashboard(
 
   return {
     kind: "ready",
+    trainer_business_name,
     greeting,
     firstName,
     dateLabel: formatLongDate(week.today),

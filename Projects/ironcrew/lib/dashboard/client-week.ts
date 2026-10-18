@@ -54,6 +54,7 @@ export type ClientDay = {
 
 export type ClientDashboardReady = {
   kind: "ready";
+  trainer_business_name: string;
   greeting: string;
   firstName: string;
   dateLabel: string;
