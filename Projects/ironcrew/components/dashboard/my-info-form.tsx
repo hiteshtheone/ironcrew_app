@@ -16,6 +16,10 @@ type ClientAccount = {
   phone: string | null;
   date_of_birth: string | null;
   timezone: string;
+  trainer_business_name: string;
+  goal: string;
+  goal_type: string;
+  goal_status: string;
 };
 
 type TrainerAccount = {
@@ -275,6 +279,26 @@ export function MyInfoForm() {
               <Button type="submit" className="bg-slate-950 text-white hover:bg-slate-800" disabled={isSaving}>
                 {isSaving ? "Saving…" : "Save"}
               </Button>
+            </div>
+            <div>
+              {account?.role === "client" && account.linked && (
+                <>
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="border border-slate-200 p-3">Trainer</th>
+                        <th className="border border-slate-200 p-3">Goal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-slate-200 p-3">{account.trainer_business_name}</td>
+                        <td className="border border-slate-200 p-3">{account.goal} , {account.goal_type}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </>
+              )}
             </div>
           </form>
         )}

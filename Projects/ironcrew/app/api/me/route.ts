@@ -16,6 +16,16 @@ type ProfileRow = {
   timezone: string;
 };
 
+type ClientRow = {
+  id: string;
+};
+
+type GoalDetails = {
+  goal: string;
+  goal_type: string;
+  goal_status: string;
+}
+
 type ClientAccount = {
   role: "client";
   linked: boolean;
@@ -25,6 +35,10 @@ type ClientAccount = {
   phone: string | null;
   date_of_birth: string | null;
   timezone: string;
+  trainer_business_name: string | null;
+  goal: string | null;
+  goal_type: string | null;
+  goal_status: string | null;
 };
 
 type TrainerAccount = {
@@ -153,7 +167,7 @@ async function loadClient(
 ) {
   const { data: client, error } = await auth.supabase
     .from("clients")
-    .select("first_name, last_name, email, phone, date_of_birth")
+    .select("first_name, last_name, email, phone, date_of_birth, id")
     .eq("profile_id", auth.user.id)
     .maybeSingle();
 
@@ -170,9 +184,19 @@ async function loadClient(
       phone: null,
       date_of_birth: null,
       timezone: profile.timezone,
+      trainer_business_name: null,
+      goal: null,
+      goal_type: null,
+      goal_status: null,
     };
     return unlinked;
   }
+
+  // Getting Trainer details
+  const trainer_business_name = await getTrainer(auth, client)
+
+  // Get goal
+  const goal_details = await getGoalDetails(auth, client)
 
   const linked: ClientAccount = {
     role: "client",
@@ -183,6 +207,10 @@ async function loadClient(
     phone: client.phone,
     date_of_birth: client.date_of_birth,
     timezone: profile.timezone,
+    trainer_business_name: trainer_business_name,
+    goal: goal_details.goal,
+    goal_type: goal_details.goal_type,
+    goal_status: goal_details.goal_status,
   };
   return linked;
 }
@@ -243,6 +271,10 @@ async function updateClient(
       phone: null,
       date_of_birth: null,
       timezone,
+      trainer_business_name: null,
+      goal: null,
+      goal_type: null,
+      goal_status: null,
     } satisfies ClientAccount);
   }
 
@@ -271,6 +303,8 @@ async function updateClient(
   const profileError = await updateProfile(auth, firstName, lastName, timezone);
   if (profileError) return profileError;
 
+  // No trainer and goal update for now.
+
   const { data: updated, error: readError } = await auth.supabase
     .from("clients")
     .select("first_name, last_name, email, phone, date_of_birth")
@@ -279,6 +313,12 @@ async function updateClient(
 
   if (readError) return jsonError(databaseErrorMessage(readError), 500);
   if (!updated) return jsonError("Couldn't save your details", 500);
+
+  // Getting Trainer details
+  const trainer_business_name = await getTrainer(auth, client)
+
+  // Get goal
+  const goal_details = await getGoalDetails(auth, client)
 
   return NextResponse.json({
     role: "client",
@@ -289,6 +329,10 @@ async function updateClient(
     phone: updated.phone,
     date_of_birth: updated.date_of_birth,
     timezone,
+    trainer_business_name: trainer_business_name,
+    goal: goal_details.goal,
+    goal_type: goal_details.goal_type,
+    goal_status: goal_details.goal_status,
   } satisfies ClientAccount);
 }
 
@@ -357,4 +401,68 @@ async function updateProfile(
 
   if (error) return jsonError(databaseErrorMessage(error), writeStatus(error.message));
   return null;
+}
+
+async function getTrainer(
+  auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
+  client: ClientRow,
+){
+  const { data:trainerClient, error: clientTrainerError } = await auth.supabase
+    .from("trainer_clients")
+    .select("trainer_id")
+    .eq("client_id", client.id)
+    .maybeSingle();
+
+  let trainer_business_db
+  if (clientTrainerError) {
+    console.log("Failed to get trainer Data. Not crashing. Moving on!")
+  } else {
+    if (trainerClient){
+      const { data:trainerData, error: trainerError } = await auth.supabase
+        .from("trainers")
+        .select("business_name")
+        .eq("id", trainerClient.trainer_id)
+        .maybeSingle();
+
+      if (trainerData){
+        trainer_business_db = trainerData.business_name
+      } else {
+        console.log("Failed to get trainer Data. Not crashing. Moving on!")
+      }
+    } else {
+      console.log("No tainer associated with this client. Not crashing. Moving on!")
+    }
+  }
+  const trainer_business_name = trainer_business_db?.trim() || "Trainer"
+  return trainer_business_name
+}
+
+async function getGoalDetails(
+  auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
+  client: ClientRow,
+){
+  const { data:goal, error: goalError } = await auth.supabase
+    .from("goals")
+    .select("title, goal_type, status")
+    .eq("client_id", client.id)
+    .maybeSingle();
+
+  let goal_db, goal_type_db, goal_status_db
+  if (goalError) {
+    console.log("Failed to get goal Data. Not crashing. Moving on!", goalError.message)
+  } else {
+    goal_db = goal.title
+    goal_type_db = goal.goal_type
+    goal_status_db = goal.status
+  }
+  const goal_tittle = goal_db?.trim() || "TBD"
+  const goal_type = goal_type_db?.trim() || "TBD"
+  const goal_status = goal_status_db?.trim() || "TBD"
+  const goal_details: GoalDetails = {
+    goal: goal_tittle,
+    goal_type: goal_type,
+    goal_status: goal_status,
+  };
+
+  return goal_details
 }
