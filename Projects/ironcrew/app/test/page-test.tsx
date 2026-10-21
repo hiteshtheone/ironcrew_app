@@ -16,7 +16,7 @@ export default function App() {
   );
 }
 
-function OutsideAction({ onUpdate }) {
+function OutsideAction({ onUpdate }: { onUpdate: (value: string) => void }) {
   return (
     <button onClick={() => onUpdate('Updated via outside action!')}>
       Click Outside
@@ -24,7 +24,7 @@ function OutsideAction({ onUpdate }) {
   );
 }
 
-function TargetDiv({ content }) {
+function TargetDiv({ content }: { content: string }) {
   return <div>{content}</div>;
 }
 

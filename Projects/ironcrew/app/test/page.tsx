@@ -18,7 +18,7 @@ export default function App() {
 }
 
 // FIX: Added curly braces {} around the arguments to correctly destructure props
-function OutsideAction({ onUpdate, val1 }) {
+function OutsideAction({ onUpdate, val1 }: { onUpdate: (value: string) => void; val1: string }) {
   console.log("OutsideAction component rendered");
 
   return (
@@ -28,7 +28,7 @@ function OutsideAction({ onUpdate, val1 }) {
   );
 }
 
-function TargetDiv({ content }) {
+function TargetDiv({ content }: { content: string }) {
   return <div>{content}</div>;
 }
 

@@ -450,7 +450,7 @@ async function getGoalDetails(
   let goal_db, goal_type_db, goal_status_db
   if (goalError) {
     console.log("Failed to get goal Data. Not crashing. Moving on!", goalError.message)
-  } else {
+  } else if (goal) {
     goal_db = goal.title
     goal_type_db = goal.goal_type
     goal_status_db = goal.status

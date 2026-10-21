@@ -50,6 +50,7 @@ export function SignUpForm({
         },
       });
       if (errorSignUp) throw errorSignUp;
+      if (!userData.user) throw new Error("Sign up did not return a user");
 
       // If client user by this name already exist then this is client user otherwise this is trainer
       // set profile accordingly
