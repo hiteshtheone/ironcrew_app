@@ -10,6 +10,7 @@ type DraftSet = {
   load: string;
   loadUnit: "kg" | "lb";
   durationSeconds: string;
+  distanceKm: string;
   notes: string;
 };
 
@@ -125,7 +126,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                     }}
                   >
                     {block.sets.map((set, index) => (
-                      <div key={`${block.id}-${index}`} className="grid gap-2 sm:grid-cols-[4rem_5rem_4.5rem_5.5rem_minmax(0,1fr)_auto]">
+                      <div key={`${block.id}-${index}`} className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-[5.5rem_4.5rem_4.5rem_5.5rem_6.5rem_minmax(0,1fr)_auto]">
                         <Field label={index === 0 ? "Weight" : `Weight, set ${index + 1}`}>
                           <input
                             inputMode="decimal"
@@ -159,6 +160,14 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                             inputMode="numeric"
                             value={set.durationSeconds}
                             onChange={(event) => updateSet(block.id, index, { durationSeconds: event.target.value })}
+                            className={fieldClass}
+                          />
+                        </Field>
+                        <Field label={index === 0 ? "Distance (km)" : `Distance, set ${index + 1}`}>
+                          <input
+                            inputMode="decimal"
+                            value={set.distanceKm}
+                            onChange={(event) => updateSet(block.id, index, { distanceKm: event.target.value })}
                             className={fieldClass}
                           />
                         </Field>
@@ -268,12 +277,18 @@ function draftSet(set: ClientLoggedSet | undefined, unit: "kg" | "lb"): DraftSet
     load: set.load == null ? "" : String(set.load),
     loadUnit: loadUnitOrDefault(set.loadUnit ?? unit),
     durationSeconds: set.durationSeconds == null ? "" : String(set.durationSeconds),
+    distanceKm: metersToKm(set.distanceMeters),
     notes: set.notes ?? "",
   };
 }
 
 function emptySet(loadUnit: "kg" | "lb"): DraftSet {
-  return { repetitions: "", load: "", loadUnit, durationSeconds: "", notes: "" };
+  return { repetitions: "", load: "", loadUnit, durationSeconds: "", distanceKm: "", notes: "" };
+}
+
+function metersToKm(meters: number | null) {
+  if (meters == null) return "";
+  return String(Math.round((meters / 1000) * 1000) / 1000);
 }
 
 function loadUnitOrDefault(unit: string | null): "kg" | "lb" {
@@ -292,6 +307,7 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
       load: number | null;
       load_unit: "kg" | "lb";
       duration_seconds: number | null;
+      distance_meters: number | null;
       notes: string | null;
     }[];
   }[];
@@ -303,8 +319,9 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
       const repetitions = parseWholeNumber(set.repetitions);
       const durationSeconds = parseWholeNumber(set.durationSeconds);
       const load = parseLoad(set.load);
-      if (repetitions === undefined || durationSeconds === undefined || load === undefined) {
-        return { error: "Use whole numbers for reps and time, and a weight that is zero or greater." };
+      const distanceKm = parseLoad(set.distanceKm);
+      if (repetitions === undefined || durationSeconds === undefined || load === undefined || distanceKm === undefined) {
+        return { error: "Use whole numbers for reps and time, and a weight or distance that is zero or greater." };
       }
       sets.push({
         set_number: index + 1,
@@ -312,6 +329,7 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
         load,
         load_unit: set.loadUnit,
         duration_seconds: durationSeconds,
+        distance_meters: distanceKm == null ? null : Math.round(distanceKm * 1000 * 100) / 100,
         notes: set.notes.trim() || null,
       });
     }

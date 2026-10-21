@@ -20,6 +20,7 @@ type LoggedSet = {
   load: number | null;
   load_unit: string | null;
   duration_seconds: number | null;
+  distance_meters: number | null;
   notes: string | null;
   exercise_id: string | null;
   workout_block_id: string;
@@ -98,6 +99,7 @@ export async function PUT(request: Request, context: RouteContext) {
       load: set.load,
       load_unit: set.load_unit,
       duration_seconds: set.duration_seconds,
+      distance_meters: set.distance_meters,
       notes: set.notes,
     }));
 
@@ -166,6 +168,10 @@ function parseSet(
   }
   const load = optionalNonNegative(value.load);
   if (load === undefined) return { error: jsonError("load must be a number that is zero or greater", 400) };
+  const distanceMeters = optionalNonNegative(value.distance_meters);
+  if (distanceMeters === undefined) {
+    return { error: jsonError("distance_meters must be a number that is zero or greater", 400) };
+  }
 
   const loadUnit = asTrimmedString(value.load_unit);
   if (loadUnit === undefined) return { error: jsonError("load_unit must be a string or null", 400) };
@@ -182,6 +188,7 @@ function parseSet(
       load,
       load_unit: load == null ? null : loadUnit ?? "kg",
       duration_seconds: durationSeconds,
+      distance_meters: distanceMeters,
       notes,
       exercise_id: exerciseId,
       workout_block_id: blockId,
@@ -204,7 +211,13 @@ function optionalNonNegative(value: unknown) {
 }
 
 function isBlankSet(set: LoggedSet) {
-  return set.repetitions == null && set.load == null && set.duration_seconds == null && !set.notes;
+  return (
+    set.repetitions == null &&
+    set.load == null &&
+    set.duration_seconds == null &&
+    set.distance_meters == null &&
+    !set.notes
+  );
 }
 
 async function ensureSession(

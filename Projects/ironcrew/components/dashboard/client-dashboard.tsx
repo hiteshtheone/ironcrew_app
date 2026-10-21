@@ -14,6 +14,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { ClientProgress } from "@/components/dashboard/client-progress";
+import { ClientWorkouts } from "@/components/dashboard/client-workouts";
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
@@ -114,6 +116,10 @@ function ClientShell({ data }: { data: Exclude<ClientDashboardData, { kind: "err
           <ClientWeek data={data} />
         ) : section === "settings" ? (
           <MyInfoForm />
+        ) : section === "workouts" ? (
+          <ClientWorkouts data={data} />
+        ) : section === "progress" ? (
+          <ClientProgress data={data} />
         ) : (
           <EmptySection title={sectionTitle[section]} />
         )}

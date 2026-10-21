@@ -92,6 +92,7 @@ export async function loadClientDashboard(
               load,
               load_unit,
               duration_seconds,
+              distance_meters,
               notes
             )
           ),
@@ -223,6 +224,7 @@ function loggedSetsByBlock(value: unknown) {
       load: nonNegativeNumber(record.load),
       loadUnit: stringField(record, "load_unit"),
       durationSeconds: nonNegativeNumber(record.duration_seconds),
+      distanceMeters: nonNegativeNumber(record.distance_meters),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);

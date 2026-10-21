@@ -22,6 +22,7 @@ export type ClientLoggedSet = {
   load: number | null;
   loadUnit: string | null;
   durationSeconds: number | null;
+  distanceMeters: number | null;
   notes: string | null;
 };
 
@@ -135,6 +136,20 @@ export function formatWeekday(ymd: string) {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     weekday: "short",
+  }).format(new Date(`${ymd}T12:00:00Z`));
+}
+
+export function addDays(ymd: string, days: number) {
+  const next = new Date(`${ymd}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+export function formatShortDate(ymd: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
   }).format(new Date(`${ymd}T12:00:00Z`));
 }
 
