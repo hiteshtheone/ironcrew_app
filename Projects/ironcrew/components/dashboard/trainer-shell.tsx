@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type ComponentType, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import {
   Activity,
   Bell,
@@ -58,10 +58,12 @@ export function TrainerShell({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [navOpen, setNavOpen] = useState(false);
   const requested = searchParams.get("section");
   const section: TrainerSection = isTrainerSection(requested) ? requested : "dashboard";
 
   const openSection = (id: TrainerSection) => {
+    setNavOpen(false);
     const params = new URLSearchParams(searchParams.toString());
     if (id === "dashboard") {
       params.delete("section");
@@ -84,7 +86,15 @@ export function TrainerShell({
 
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-slate-950">
-      <aside className="fixed inset-y-0 hidden w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex">
+      {navOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+        />
+      ) : null}
+      <aside className={`fixed inset-y-0 z-50 w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 ${navOpen ? "flex" : "hidden lg:flex"}`}>
         <button type="button" onClick={() => openSection("dashboard")} className="flex items-center gap-3 px-3">
           <span className="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">T</span>
           <span className="text-lg font-semibold tracking-tight">Trainer</span>
@@ -117,7 +127,15 @@ export function TrainerShell({
 
       <section className="lg:pl-64">
         <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8">
-          <button className="rounded-lg p-2 text-slate-600 lg:hidden" aria-label="Open navigation"><Menu className="size-5" /></button>
+          <button
+            type="button"
+            className="rounded-lg p-2 text-slate-600 lg:hidden"
+            aria-label="Open navigation"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen((open) => !open)}
+          >
+            <Menu className="size-5" />
+          </button>
           <div className="hidden sm:block">
             <p className="text-sm text-slate-500">{profile.dateLabel}</p>
           </div>
