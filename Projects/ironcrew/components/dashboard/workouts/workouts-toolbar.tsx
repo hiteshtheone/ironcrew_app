@@ -45,7 +45,7 @@ export function WorkoutsToolbar({ filters, counts, onFilterChange, onSortChange 
   return (
     <section
       aria-label="Workout filters"
-      className="flex flex-col gap-x-8 gap-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:flex-row lg:flex-wrap lg:items-start"
+      className="flex flex-col gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:flex-wrap lg:items-start"
     >
       <FilterGroup
         legend="Status"
@@ -60,7 +60,7 @@ export function WorkoutsToolbar({ filters, counts, onFilterChange, onSortChange 
         onChange={(value) => onFilterChange("when", value)}
       />
       <div className="lg:ml-auto">
-        <label htmlFor={sortId} className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <label htmlFor={sortId} className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           Sort by
         </label>
         <select
@@ -70,7 +70,7 @@ export function WorkoutsToolbar({ filters, counts, onFilterChange, onSortChange 
             const next = event.target.value;
             if (isSortOrder(next)) onSortChange(next);
           }}
-          className="h-9 rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
+          className="h-7 rounded-full border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
         >
           {SORT_ORDERS.map((order) => (
             <option key={order} value={order}>
@@ -96,8 +96,8 @@ function FilterGroup<T extends string>({
 }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-1.5 p-0 text-xs font-semibold uppercase tracking-wide text-slate-400">{legend}</legend>
-      <div className="flex flex-wrap gap-2">
+      <legend className="mb-1 p-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{legend}</legend>
+      <div className="flex flex-wrap gap-1.5">
         {options.map((option) => {
           const selected = option.value === value;
           return (
@@ -106,7 +106,7 @@ function FilterGroup<T extends string>({
               type="button"
               aria-pressed={selected}
               onClick={() => onChange(option.value)}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950 ${
+              className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950 ${
                 selected
                   ? "bg-slate-950 text-white"
                   : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -129,7 +129,7 @@ function CountBadge({ count, selected }: { count: number; selected: boolean }) {
       ? "bg-slate-50 text-slate-400"
       : "bg-slate-100 text-slate-600";
   return (
-    <span className={`min-w-5 rounded-full px-1.5 text-center text-xs font-semibold tabular-nums ${tone}`}>
+    <span className={`min-w-4 rounded-full px-1 text-center text-[10px] font-semibold tabular-nums ${tone}`}>
       <span className="sr-only">(</span>
       {count}
       <span className="sr-only"> workouts)</span>

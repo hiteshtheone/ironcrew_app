@@ -84,7 +84,7 @@ export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { 
         <UnlinkedAccount />
       ) : (
         <>
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 space-y-3">
             <WorkoutsToolbar
               filters={filters}
               counts={payload?.counts ?? null}
