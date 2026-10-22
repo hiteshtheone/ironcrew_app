@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ComponentType, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
   Bell,
@@ -29,8 +29,10 @@ import {
   type ClientDay,
   type ClientWorkout,
 } from "@/lib/dashboard/client-week";
+import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
-type ClientSection = "dashboard" | "workouts" | "calendar" | "progress" | "settings";
+const CLIENT_SECTIONS = ["dashboard", "workouts", "calendar", "progress", "settings"] as const;
+type ClientSection = (typeof CLIENT_SECTIONS)[number];
 
 const navigation: { id: ClientSection; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { id: "dashboard", label: "Dashboard", icon: Activity },
@@ -73,14 +75,29 @@ function getInitials(fullName: string) {
     .toUpperCase();         // Make it uppercase
 }
 
+function isClientSection(value: string | null): value is ClientSection {
+  return CLIENT_SECTIONS.some((section) => section === value);
+}
+
 function ClientShell({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
-  const [section, setSection] = useState<ClientSection>("dashboard");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [navOpen, setNavOpen] = useState(false);
   const brandName = data.kind === "ready" ? data.trainer_business_name : "Trainer";
 
+  // The active section lives in the URL (`?section=workouts`) so views are deep-linkable.
+  const sectionParam = searchParams.get("section");
+  const section: ClientSection = isClientSection(sectionParam) ? sectionParam : "dashboard";
+
   const openSection = (id: ClientSection) => {
-    setSection(id);
     setNavOpen(false);
+    if (id === section) return;
+    // Leaving a section drops its params (e.g. workout filters) so they don't leak into other views.
+    const params = stripWorkoutParams(new URLSearchParams(window.location.search));
+    if (id === "dashboard") params.delete("section");
+    else params.set("section", id);
+    const query = params.toString();
+    window.history.pushState(null, "", `${pathname}${query ? `?${query}` : ""}`);
   };
 
   const trainer_logo = getInitials(brandName)

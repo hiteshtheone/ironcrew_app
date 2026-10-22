@@ -3,29 +3,31 @@ import { NextResponse } from "next/server";
 import { requireClientAccount } from "@/lib/api/signed-in-client";
 import { databaseErrorMessage, jsonError, requireUser } from "@/lib/api/route-utils";
 import { currentWeek } from "@/lib/dashboard/client-week";
-
-const PAGE_SIZE = 10;
-const WHEN = ["past", "present", "future", "all"] as const;
-const COMPLETION = ["finished", "unfinished", "cancelled", "all"] as const;
-
-type When = (typeof WHEN)[number];
-type Completion = (typeof COMPLETION)[number];
-
-const STATUSES: Record<Completion, string[]> = {
-  finished: ["completed"],
-  unfinished: ["scheduled", "in_progress", "skipped"],
-  cancelled: ["cancelled"],
-  all: ["completed", "scheduled", "in_progress", "skipped", "cancelled"],
-};
+import {
+  DEFAULT_FILTERS,
+  PAGE_SIZE,
+  STATUS_GROUPS,
+  computeCounts,
+  isSortOrder,
+  isStatusFilter,
+  isWhenFilter,
+  parsePage,
+  whenRange,
+  type DateBounds,
+} from "@/lib/dashboard/workout-filters";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const when = url.searchParams.get("when");
-  const status = url.searchParams.get("status");
-  const page = positivePage(url.searchParams.get("page"));
+  const when = url.searchParams.get("when") ?? DEFAULT_FILTERS.when;
+  const status = url.searchParams.get("status") ?? DEFAULT_FILTERS.status;
+  const sort = url.searchParams.get("sort") ?? DEFAULT_FILTERS.sort;
+  const page = parsePage(url.searchParams.get("page"));
 
-  if (!isWhen(when)) return jsonError("when must be past, present, future or all", 400);
-  if (!isCompletion(status)) return jsonError("status must be finished, unfinished, cancelled or all", 400);
+  if (!isWhenFilter(when)) {
+    return jsonError("when must be all, past, present, future, this_week, last_week or next_week", 400);
+  }
+  if (!isStatusFilter(status)) return jsonError("status must be finished, unfinished, cancelled or all", 400);
+  if (!isSortOrder(sort)) return jsonError("sort must be date_desc or date_asc", 400);
   if (page == null) return jsonError("page must be a whole number of 1 or greater", 400);
 
   const auth = await requireUser();
@@ -34,10 +36,13 @@ export async function GET(request: Request) {
   const client = await requireClientAccount(auth.supabase, auth.user.id);
   if ("error" in client) return client.error;
 
-  const today = currentWeek(client.timeZone).today;
-  const ascending = when === "future" || when === "all";
+  const week = currentWeek(client.timeZone);
+  const bounds: DateBounds = { today: week.today, weekStart: week.start, weekEnd: week.end };
+  const range = whenRange(when, bounds);
+  const ascending = sort === "date_asc";
   const from = (page - 1) * PAGE_SIZE;
-  let query = auth.supabase
+
+  let listQuery = auth.supabase
     .from("workout_assignments")
     .select(
       `
@@ -49,24 +54,41 @@ export async function GET(request: Request) {
       { count: "exact" },
     )
     .eq("client_id", client.clientId)
-    .in("status", STATUSES[status]);
+    .in("status", [...STATUS_GROUPS[status]]);
 
-  if (when === "past") query = query.lt("scheduled_for", today);
-  else if (when === "present") query = query.eq("scheduled_for", today);
-  else if (when === "future") query = query.gt("scheduled_for", today);
+  if (range.gte) listQuery = listQuery.gte("scheduled_for", range.gte);
+  if (range.lte) listQuery = listQuery.lte("scheduled_for", range.lte);
 
-  const { data, error, count } = await query
-    .order("scheduled_for", { ascending })
-    .order("id", { ascending })
-    .range(from, from + PAGE_SIZE - 1);
+  // Lightweight rows used only to derive the faceted count badges.
+  const countsQuery = auth.supabase
+    .from("workout_assignments")
+    .select("scheduled_for, status")
+    .eq("client_id", client.clientId);
 
-  if (error) return jsonError(databaseErrorMessage(error), 500);
+  const [list, facets] = await Promise.all([
+    listQuery
+      .order("scheduled_for", { ascending })
+      .order("id", { ascending })
+      .range(from, from + PAGE_SIZE - 1),
+    countsQuery,
+  ]);
+
+  if (list.error) return jsonError(databaseErrorMessage(list.error), 500);
+  if (facets.error) return jsonError(databaseErrorMessage(facets.error), 500);
+
+  const facetRows = (facets.data ?? []).flatMap((row) => {
+    const record = asRecord(row);
+    const scheduledFor = stringField(record, "scheduled_for");
+    const rowStatus = stringField(record, "status");
+    return scheduledFor && rowStatus ? [{ scheduledFor, status: rowStatus }] : [];
+  });
 
   return NextResponse.json({
-    workouts: (data ?? []).map(normalizeWorkout).filter((workout) => workout !== null),
+    workouts: (list.data ?? []).map(normalizeWorkout).filter((workout) => workout !== null),
     page,
     pageSize: PAGE_SIZE,
-    total: count ?? 0,
+    total: list.count ?? 0,
+    counts: computeCounts(facetRows, { when, status }, bounds),
   });
 }
 
@@ -85,21 +107,6 @@ function normalizeWorkout(row: unknown) {
     status,
     durationMinutes: duration,
   };
-}
-
-function isWhen(value: string | null): value is When {
-  return (WHEN as readonly string[]).includes(value ?? "");
-}
-
-function isCompletion(value: string | null): value is Completion {
-  return (COMPLETION as readonly string[]).includes(value ?? "");
-}
-
-function positivePage(value: string | null) {
-  if (value == null || value === "") return 1;
-  if (!/^\d+$/.test(value)) return null;
-  const page = Number(value);
-  return page >= 1 ? page : null;
 }
 
 function firstRelation(value: unknown) {
