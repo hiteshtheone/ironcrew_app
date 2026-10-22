@@ -9,8 +9,8 @@ import {
   type ClientDashboardData,
 } from "@/lib/dashboard/client-week";
 
-type When = "past" | "present" | "future";
-type Completion = "finished" | "unfinished" | "cancelled";
+type When = "past" | "present" | "future" | "all";
+type Completion = "finished" | "unfinished" | "cancelled" | "all";
 
 type WorkoutRow = {
   id: string;
@@ -31,17 +31,19 @@ const WHEN_OPTIONS: { value: When; label: string }[] = [
   { value: "past", label: "Past" },
   { value: "present", label: "Today" },
   { value: "future", label: "Future" },
+  { value: "all", label: "All" },
 ];
 
 const STATUS_OPTIONS: { value: Completion; label: string }[] = [
   { value: "finished", label: "Finished" },
   { value: "unfinished", label: "Unfinished" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "all", label: "All" },
 ];
 
 export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
-  const [when, setWhen] = useState<When>("past");
-  const [status, setStatus] = useState<Completion>("finished");
+  const [when, setWhen] = useState<When>("all");
+  const [status, setStatus] = useState<Completion>("all");
   const [page, setPage] = useState(1);
   const [payload, setPayload] = useState<WorkoutPage | null>(null);
   const [pending, setPending] = useState(false);
@@ -210,8 +212,8 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function emptyMessage(when: When, status: Completion) {
-  const statusText = status === "finished" ? "finished" : status === "unfinished" ? "unfinished" : "cancelled";
-  const whenText = when === "past" ? "before today" : when === "present" ? "today" : "after today";
+  const statusText = status === "finished" ? "finished" : status === "unfinished" ? "unfinished" : status === "cancelled" ? "cancelled" : "all";
+  const whenText = when === "past" ? "before today" : when === "present" ? "today" : when ==="future" ? "after today": "all" ;
   return `No ${statusText} workouts ${whenText}.`;
 }
 

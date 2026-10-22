@@ -5,8 +5,8 @@ import { databaseErrorMessage, jsonError, requireUser } from "@/lib/api/route-ut
 import { currentWeek } from "@/lib/dashboard/client-week";
 
 const PAGE_SIZE = 10;
-const WHEN = ["past", "present", "future"] as const;
-const COMPLETION = ["finished", "unfinished", "cancelled"] as const;
+const WHEN = ["past", "present", "future", "all"] as const;
+const COMPLETION = ["finished", "unfinished", "cancelled", "all"] as const;
 
 type When = (typeof WHEN)[number];
 type Completion = (typeof COMPLETION)[number];
@@ -15,6 +15,7 @@ const STATUSES: Record<Completion, string[]> = {
   finished: ["completed"],
   unfinished: ["scheduled", "in_progress", "skipped"],
   cancelled: ["cancelled"],
+  all: ["completed", "scheduled", "in_progress", "skipped", "cancelled"],
 };
 
 export async function GET(request: Request) {
@@ -23,8 +24,8 @@ export async function GET(request: Request) {
   const status = url.searchParams.get("status");
   const page = positivePage(url.searchParams.get("page"));
 
-  if (!isWhen(when)) return jsonError("when must be past, present, or future", 400);
-  if (!isCompletion(status)) return jsonError("status must be finished, unfinished, or cancelled", 400);
+  if (!isWhen(when)) return jsonError("when must be past, present, future or all", 400);
+  if (!isCompletion(status)) return jsonError("status must be finished, unfinished, cancelled or all", 400);
   if (page == null) return jsonError("page must be a whole number of 1 or greater", 400);
 
   const auth = await requireUser();
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   if ("error" in client) return client.error;
 
   const today = currentWeek(client.timeZone).today;
-  const ascending = when === "future";
+  const ascending = when === "future" || when === "all";
   const from = (page - 1) * PAGE_SIZE;
   let query = auth.supabase
     .from("workout_assignments")
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
 
   if (when === "past") query = query.lt("scheduled_for", today);
   else if (when === "present") query = query.eq("scheduled_for", today);
-  else query = query.gt("scheduled_for", today);
+  else if (when === "future") query = query.gt("scheduled_for", today);
 
   const { data, error, count } = await query
     .order("scheduled_for", { ascending })
