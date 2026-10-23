@@ -111,64 +111,6 @@ function databaseErrorMessage(error: {
   return [error.message, error.details, error.hint].filter(Boolean).join(" — ");
 }
 
-async function ensureCurrentUserIsTrainer(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  user: { id: string; email?: string; user_metadata?: Record<string, unknown> },
-) {
-  const { data: trainer, error: trainerLookupError } = await supabase
-    .from("trainers")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (trainerLookupError) return trainerLookupError;
-  if (trainer) return null;
-
-  const metadataName = user.user_metadata?.full_name;
-  const fullName =
-    (typeof metadataName === "string" && metadataName.trim()) ||
-    user.email?.split("@")[0] ||
-    "Trainer";
-  const { firstName, lastName } = splitPersonName(fullName);
-
-  const { data: profile, error: profileLookupError } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileLookupError) return profileLookupError;
-
-  if (!profile) {
-    const { error: profileInsertError } = await supabase.from("profiles").insert({
-      id: user.id,
-      role: "trainer",
-      full_name: fullName.slice(0, 120),
-    });
-    if (profileInsertError && profileInsertError.code !== "23505") {
-      return profileInsertError;
-    }
-  }
-
-  const { error: trainerInsertError } = await supabase.from("trainers").insert({
-    id: user.id,
-    first_name: firstName,
-    last_name: lastName,
-  });
-  if (trainerInsertError && trainerInsertError.code !== "23505") {
-    return trainerInsertError;
-  }
-
-  return null;
-}
-
-function splitPersonName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  const firstName = (parts[0] ?? "Trainer").slice(0, 80);
-  const lastName = parts.slice(1).join(" ").slice(0, 80) || null;
-  return { firstName, lastName };
-}
-
 export async function GET() {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -203,14 +145,6 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const trainerSetupError = await ensureCurrentUserIsTrainer(supabase, user);
-  if (trainerSetupError) {
-    return NextResponse.json(
-      { error: databaseErrorMessage(trainerSetupError) },
-      { status: 500 },
-    );
   }
 
   const insertPayload: Record<string, unknown> = { ...parsed.payload };

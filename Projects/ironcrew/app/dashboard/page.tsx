@@ -38,9 +38,8 @@ async function AuthenticatedDashboard() {
     return <DashboardNotice title="Couldn't load your profile" detail={error.message} />;
   }
 
-  if (!profile) {
-    return <DashboardNotice title="Couldn't load your profile" detail="No profile was found for this account." />;
-  }
+  // First login: no profile yet, so ask whether they are a trainer or a user.
+  if (!profile) redirect("/onboarding");
 
   if (profile.role === "client") {
     const dashboard = await loadClientDashboard(supabase, {
