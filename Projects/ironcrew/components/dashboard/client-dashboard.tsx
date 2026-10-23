@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  ClipboardList,
   Dumbbell,
   Menu,
   Settings,
@@ -16,6 +17,7 @@ import {
 
 import { ClientProgress } from "@/components/dashboard/client-progress";
 import { ClientWorkouts } from "@/components/dashboard/client-workouts";
+import { ProgramsPanel } from "@/components/dashboard/programs-panel";
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
@@ -29,26 +31,37 @@ import {
   type ClientDay,
   type ClientWorkout,
 } from "@/lib/dashboard/client-week";
+import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
-const CLIENT_SECTIONS = ["dashboard", "workouts", "calendar", "progress", "settings"] as const;
+const CLIENT_SECTIONS = ["dashboard", "workouts", "programs", "calendar", "progress", "settings"] as const;
 type ClientSection = (typeof CLIENT_SECTIONS)[number];
 
 const navigation: { id: ClientSection; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { id: "dashboard", label: "Dashboard", icon: Activity },
   { id: "workouts", label: "Workouts", icon: Dumbbell },
+  { id: "programs", label: "My programs", icon: ClipboardList },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "progress", label: "Progress", icon: TrendingUp },
 ];
 
 const sectionTitle: Record<Exclude<ClientSection, "dashboard">, string> = {
   workouts: "Workouts",
+  programs: "My programs",
   calendar: "Calendar",
   progress: "Progress",
   settings: "Settings",
 };
 
-export function ClientDashboard({ data }: { data: ClientDashboardData }) {
+export function ClientDashboard({
+  data,
+  programs,
+}: {
+  data: ClientDashboardData;
+  /** The client's own programs. Null when the client profile is not linked. */
+  programs: TrainerProgramsData | null;
+}) {
   if (data.kind === "error") {
     return (
       <main className="grid min-h-screen place-items-center bg-[#f7f8fa] px-6 text-slate-950">
@@ -63,7 +76,7 @@ export function ClientDashboard({ data }: { data: ClientDashboardData }) {
     );
   }
 
-  return <ClientShell data={data} />;
+  return <ClientShell data={data} programs={programs} />;
 }
 
 function getInitials(fullName: string) {
@@ -79,7 +92,13 @@ function isClientSection(value: string | null): value is ClientSection {
   return CLIENT_SECTIONS.some((section) => section === value);
 }
 
-function ClientShell({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
+function ClientShell({
+  data,
+  programs,
+}: {
+  data: Exclude<ClientDashboardData, { kind: "error" }>;
+  programs: TrainerProgramsData | null;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [navOpen, setNavOpen] = useState(false);
@@ -166,6 +185,16 @@ function ClientShell({ data }: { data: Exclude<ClientDashboardData, { kind: "err
           <MyInfoForm />
         ) : section === "workouts" ? (
           <ClientWorkouts data={data} />
+        ) : section === "programs" ? (
+          programs ? (
+            <ProgramsPanel
+              data={programs}
+              mode="client"
+              activePrograms={data.kind === "ready" ? data.activePrograms : []}
+            />
+          ) : (
+            <EmptySection title={sectionTitle[section]} />
+          )
         ) : section === "progress" ? (
           <ClientProgress data={data} />
         ) : (
@@ -255,7 +284,7 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
       <p className="mt-2 text-sm text-slate-500">
         {data.kind === "unlinked"
           ? "This login is not connected to a client profile yet."
-          : "Here is the plan your trainer assigned for this week."}
+          : "Here is your plan for this week."}
       </p>
 
       {data.kind === "unlinked" ? (
@@ -271,7 +300,7 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
             <Metric label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
             <Metric label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
             <Metric label="Remaining" value={String(remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
-            <Metric label="Program" value={data.programName ?? "None"} detail={data.programName ? "Active plan" : "No active program"} icon={Activity} tone="bg-orange-50 text-orange-600" compact={Boolean(data.programName)} />
+            <Metric label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
@@ -307,7 +336,9 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
                 <div className="h-full rounded-full bg-emerald-400" style={{ width: `${completion}%` }} />
               </div>
               <p className="mt-5 text-sm text-slate-300">
-                {data.programName ? `Following ${data.programName}` : "No active program assigned"}
+                {data.activePrograms.length > 0
+                  ? `Following ${data.activePrograms.map((program) => program.name).join(", ")}`
+                  : "No active program"}
               </p>
             </section>
           </div>
@@ -359,6 +390,18 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
       )}
     </div>
   );
+}
+
+function programSummary(programs: ActiveProgramSummary[]) {
+  if (programs.length === 0) return "None";
+  if (programs.length === 1) return programs[0].name;
+  return `${programs[0].name} +${programs.length - 1}`;
+}
+
+function programDetail(programs: ActiveProgramSummary[]) {
+  if (programs.length === 0) return "No active program";
+  if (programs.length > 1) return `${programs.length} active programs`;
+  return programs[0].source === "self" ? "Active · self-made" : "Active · assigned by trainer";
 }
 
 function SectionButton({

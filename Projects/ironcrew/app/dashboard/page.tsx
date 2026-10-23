@@ -10,7 +10,7 @@ import { TrainerShell } from "@/components/dashboard/trainer-shell";
 import { loadClientDashboard } from "@/lib/dashboard/load-client-dashboard";
 import { loadClientList } from "@/lib/dashboard/load-client-list";
 import { loadTrainerDashboard } from "@/lib/dashboard/load-trainer-dashboard";
-import { loadTrainerPrograms } from "@/lib/dashboard/load-trainer-programs";
+import { loadClientPrograms, loadTrainerPrograms } from "@/lib/dashboard/load-trainer-programs";
 import { createClient } from "@/lib/supabase/server";
 
 export default function DashboardPage() {
@@ -47,7 +47,10 @@ async function AuthenticatedDashboard() {
       fullName: profile.full_name,
       timezone: profile.timezone,
     });
-    return <ClientDashboard data={dashboard} />;
+    // Clients build their own programs; trainer-assigned ones are not loaded here.
+    const programs =
+      dashboard.kind === "ready" ? await loadClientPrograms(supabase, dashboard.clientId) : null;
+    return <ClientDashboard data={dashboard} programs={programs} />;
   }
 
   const profileInput = {

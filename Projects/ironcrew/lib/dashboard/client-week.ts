@@ -1,3 +1,5 @@
+import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+
 export const ASSIGNMENT_STATUSES = [
   "scheduled",
   "in_progress",
@@ -60,7 +62,9 @@ export type ClientDashboardReady = {
   firstName: string;
   dateLabel: string;
   initials: string;
-  programName: string | null;
+  clientId: string;
+  /** Every active program: assigned by a trainer or built by the client. */
+  activePrograms: ActiveProgramSummary[];
   days: ClientDay[];
   todayWorkouts: ClientWorkout[];
   nextWorkout: { name: string; dateLabel: string } | null;

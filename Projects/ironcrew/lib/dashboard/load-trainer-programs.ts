@@ -76,10 +76,24 @@ export type TrainerProgramsReady = {
 
 export type TrainerProgramsData = TrainerProgramsReady | { kind: "error"; message: string };
 
-export async function loadTrainerPrograms(
-  supabase: SupabaseClient,
-  trainerId: string,
-): Promise<TrainerProgramsData> {
+/** Who owns the programs, workouts, and exercises being loaded. */
+export type ProgramOwner = { kind: "trainer"; trainerId: string } | { kind: "client"; clientId: string };
+
+export function loadTrainerPrograms(supabase: SupabaseClient, trainerId: string): Promise<TrainerProgramsData> {
+  return loadOwnedPrograms(supabase, { kind: "trainer", trainerId });
+}
+
+/** Programs a client built for themselves (not trainer-assigned ones). */
+export function loadClientPrograms(supabase: SupabaseClient, clientId: string): Promise<TrainerProgramsData> {
+  return loadOwnedPrograms(supabase, { kind: "client", clientId });
+}
+
+export async function loadOwnedPrograms(supabase: SupabaseClient, owner: ProgramOwner): Promise<TrainerProgramsData> {
+  const ownerColumn = owner.kind === "trainer" ? "trainer_id" : "owner_client_id";
+  const ownerId = owner.kind === "trainer" ? owner.trainerId : owner.clientId;
+  // Exercises are visible when owned by this user or shared (no owner at all).
+  const exerciseFilter = `${ownerColumn}.eq.${ownerId},and(trainer_id.is.null,owner_client_id.is.null)`;
+
   const [{ data: programRows, error: programError }, { data: workoutRows, error: workoutError }, { data: exerciseRows, error: exerciseError }] =
     await Promise.all([
       supabase
@@ -109,7 +123,7 @@ export async function loadTrainerPrograms(
           )
         `,
         )
-        .eq("trainer_id", trainerId),
+        .eq(ownerColumn, ownerId),
       supabase
         .from("workouts")
         .select(
@@ -134,8 +148,8 @@ export async function loadTrainerPrograms(
           )
         `,
         )
-        .eq("trainer_id", trainerId),
-      supabase.from("exercises").select("id, name").or(`trainer_id.eq.${trainerId},trainer_id.is.null`),
+        .eq(ownerColumn, ownerId),
+      supabase.from("exercises").select("id, name").or(exerciseFilter),
     ]);
 
   if (programError) return { kind: "error", message: programError.message };

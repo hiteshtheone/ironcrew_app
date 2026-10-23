@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import {
   type ClientDashboardData,
   type ClientExercise,
@@ -74,7 +75,7 @@ export async function loadClientDashboard(
 
   const firstName = client.first_name?.trim() || fallbackName;
 
-  const [{ data: assignments, error: assignmentError }, { data: programAssignment, error: programError }] =
+  const [{ data: assignments, error: assignmentError }, { data: programAssignments, error: programError }] =
     await Promise.all([
       supabase
         .from("workout_assignments")
@@ -120,12 +121,10 @@ export async function loadClientDashboard(
         .order("scheduled_for", { ascending: true }),
       supabase
         .from("program_assignments")
-        .select("programs(name)")
+        .select("assigned_by_client_id, programs(name)")
         .eq("client_id", client.id)
         .in("status", ["scheduled", "in_progress"])
-        .order("starts_on", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .order("starts_on", { ascending: false }),
     ]);
 
   if (assignmentError) return { kind: "error", message: assignmentError.message };
@@ -172,7 +171,8 @@ export async function loadClientDashboard(
     firstName,
     dateLabel: formatLongDate(week.today),
     initials: shell.initials,
-    programName: programName(programAssignment),
+    clientId: client.id,
+    activePrograms: activeProgramSummaries(programAssignments),
     days,
     todayWorkouts,
     nextWorkout: upcoming[0] ?? null,
@@ -259,10 +259,14 @@ function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet
   };
 }
 
-function programName(row: unknown) {
-  const record = asRecord(row);
-  const program = asRecord(firstRelation(record?.programs));
-  return stringField(program, "name");
+function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {
+  return relationList(rows)
+    .map((row) => {
+      const record = asRecord(row);
+      const program = asRecord(firstRelation(record?.programs));
+      const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
+      return { name: stringField(program, "name") ?? "Program", source };
+    });
 }
 
 function labelForBlock(blockType: string | null) {

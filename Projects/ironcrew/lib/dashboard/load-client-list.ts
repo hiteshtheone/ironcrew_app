@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+
 import {
   type AssignmentStatus,
   currentWeek,
@@ -53,7 +55,10 @@ export type ClientRecord = {
   programName: string | null;
   programId: string | null;
   programStartsOn: string | null;
+  /** True when a program this trainer assigned is active for the client. */
   hasActiveProgram: boolean;
+  /** Every active program, including ones the client built for themselves. */
+  activePrograms: ActiveProgramSummary[];
   workoutLogs: ClientWorkoutLog[];
 };
 
@@ -123,7 +128,7 @@ export async function loadClientList(
   const { data: links, error: linkError } = await supabase
     .from("trainer_clients")
     .select(
-      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status, target_value, target_unit, target_date, notes), program_assignments(id, status, starts_on, program_id, goal_id, programs(name)))",
+      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status, target_value, target_unit, target_date, notes), program_assignments(id, status, starts_on, program_id, goal_id, assigned_by_client_id, programs(name)))",
     )
     .eq("trainer_id", profile.userId)
     .eq("status", "active");
@@ -309,6 +314,7 @@ function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
     programId: plan.programId,
     programStartsOn: plan.programStartsOn,
     hasActiveProgram: plan.hasActiveProgram,
+    activePrograms: plan.activePrograms,
     workoutLogs: [],
   };
 }
@@ -416,12 +422,19 @@ function activePlan(client: Record<string, unknown>) {
         programId: stringField(assignment, "program_id"),
         goalId: stringField(assignment, "goal_id"),
         programName: stringField(program, "name"),
+        selfMade: stringField(assignment, "assigned_by_client_id") !== null,
       };
     })
     .filter((assignment) => assignment.status === "scheduled" || assignment.status === "in_progress")
     .sort((left, right) => (right.startsOn ?? "").localeCompare(left.startsOn ?? ""));
 
-  const active = assignments[0] ?? null;
+  // Only trainer-assigned programs drive the plan card: a trainer cannot read
+  // or edit a program the client built for themselves.
+  const active = assignments.find((assignment) => !assignment.selfMade) ?? null;
+  const activePrograms: ActiveProgramSummary[] = assignments.map((assignment) => ({
+    name: assignment.programName ?? (assignment.selfMade ? "Self-made program" : "Assigned program"),
+    source: assignment.selfMade ? "self" : "trainer",
+  }));
   const linkedGoal = active?.goalId ? goals.find((goal) => goal.id === active.goalId) : null;
   const goal = linkedGoal ?? goals.find((item) => item.status === "active") ?? null;
 
@@ -434,6 +447,7 @@ function activePlan(client: Record<string, unknown>) {
     programId: active?.programId ?? null,
     programStartsOn: active?.startsOn ?? null,
     hasActiveProgram: active !== null,
+    activePrograms,
   };
 }
 

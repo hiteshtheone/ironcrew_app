@@ -67,7 +67,7 @@ export function databaseErrorMessage(error: {
 }
 
 export function rpcStatus(message: string) {
-  if (/already has an active program/i.test(message)) return 409;
+  if (/ACTIVE_PROGRAM_EXISTS|already has an active program|already active/i.test(message)) return 409;
   if (/not authenticated|do not manage|do not own|row-level security/i.test(message)) return 403;
   if (/required|must be|not found|not recognized/i.test(message)) return 400;
   return 500;

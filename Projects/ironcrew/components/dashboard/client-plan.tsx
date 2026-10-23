@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
+import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { ClientGoal, ClientWorkoutLog } from "@/lib/dashboard/load-client-list";
 import type { WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { GOAL_STATUS_LABELS, GOAL_STATUSES, GOAL_TYPE_LABELS, GOAL_TYPES, isGoalStatus, isGoalType } from "@/lib/plans/constants";
@@ -21,6 +23,7 @@ type ClientPlanTarget = {
   programId: string | null;
   programStartsOn: string | null;
   hasActiveProgram: boolean;
+  activePrograms: ActiveProgramSummary[];
   workoutLogs: ClientWorkoutLog[];
 };
 
@@ -51,6 +54,12 @@ export function ClientPlan({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  // Set when the server reports an active program the page did not know about.
+  const [conflict, setConflict] = useState<ActiveProgramSummary[] | null>(null);
+
+  // Warn whenever the client already has an active program. Submitting the form
+  // after the warning is shown is the confirmation to add another.
+  const overlapPrograms = conflict ?? (client.activePrograms.length > 0 ? client.activePrograms : null);
 
   const backToList = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -73,6 +82,7 @@ export function ClientPlan({
     setPending("plan");
     setError(null);
     setNotice(null);
+    const confirmOverlap = overlapPrograms !== null;
     void fetch(`/api/clients/${client.id}/plan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -85,11 +95,17 @@ export function ClientPlan({
         notes: notes || null,
         program_id: selectedProgramId,
         starts_on: startsOn,
+        confirmOverlap,
       }),
     })
       .then(async (response) => {
         const payload = await response.json();
+        if (response.status === 409 && payload.code === "active_program_exists") {
+          setConflict(Array.isArray(payload.activePrograms) ? payload.activePrograms : []);
+          return;
+        }
         if (!response.ok) throw new Error(payload.error || "Unable to start this plan");
+        setConflict(null);
         setNotice("Goal saved and program assigned.");
         router.refresh();
       })
@@ -161,59 +177,60 @@ export function ClientPlan({
             Edit phases and weeks
           </button>
         </section>
-      ) : (
-        <form onSubmit={submitPlan} className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div>
-            <h2 className="text-lg font-bold">Start their plan</h2>
-            <p className="mt-1 text-sm text-slate-500">The goal and program are saved together.</p>
+      ) : null}
+
+      <form onSubmit={submitPlan} className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div>
+          <h2 className="text-lg font-bold">{overlapPrograms ? "Add another program" : "Start their plan"}</h2>
+          <p className="mt-1 text-sm text-slate-500">The goal and program are saved together.</p>
+        </div>
+        {programs.length === 0 ? (
+          <p className="text-sm text-slate-500">Create a program in Programs before assigning one.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-slate-600">Goal</span>
+              <input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Goal type</span>
+              <select value={goalType} onChange={(event) => { if (isGoalType(event.target.value)) setGoalType(event.target.value); }} className={fieldClass}>
+                {GOAL_TYPES.map((type) => <option key={type} value={type}>{GOAL_TYPE_LABELS[type]}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Program</span>
+              <select required value={selectedProgramId} onChange={(event) => setProgramId(event.target.value)} className={fieldClass}>
+                {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Target</span>
+              <input type="number" min="0" step="any" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Unit</span>
+              <input maxLength={40} value={targetUnit} onChange={(event) => setTargetUnit(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Target date</span>
+              <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Program starts</span>
+              <input required type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-slate-600">Notes</span>
+              <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm" />
+            </label>
+            {overlapPrograms ? <ActiveProgramWarning programs={overlapPrograms} audience="trainer" /> : null}
+            <button type="submit" disabled={pending === "plan"} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2">
+              {pending === "plan" ? "Saving..." : overlapPrograms ? "Assign anyway" : "Save goal and assign program"}
+            </button>
           </div>
-          {programs.length === 0 ? (
-            <p className="text-sm text-slate-500">Create a program in Programs before assigning one.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm sm:col-span-2">
-                <span className="font-medium text-slate-600">Goal</span>
-                <input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} className={fieldClass} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-600">Goal type</span>
-                <select value={goalType} onChange={(event) => { if (isGoalType(event.target.value)) setGoalType(event.target.value); }} className={fieldClass}>
-                  {GOAL_TYPES.map((type) => <option key={type} value={type}>{GOAL_TYPE_LABELS[type]}</option>)}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-600">Program</span>
-                <select required value={selectedProgramId} onChange={(event) => setProgramId(event.target.value)} className={fieldClass}>
-                  {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-600">Target</span>
-                <input type="number" min="0" step="any" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} className={fieldClass} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-600">Unit</span>
-                <input maxLength={40} value={targetUnit} onChange={(event) => setTargetUnit(event.target.value)} className={fieldClass} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-600">Target date</span>
-                <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} className={fieldClass} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-600">Program starts</span>
-                <input required type="date" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} className={fieldClass} />
-              </label>
-              <label className="grid gap-1 text-sm sm:col-span-2">
-                <span className="font-medium text-slate-600">Notes</span>
-                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm" />
-              </label>
-              <button type="submit" disabled={pending === "plan"} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2">
-                {pending === "plan" ? "Saving..." : "Save goal and assign program"}
-              </button>
-            </div>
-          )}
-        </form>
-      )}
+        )}
+      </form>
 
       <form onSubmit={submitWorkout} className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div>

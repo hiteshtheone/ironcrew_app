@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
+import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 
 const fieldClass =
@@ -17,7 +19,18 @@ function activeWeekId(data: TrainerProgramsData, searchParams: { get(name: strin
   return week?.id ?? null;
 }
 
-export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
+export function ProgramsPanel({
+  data,
+  mode = "trainer",
+  activePrograms = [],
+}: {
+  data: TrainerProgramsData;
+  /** "client" lets a client build and run programs for themselves. */
+  mode?: "trainer" | "client";
+  /** Programs the signed-in client already has active (client mode only). */
+  activePrograms?: ActiveProgramSummary[];
+}) {
+  const isClient = mode === "client";
   const router = useRouter();
   const searchParams = useSearchParams();
   const [programName, setProgramName] = useState("");
@@ -31,6 +44,10 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [startsOn, setStartsOn] = useState("");
+  const [goalTitle, setGoalTitle] = useState("");
+  // Set when the server reports an active program the page did not know about.
+  const [conflict, setConflict] = useState<ActiveProgramSummary[] | null>(null);
   const selectedProgram = data.kind === "ready"
     ? data.programs.find((program) => program.id === searchParams.get("program")) ?? null
     : null;
@@ -43,6 +60,7 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
 
   useEffect(() => {
     setCheckedClients(null);
+    setConflict(null);
   }, [selectedProgramId]);
 
   const selectedWeekId = activeWeekId(data, searchParams);
@@ -53,7 +71,7 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
   if (data.kind === "error") {
     return (
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Programs</h1>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{isClient ? "My programs" : "Programs"}</h1>
         <p className="mt-2 text-sm text-slate-500">{data.message}</p>
       </div>
     );
@@ -183,7 +201,8 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
     void run("publish", async () => {
       const payload = await postJson(`/api/programs/weeks/${week.id}/publish`, {
         week_start: weekStart,
-        client_ids: selectedClientIds,
+        // A client always publishes to their own calendar.
+        ...(isClient ? {} : { client_ids: selectedClientIds }),
       });
       const inserted = typeof payload.inserted === "number" ? payload.inserted : 0;
       const skipped = typeof payload.skipped === "number" ? payload.skipped : 0;
@@ -192,11 +211,46 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
     });
   };
 
+  const isActive = (selected?.assignedClients.length ?? 0) > 0;
+  // Warn when another program is already active. Submitting after the warning
+  // appears is the confirmation to add this one too.
+  const overlapPrograms = conflict ?? (activePrograms.length > 0 ? activePrograms : null);
+
+  const startProgram = (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected) return;
+    const confirmOverlap = overlapPrograms !== null;
+    void run("start-program", async () => {
+      const response = await fetch(`/api/me/programs/${selected.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          starts_on: startsOn,
+          goal_title: goalTitle.trim() || null,
+          confirmOverlap,
+        }),
+      });
+      const payload = await response.json();
+      if (response.status === 409 && payload.code === "active_program_exists") {
+        setConflict(Array.isArray(payload.activePrograms) ? payload.activePrograms : []);
+        return;
+      }
+      if (!response.ok) throw new Error(payload.error || "Unable to start this program");
+      setConflict(null);
+      setGoalTitle("");
+      setNotice("Program started. Publish a week to put its workouts on your calendar.");
+    });
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Programs</h1>
-        <p className="mt-2 text-sm text-slate-500">Build a shared plan: phase, then the workouts for each week.</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{isClient ? "My programs" : "Programs"}</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          {isClient
+            ? "Build your own plan: phase, then the workouts for each week. Only you can see these."
+            : "Build a shared plan: phase, then the workouts for each week."}
+        </p>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -226,7 +280,7 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
                 >
                   <span className="block truncate">{program.name}</span>
                   <span className={`block truncate text-xs ${program.id === selected?.id ? "text-slate-300" : "text-slate-500"}`}>
-                    {program.phases.length} phases · {program.assignedClients.length} clients
+                    {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}
                   </span>
                 </button>
               </li>
@@ -270,6 +324,31 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
                   {pending === "save-program" ? "Saving..." : "Save program"}
                 </button>
               </form>
+
+              {isClient ? (
+                isActive ? (
+                  <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active.</p>
+                ) : (
+                  <form onSubmit={startProgram} className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <h3 className="text-sm font-semibold">Start this program</h3>
+                      <p className="mt-1 text-xs text-slate-500">Starting a program makes it active. Then publish its weeks to your calendar.</p>
+                    </div>
+                    <label className="grid gap-1 text-sm">
+                      <span className="font-medium text-slate-600">Starts</span>
+                      <input type="date" required value={startsOn} onChange={(event) => setStartsOn(event.target.value)} className={fieldClass} />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span className="font-medium text-slate-600">Goal (optional)</span>
+                      <input maxLength={160} value={goalTitle} onChange={(event) => setGoalTitle(event.target.value)} className={fieldClass} />
+                    </label>
+                    {overlapPrograms ? <ActiveProgramWarning programs={overlapPrograms} audience="client" /> : null}
+                    <button type="submit" disabled={pending === "start-program"} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:col-span-2">
+                      {pending === "start-program" ? "Starting..." : overlapPrograms ? "Start anyway" : "Start program"}
+                    </button>
+                  </form>
+                )
+              ) : null}
 
               <div>
                 <h3 className="text-sm font-semibold">Phase</h3>
@@ -380,11 +459,16 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
 
                   <form onSubmit={publishWeek} className="mt-6 rounded-xl bg-slate-50 p-4">
                     <h3 className="text-sm font-semibold">Publish this week</h3>
-                    <p className="mt-1 text-xs text-slate-500">Puts these workouts on the calendars of clients assigned to this program.</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {isClient ? "Puts these workouts on your calendar." : "Puts these workouts on the calendars of clients assigned to this program."}
+                    </p>
                     <label className="mt-3 block text-sm">
                       <span className="font-medium text-slate-600">Week starts</span>
                       <input type="date" required value={weekStart} onChange={(event) => setWeekStart(event.target.value)} className={`${fieldClass} mt-1 max-w-xs`} />
                     </label>
+                    {isClient ? (
+                      !isActive ? <p className="mt-3 text-sm text-slate-500">Start this program before publishing a week.</p> : null
+                    ) : (
                     <fieldset className="mt-3">
                       <legend className="text-sm font-medium text-slate-600">Clients</legend>
                       {selected.assignedClients.length === 0 ? (
@@ -411,9 +495,10 @@ export function ProgramsPanel({ data }: { data: TrainerProgramsData }) {
                         </ul>
                       )}
                     </fieldset>
+                    )}
                     <button
                       type="submit"
-                      disabled={pending === "publish" || selectedClientIds.length === 0 || week.workouts.length === 0}
+                      disabled={pending === "publish" || (isClient ? !isActive : selectedClientIds.length === 0) || week.workouts.length === 0}
                       className="mt-4 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       {pending === "publish" ? "Publishing..." : "Publish week"}

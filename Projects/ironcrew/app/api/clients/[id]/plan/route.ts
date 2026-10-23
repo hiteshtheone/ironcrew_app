@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { activeProgramConflict, isActiveProgramExistsError } from "@/lib/api/active-programs";
 import {
   asOptionalNumber,
   asTrimmedString,
@@ -73,9 +74,13 @@ export async function POST(request: Request, context: RouteContext) {
     p_notes: notes,
     p_program_id: programId,
     p_starts_on: startsOn,
+    p_allow_overlap: input.confirmOverlap === true,
   });
 
   if (error) {
+    if (isActiveProgramExistsError(error)) {
+      return activeProgramConflict(auth.supabase, clientId);
+    }
     return jsonError(databaseErrorMessage(error), rpcStatus(error.message));
   }
 
