@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireClientAccount } from "@/lib/api/signed-in-client";
 import { databaseErrorMessage, jsonError, requireUser } from "@/lib/api/route-utils";
 import { currentWeek } from "@/lib/dashboard/client-week";
+import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 import {
   DEFAULT_FILTERS,
   PAGE_SIZE,
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
       id,
       scheduled_for,
       status,
+      ${WORKOUT_SOURCE_COLUMNS},
       workouts ( name, estimated_duration_minutes )
     `,
       { count: "exact" },
@@ -99,6 +101,7 @@ function normalizeWorkout(row: unknown) {
   const status = stringField(record, "status");
   if (!record || !id || !scheduledFor || !status) return null;
   const workout = asRecord(firstRelation(record.workouts));
+  const source = workoutSourceFromRow(record);
   const duration = positiveNumber(workout?.estimated_duration_minutes);
   return {
     id,
@@ -106,6 +109,8 @@ function normalizeWorkout(row: unknown) {
     scheduledFor,
     status,
     durationMinutes: duration,
+    programName: source.programName,
+    givenBy: source.givenBy,
   };
 }
 

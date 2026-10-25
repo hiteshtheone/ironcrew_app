@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 import {
   type AssignmentStatus,
   currentWeek,
@@ -32,12 +33,16 @@ type AssignmentRecord = {
   scheduledFor: string;
   status: AssignmentStatus;
   workoutName: string;
+  programName: string | null;
+  givenBy: string;
 };
 
 export type TrainerSession = {
   id: string;
   clientName: string;
   workoutName: string;
+  programName: string | null;
+  givenBy: string;
   statusLabel: string;
   initials: string;
   tone: string;
@@ -123,7 +128,7 @@ export async function loadTrainerDashboard(
   if (clients.length > 0) {
     const { data, error } = await supabase
       .from("workout_assignments")
-      .select("id, client_id, scheduled_for, status, workouts(name)")
+      .select(`id, client_id, scheduled_for, status, workouts(name), ${WORKOUT_SOURCE_COLUMNS}`)
       .in("client_id", clients.map((client) => client.id))
       .gte("scheduled_for", months.previousStart)
       .lte("scheduled_for", rangeEnd)
@@ -215,6 +220,8 @@ function toSession(assignment: AssignmentRecord, client: ClientRecord | undefine
     id: assignment.id,
     clientName: client.name,
     workoutName: assignment.workoutName,
+    programName: assignment.programName,
+    givenBy: assignment.givenBy,
     statusLabel: statusLabel(assignment.status),
     initials: client.initials,
     tone: client.tone,
@@ -255,12 +262,15 @@ function normalizeAssignment(row: unknown): AssignmentRecord | null {
   if (!id || !clientId || !scheduledFor || !status || !isAssignmentStatus(status)) return null;
 
   const workout = asRecord(firstRelation(record.workouts));
+  const source = workoutSourceFromRow(record);
   return {
     id,
     clientId,
     scheduledFor,
     status,
     workoutName: stringField(workout, "name") || "Workout",
+    programName: source.programName,
+    givenBy: source.givenBy,
   };
 }
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 
 import {
   type AssignmentStatus,
@@ -70,6 +71,8 @@ export type ClientWorkoutLog = {
   status: AssignmentStatus;
   statusLabel: string;
   note: string | null;
+  programName: string | null;
+  givenBy: string;
   blocks: ClientWorkoutBlockLog[];
 };
 
@@ -128,7 +131,7 @@ export async function loadClientList(
   const { data: links, error: linkError } = await supabase
     .from("trainer_clients")
     .select(
-      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status, target_value, target_unit, target_date, notes), program_assignments(id, status, starts_on, program_id, goal_id, assigned_by_client_id, programs(name)))",
+      "client_id, started_at, clients(first_name, last_name, email, status, goals(id, title, goal_type, status, target_value, target_unit, target_date, notes), program_assignments!program_assignments_client_id_fkey(id, status, starts_on, program_id, goal_id, assigned_by_client_id, programs(name)))",
     )
     .eq("trainer_id", profile.userId)
     .eq("status", "active");
@@ -176,6 +179,7 @@ async function loadWorkoutLogs(supabase: SupabaseClient, clientIds: string[], st
       client_id,
       scheduled_for,
       status,
+      ${WORKOUT_SOURCE_COLUMNS},
       workout_sessions (
         client_feedback,
         exercise_results (
@@ -328,6 +332,7 @@ function normalizeWorkoutLog(row: unknown): { clientId: string; entry: ClientWor
   if (!record || !id || !clientId || !scheduledFor || !status || !isAssignmentStatus(status)) return null;
 
   const workout = asRecord(firstRelation(record.workouts));
+  const source = workoutSourceFromRow(record);
   const session = asRecord(firstRelation(record.workout_sessions));
   const setsByBlock = setsForBlocks(session?.exercise_results);
   const blocks = asArray(workout?.workout_blocks)
@@ -347,6 +352,8 @@ function normalizeWorkoutLog(row: unknown): { clientId: string; entry: ClientWor
       status,
       statusLabel: statusLabel(status),
       note: stringField(session, "client_feedback"),
+      programName: source.programName,
+      givenBy: source.givenBy,
       blocks,
     },
   };

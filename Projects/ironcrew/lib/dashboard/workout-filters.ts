@@ -34,6 +34,8 @@ export type WorkoutRow = {
   scheduledFor: string;
   status: string;
   durationMinutes: number | null;
+  programName: string | null;
+  givenBy: string;
 };
 
 export type WorkoutPage = {

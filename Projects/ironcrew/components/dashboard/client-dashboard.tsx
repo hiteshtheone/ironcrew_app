@@ -33,6 +33,7 @@ import {
 } from "@/lib/dashboard/client-week";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
 const CLIENT_SECTIONS = ["dashboard", "workouts", "programs", "calendar", "progress", "settings"] as const;
@@ -237,7 +238,12 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
     .flatMap((day) =>
       day.workouts
         .filter((workout) => workout.status !== "cancelled")
-        .map((workout) => ({ name: workout.name, dateLabel: formatLongDate(day.date) })),
+        .map((workout) => ({
+          name: workout.name,
+          dateLabel: formatLongDate(day.date),
+          programName: workout.programName,
+          givenBy: workout.givenBy,
+        })),
     )[0] ?? null;
 
   const updateStatus = (workout: ClientWorkout, next: string) => {
@@ -356,7 +362,7 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
                 </p>
                 {selectedDay?.isToday && nextWorkout && (
                   <p className="mt-2 text-sm font-medium text-slate-800">
-                    Next up: {nextWorkout.name} · {nextWorkout.dateLabel}
+                    Next up: {nextWorkout.name} · {workoutSourceLabel(nextWorkout)} · {nextWorkout.dateLabel}
                   </p>
                 )}
               </div>
@@ -368,7 +374,8 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
                       <div>
                         <p className="text-base font-semibold">{workout.name}</p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {workout.durationMinutes ? `${workout.durationMinutes} min` : "Duration not set"}
+                          {workoutSourceLabel(workout)}
+                          {workout.durationMinutes ? ` · ${workout.durationMinutes} min` : ""}
                         </p>
                       </div>
                       <StatusControl
@@ -462,6 +469,9 @@ function DayCard({
       {primary ? (
         <>
           <p className="mt-3 line-clamp-2 text-xs font-medium">{primary.name}</p>
+          <p className={`mt-1 line-clamp-2 text-[11px] ${day.isToday ? "text-slate-300" : "text-slate-400"}`}>
+            {workoutSourceLabel(primary)}
+          </p>
           <p className={`mt-1 text-[11px] ${day.isToday ? "text-slate-300" : "text-slate-500"}`}>
             {visible.length > 1 ? `${visible.length} workouts` : statusLabel(primary.status)}
           </p>

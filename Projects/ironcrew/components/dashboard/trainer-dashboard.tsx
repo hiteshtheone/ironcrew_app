@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { LogoutButton } from "@/components/logout-button";
+import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import type { TrainerDashboardReady } from "@/lib/dashboard/load-trainer-dashboard";
 
 export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
@@ -54,6 +55,7 @@ export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{session.clientName}</p>
                     <p className="truncate text-xs text-slate-500">{session.workoutName}</p>
+                    <p className="truncate text-xs text-slate-400">{workoutSourceLabel(session)}</p>
                   </div>
                   <p className="text-xs font-medium text-slate-500 sm:text-sm">{session.statusLabel}</p>
                   <ChevronRight className="size-5 text-slate-300" />

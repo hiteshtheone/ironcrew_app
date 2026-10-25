@@ -1,4 +1,5 @@
 import { formatLongDate, isAssignmentStatus, statusLabel } from "@/lib/dashboard/client-week";
+import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import type { WorkoutRow } from "@/lib/dashboard/workout-filters";
 
 export function WorkoutList({ workouts }: { workouts: WorkoutRow[] }) {
@@ -11,6 +12,7 @@ export function WorkoutList({ workouts }: { workouts: WorkoutRow[] }) {
             <p className="mt-1 text-xs text-slate-500">
               {formatLongDate(workout.scheduledFor)}
               {workout.durationMinutes ? ` · ${workout.durationMinutes} min` : ""}
+              {` · ${workoutSourceLabel(workout)}`}
             </p>
           </div>
           <StatusPill status={workout.status} />

@@ -44,6 +44,10 @@ export type ClientWorkout = {
   durationMinutes: number | null;
   status: AssignmentStatus;
   sessionNote: string | null;
+  /** Program this session was published from. Null for a one-off workout. */
+  programName: string | null;
+  /** "Self" when the client scheduled it, otherwise the trainer's name. */
+  givenBy: string;
   exercises: ClientExercise[];
 };
 
@@ -67,7 +71,7 @@ export type ClientDashboardReady = {
   activePrograms: ActiveProgramSummary[];
   days: ClientDay[];
   todayWorkouts: ClientWorkout[];
-  nextWorkout: { name: string; dateLabel: string } | null;
+  nextWorkout: { name: string; dateLabel: string; programName: string | null; givenBy: string } | null;
   scheduledCount: number;
   completedCount: number;
   remainingCount: number;

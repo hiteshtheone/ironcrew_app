@@ -164,7 +164,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
   if (programs.length > 0) {
     const { data: assignmentRows, error: assignmentError } = await supabase
       .from("program_assignments")
-      .select("program_id, client_id, clients(first_name, last_name)")
+      .select("program_id, client_id, clients!program_assignments_client_id_fkey(first_name, last_name)")
       .in(
         "program_id",
         programs.map((program) => program.id),

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 import {
   type ClientDashboardData,
   type ClientExercise,
@@ -84,6 +85,7 @@ export async function loadClientDashboard(
           id,
           scheduled_for,
           status,
+          ${WORKOUT_SOURCE_COLUMNS},
           workout_sessions (
             client_feedback,
             exercise_results (
@@ -155,7 +157,12 @@ export async function loadClientDashboard(
     .flatMap((day) =>
       day.workouts
         .filter((workout) => workout.status !== "cancelled")
-        .map((workout) => ({ name: workout.name, dateLabel: formatLongDate(day.date) })),
+        .map((workout) => ({
+          name: workout.name,
+          dateLabel: formatLongDate(day.date),
+          programName: workout.programName,
+          givenBy: workout.givenBy,
+        })),
     );
 
   const active = days.flatMap((day) => day.workouts).filter((workout) => workout.status !== "cancelled");
@@ -191,6 +198,7 @@ function normalizeWorkout(row: unknown): ClientWorkout | null {
   if (!id || !status || !isAssignmentStatus(status)) return null;
 
   const workout = asRecord(firstRelation(record.workouts));
+  const source = workoutSourceFromRow(record);
   const session = asRecord(firstRelation(record.workout_sessions));
   const setsByBlock = loggedSetsByBlock(session?.exercise_results);
   const blocks = relationList(workout?.workout_blocks)
@@ -202,6 +210,8 @@ function normalizeWorkout(row: unknown): ClientWorkout | null {
     id,
     name: stringField(workout, "name") || "Workout",
     durationMinutes: positiveNumber(workout?.estimated_duration_minutes),
+    programName: source.programName,
+    givenBy: source.givenBy,
     status,
     sessionNote: stringField(session, "client_feedback"),
     exercises: blocks

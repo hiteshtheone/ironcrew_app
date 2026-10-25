@@ -7,6 +7,7 @@ import { ActiveProgramWarning } from "@/components/dashboard/active-program-warn
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { ClientGoal, ClientWorkoutLog } from "@/lib/dashboard/load-client-list";
 import type { WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
+import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import { GOAL_STATUS_LABELS, GOAL_STATUSES, GOAL_TYPE_LABELS, GOAL_TYPES, isGoalStatus, isGoalType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -302,7 +303,7 @@ function WorkoutDetails({ logs }: { logs: ClientWorkoutLog[] }) {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold">{log.workoutName}</p>
-                  <p className="mt-1 text-xs text-slate-500">{log.dateLabel}</p>
+                  <p className="mt-1 text-xs text-slate-500">{log.dateLabel} · {workoutSourceLabel(log)}</p>
                 </div>
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{log.statusLabel}</span>
               </div>
