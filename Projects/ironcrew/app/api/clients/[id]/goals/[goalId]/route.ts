@@ -4,6 +4,7 @@ import {
   asOptionalNumber,
   asTrimmedString,
   databaseErrorMessage,
+  isForeignKeyError,
   isIsoDate,
   isRecord,
   isUuid,
@@ -85,4 +86,32 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (!data) return jsonError("Goal not found", 404);
 
   return NextResponse.json(data);
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { id: clientId, goalId } = await context.params;
+  if (!isUuid(clientId)) return jsonError("Client id must be a UUID", 400);
+  if (!isUuid(goalId)) return jsonError("Goal id must be a UUID", 400);
+
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+
+  const { data, error } = await auth.supabase
+    .from("goals")
+    .delete()
+    .eq("id", goalId)
+    .eq("client_id", clientId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (isForeignKeyError(error)) {
+      return jsonError("This goal is still in use, so it can't be deleted.", 409);
+    }
+    const failure = /row-level security/i.test(error.message) ? 403 : 500;
+    return jsonError(databaseErrorMessage(error), failure);
+  }
+  if (!data) return jsonError("Goal not found", 404);
+
+  return NextResponse.json({ id: data.id });
 }

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import { EditSaveActions, useEditMode } from "@/components/edit-save-actions";
 import {
   Card,
   CardContent,
@@ -22,10 +22,18 @@ export function UpdatePasswordForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { editing, startEditing, stopEditing } = useEditMode("password");
   const router = useRouter();
+
+  const cancelEdit = () => {
+    setPassword("");
+    setError(null);
+    stopEditing();
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editing || password.length === 0) return;
     const supabase = createClient();
     setIsLoading(true);
     setError(null);
@@ -61,14 +69,23 @@ export function UpdatePasswordForm({
                   type="password"
                   placeholder="New password"
                   required
+                  disabled={!editing}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save new password"}
-              </Button>
+              <EditSaveActions
+                appearance="button"
+                className="flex gap-2"
+                editing={editing}
+                dirty={password.length > 0}
+                pending={isLoading}
+                saveLabel="Save new password"
+                saveClassName="flex-1"
+                onEdit={startEditing}
+                onCancel={cancelEdit}
+              />
             </div>
           </form>
         </CardContent>

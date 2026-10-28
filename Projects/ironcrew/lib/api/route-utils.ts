@@ -66,6 +66,10 @@ export function databaseErrorMessage(error: {
   return [error.message, error.details, error.hint].filter(Boolean).join(" — ");
 }
 
+export function isForeignKeyError(error: { code?: string; message: string }) {
+  return error.code === "23503" || /foreign key/i.test(error.message);
+}
+
 export function rpcStatus(message: string) {
   if (/ACTIVE_PROGRAM_EXISTS|already has an active program|already active/i.test(message)) return 409;
   if (/not authenticated|do not manage|do not own|row-level security/i.test(message)) return 403;

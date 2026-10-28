@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -74,6 +74,9 @@ export function MyInfoForm() {
   const [saved, setSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { editing, startEditing, stopEditing } = useEditMode("me");
+  const baseline = account ? formFromAccount(account) : emptyForm;
+  const dirty = !valuesEqual(form, baseline);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,9 +110,16 @@ export function MyInfoForm() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const cancelEdit = () => {
+    if (!account) return;
+    setForm(formFromAccount(account));
+    setError(null);
+    stopEditing();
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!account) return;
+    if (!account || !editing || !dirty) return;
     setIsSaving(true);
     setError(null);
     setSaved(false);
@@ -151,6 +161,7 @@ export function MyInfoForm() {
       setAccount(payload);
       setForm(formFromAccount(payload));
       setSaved(true);
+      stopEditing();
       router.refresh();
     } catch (submitError: unknown) {
       setError(submitError instanceof Error ? submitError.message : "Couldn't save your details");
@@ -186,6 +197,7 @@ export function MyInfoForm() {
                   required
                   maxLength={80}
                   autoComplete="given-name"
+                  disabled={!editing}
                   value={form.first_name}
                   onChange={(event) => updateField("first_name", event.target.value)}
                 />
@@ -197,6 +209,7 @@ export function MyInfoForm() {
                   name="last_name"
                   maxLength={80}
                   autoComplete="family-name"
+                  disabled={!editing}
                   value={form.last_name}
                   onChange={(event) => updateField("last_name", event.target.value)}
                 />
@@ -215,6 +228,7 @@ export function MyInfoForm() {
                       type="tel"
                       maxLength={40}
                       autoComplete="tel"
+                      disabled={!editing}
                       value={form.phone}
                       onChange={(event) => updateField("phone", event.target.value)}
                     />
@@ -226,6 +240,7 @@ export function MyInfoForm() {
                       name="date_of_birth"
                       type="date"
                       max={new Date().toISOString().slice(0, 10)}
+                      disabled={!editing}
                       value={form.date_of_birth}
                       onChange={(event) => updateField("date_of_birth", event.target.value)}
                     />
@@ -240,6 +255,7 @@ export function MyInfoForm() {
                       id="business_name"
                       name="business_name"
                       maxLength={120}
+                      disabled={!editing}
                       value={form.business_name}
                       onChange={(event) => updateField("business_name", event.target.value)}
                     />
@@ -251,9 +267,10 @@ export function MyInfoForm() {
                       name="bio"
                       rows={4}
                       maxLength={2000}
+                      disabled={!editing}
                       value={form.bio}
                       onChange={(event) => updateField("bio", event.target.value)}
-                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-slate-50"
                     />
                   </div>
                 </>
@@ -266,6 +283,7 @@ export function MyInfoForm() {
                   required
                   maxLength={100}
                   placeholder="Asia/Kolkata"
+                  disabled={!editing}
                   value={form.timezone}
                   onChange={(event) => updateField("timezone", event.target.value)}
                 />
@@ -275,11 +293,18 @@ export function MyInfoForm() {
             {error && <p className="text-sm text-red-500">{error}</p>}
             {saved && <p className="text-sm text-emerald-600">Saved.</p>}
 
-            <div className="flex justify-end">
-              <Button type="submit" className="bg-slate-950 text-white hover:bg-slate-800" disabled={isSaving}>
-                {isSaving ? "Saving…" : "Save"}
-              </Button>
-            </div>
+            <EditSaveActions
+              appearance="button"
+              className="flex flex-wrap items-center justify-end gap-2"
+              editing={editing}
+              dirty={dirty}
+              pending={isSaving}
+              saveLabel="Save"
+              pendingLabel="Saving…"
+              saveClassName="bg-slate-950 text-white hover:bg-slate-800"
+              onEdit={startEditing}
+              onCancel={cancelEdit}
+            />
             <div>
               {account?.role === "client" && account.linked && (
                 <>

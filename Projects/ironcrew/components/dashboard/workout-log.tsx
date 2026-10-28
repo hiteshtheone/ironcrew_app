@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ClientExercise, ClientLoggedSet, ClientWorkout } from "@/lib/dashboard/client-week";
 
 type DraftSet = {
@@ -27,11 +28,33 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
   const router = useRouter();
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
   const [note, setNote] = useState(workout.sessionNote ?? "");
+  const [noteBaseline, setNoteBaseline] = useState(workout.sessionNote ?? "");
+  const { editing: editingNote, startEditing: startNoteEdit, stopEditing: stopNoteEdit } = useEditMode(workout.id);
   const [blocks, setBlocks] = useState<DraftBlock[]>(() => workout.exercises.map(draftBlock));
+  const [setBaselines, setSetBaselines] = useState<Record<string, DraftSet[]>>(() => baselineSetsFrom(workout.exercises.map(draftBlock)));
+  const [editingBlocks, setEditingBlocks] = useState<Record<string, boolean>>({});
+  const [loadedWorkoutId, setLoadedWorkoutId] = useState(workout.id);
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const [errorByBlock, setErrorByBlock] = useState<Record<string, string>>({});
 
+  if (workout.id !== loadedWorkoutId) {
+    const nextBlocks = workout.exercises.map(draftBlock);
+    setLoadedWorkoutId(workout.id);
+    setNote(workout.sessionNote ?? "");
+    setNoteBaseline(workout.sessionNote ?? "");
+    setBlocks(nextBlocks);
+    setSetBaselines(baselineSetsFrom(nextBlocks));
+    setEditingBlocks({});
+  }
+
   const save = (blockId: string) => {
+    const block = blocks.find((item) => item.id === blockId);
+    const blockDirty = block ? !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets) : false;
+    if (blockId === "note") {
+      if (!editingNote || note === noteBaseline) return;
+    } else if (!editingBlocks[blockId] || !blockDirty) {
+      return;
+    }
     const payload = buildPayload(note, blocks);
     if ("error" in payload) {
       setErrorByBlock((current) => ({ ...current, [blockId]: payload.error }));
@@ -52,6 +75,10 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
       .then(async (response) => {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
         if (!response.ok) throw new Error(body?.error || "Couldn't save these details");
+        setNoteBaseline(note);
+        setSetBaselines(baselineSetsFrom(blocks));
+        stopNoteEdit();
+        setEditingBlocks({});
         router.refresh();
       })
       .catch((caught: unknown) => {
@@ -70,21 +97,31 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
           Workout note
           <textarea
             value={note}
+            disabled={!editingNote}
             onChange={(event) => setNote(event.target.value)}
             rows={2}
             maxLength={10000}
             placeholder="How did this session go?"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </label>
-        <button
-          type="button"
-          disabled={pendingBlockId === "note"}
-          onClick={() => save("note")}
-          className="mt-2 rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-        >
-          {pendingBlockId === "note" ? "Saving…" : "Save note"}
-        </button>
+        <EditSaveActions
+          className="mt-2 flex flex-wrap items-center gap-2"
+          editing={editingNote}
+          dirty={note !== noteBaseline}
+          pending={pendingBlockId === "note"}
+          saveLabel="Save note"
+          pendingLabel="Saving…"
+          saveType="button"
+          onSave={() => save("note")}
+          saveClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          editClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          onEdit={startNoteEdit}
+          onCancel={() => {
+            setNote(noteBaseline);
+            stopNoteEdit();
+          }}
+        />
         {errorByBlock.note && <p className="mt-2 text-sm text-red-600">{errorByBlock.note}</p>}
       </div>
 
@@ -96,6 +133,8 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
             const open = openBlockId === block.id;
             const saved = blockHasSavedSets(workout, block.id);
             const pending = pendingBlockId === block.id;
+            const blockEditing = Boolean(editingBlocks[block.id]);
+            const blockDirty = !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets);
             return (
               <li key={block.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3">
@@ -130,6 +169,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                         <Field label={index === 0 ? "Weight" : `Weight, set ${index + 1}`}>
                           <input
                             inputMode="decimal"
+                            disabled={!blockEditing}
                             value={set.load}
                             onChange={(event) => updateSet(block.id, index, { load: event.target.value })}
                             className={fieldClass}
@@ -138,6 +178,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                         <Field label={index === 0 ? "Unit" : `Unit, set ${index + 1}`}>
                           <select
                             value={set.loadUnit}
+                            disabled={!blockEditing}
                             onChange={(event) =>
                               updateSet(block.id, index, { loadUnit: event.target.value === "lb" ? "lb" : "kg" })
                             }
@@ -150,6 +191,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                         <Field label={index === 0 ? "Reps" : `Reps, set ${index + 1}`}>
                           <input
                             inputMode="numeric"
+                            disabled={!blockEditing}
                             value={set.repetitions}
                             onChange={(event) => updateSet(block.id, index, { repetitions: event.target.value })}
                             className={fieldClass}
@@ -158,6 +200,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                         <Field label={index === 0 ? "Time (sec)" : `Time, set ${index + 1}`}>
                           <input
                             inputMode="numeric"
+                            disabled={!blockEditing}
                             value={set.durationSeconds}
                             onChange={(event) => updateSet(block.id, index, { durationSeconds: event.target.value })}
                             className={fieldClass}
@@ -166,6 +209,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                         <Field label={index === 0 ? "Distance (km)" : `Distance, set ${index + 1}`}>
                           <input
                             inputMode="decimal"
+                            disabled={!blockEditing}
                             value={set.distanceKm}
                             onChange={(event) => updateSet(block.id, index, { distanceKm: event.target.value })}
                             className={fieldClass}
@@ -175,13 +219,14 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                           <input
                             value={set.notes}
                             maxLength={1000}
+                            disabled={!blockEditing}
                             onChange={(event) => updateSet(block.id, index, { notes: event.target.value })}
                             className={fieldClass}
                           />
                         </Field>
                         <button
                           type="button"
-                          disabled={block.sets.length === 1}
+                          disabled={!blockEditing || block.sets.length === 1}
                           onClick={() => removeSet(block.id, index)}
                           className="self-end rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 hover:bg-white disabled:opacity-40"
                         >
@@ -192,19 +237,32 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                     <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        disabled={block.sets.length >= MAX_SETS}
+                        disabled={!blockEditing || block.sets.length >= MAX_SETS}
                         onClick={() => addSet(block.id)}
                         className="text-xs font-semibold text-slate-600 hover:text-slate-950 disabled:opacity-40"
                       >
                         Add set
                       </button>
-                      <button
-                        type="submit"
-                        disabled={pending}
-                        className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                      >
-                        {pending ? "Saving…" : "Save details"}
-                      </button>
+                      <EditSaveActions
+                        editing={blockEditing}
+                        dirty={blockDirty}
+                        pending={pending}
+                        saveLabel="Save details"
+                        pendingLabel="Saving…"
+                        saveClassName="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                        editClassName="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        onEdit={() => setEditingBlocks((current) => ({ ...current, [block.id]: true }))}
+                        onCancel={() => {
+                          setBlocks((current) =>
+                            current.map((item) =>
+                              item.id === block.id
+                                ? { ...item, sets: (setBaselines[block.id] ?? item.sets).map((set) => ({ ...set })) }
+                                : item,
+                            ),
+                          );
+                          setEditingBlocks((current) => ({ ...current, [block.id]: false }));
+                        }}
+                      />
                     </div>
                     {errorByBlock[block.id] && <p className="text-sm text-red-600">{errorByBlock[block.id]}</p>}
                   </form>
@@ -248,6 +306,10 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
       }),
     );
   }
+}
+
+function baselineSetsFrom(drafts: DraftBlock[]) {
+  return Object.fromEntries(drafts.map((block) => [block.id, block.sets.map((set) => ({ ...set }))]));
 }
 
 function blockHasSavedSets(workout: ClientWorkout, blockId: string) {
@@ -362,4 +424,4 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-const fieldClass = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-slate-400";
+const fieldClass = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";

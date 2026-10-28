@@ -2,11 +2,21 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ExerciseOption, LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
 const fieldClass =
-  "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400";
+  "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
+
+type WorkoutSnapshot = {
+  name: string;
+  description: string;
+  duration: string;
+  blocks: BlockDraft[];
+};
+
+const emptyWorkoutSnapshot: WorkoutSnapshot = { name: "", description: "", duration: "", blocks: [] };
 
 type BlockDraft = {
   key: string;
@@ -29,6 +39,7 @@ export function WorkoutEditor({
   onSelect,
   onDuplicate,
   onSave,
+  onDelete,
   onCreateExercise,
 }: {
   workouts: LibraryWorkout[];
@@ -37,7 +48,8 @@ export function WorkoutEditor({
   pending: string | null;
   onSelect: (workoutId: string) => void;
   onDuplicate: (workoutId: string) => void;
-  onSave: (workoutId: string, body: Record<string, unknown>) => Promise<void>;
+  onSave: (workoutId: string, body: Record<string, unknown>) => Promise<boolean>;
+  onDelete: (workoutId: string) => Promise<boolean>;
   onCreateExercise: (name: string) => Promise<ExerciseOption | null>;
 }) {
   const requested = workouts.find((workout) => workout.id === selectedWorkoutId) ?? null;
@@ -50,14 +62,21 @@ export function WorkoutEditor({
   const [knownExercises, setKnownExercises] = useState(exercises);
   const workoutId = selected?.id ?? "";
   const [loadedId, setLoadedId] = useState(workoutId);
+  const [baseline, setBaseline] = useState<WorkoutSnapshot>(() => (selected ? workoutSnapshot(selected) : emptyWorkoutSnapshot));
+  const { editing, startEditing, stopEditing } = useEditMode(workoutId);
 
   if (workoutId !== loadedId) {
+    const next = selected ? workoutSnapshot(selected) : emptyWorkoutSnapshot;
     setLoadedId(workoutId);
-    setName(selected?.name ?? "");
-    setDescription(selected?.description ?? "");
-    setDuration(selected?.durationMinutes == null ? "" : String(selected.durationMinutes));
-    setBlocks(selected ? selected.blocks.map(toDraft) : []);
+    setName(next.name);
+    setDescription(next.description);
+    setDuration(next.duration);
+    setBlocks(next.blocks);
+    setBaseline(next);
   }
+
+  const currentSnapshot: WorkoutSnapshot = { name, description, duration, blocks };
+  const dirty = !valuesEqual(currentSnapshot, baseline);
 
   useEffect(() => {
     setKnownExercises((current) => {
@@ -67,10 +86,19 @@ export function WorkoutEditor({
     });
   }, [exercises]);
 
-  const save = (event: FormEvent) => {
+  const cancelEdit = () => {
+    setName(baseline.name);
+    setDescription(baseline.description);
+    setDuration(baseline.duration);
+    setBlocks(baseline.blocks);
+    stopEditing();
+  };
+
+  const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selected) return;
-    void onSave(selected.id, {
+    if (!selected || !editing || !dirty) return;
+    const nextBaseline: WorkoutSnapshot = { name, description, duration, blocks };
+    const saved = await onSave(selected.id, {
       name,
       description: description.trim() || null,
       estimated_duration_minutes: duration.trim() === "" ? null : Number(duration),
@@ -86,6 +114,9 @@ export function WorkoutEditor({
         rest_seconds: emptyNumber(block.restSeconds),
       })),
     });
+    if (!saved) return;
+    setBaseline(nextBaseline);
+    stopEditing();
   };
 
   const createExercise = () => {
@@ -167,7 +198,7 @@ export function WorkoutEditor({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Name</span>
-              <input required maxLength={160} value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+              <input required maxLength={160} disabled={!editing} value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
             </label>
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Minutes</span>
@@ -175,6 +206,7 @@ export function WorkoutEditor({
                 type="number"
                 min="1"
                 step="1"
+                disabled={!editing}
                 value={duration}
                 onChange={(event) => setDuration(event.target.value)}
                 className={fieldClass}
@@ -184,9 +216,10 @@ export function WorkoutEditor({
               <span className="font-medium text-slate-600">Description</span>
               <textarea
                 value={description}
+                disabled={!editing}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={2}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm"
+                className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
               />
             </label>
           </div>
@@ -196,8 +229,9 @@ export function WorkoutEditor({
               <h3 className="text-sm font-semibold">Blocks</h3>
               <button
                 type="button"
+                disabled={!editing}
                 onClick={() => setBlocks((current) => [...current, emptyBlock(knownExercises[0]?.id ?? "")])}
-                className="text-sm font-semibold text-slate-700"
+                className="text-sm font-semibold text-slate-700 disabled:opacity-40"
               >
                 Add block
               </button>
@@ -208,9 +242,9 @@ export function WorkoutEditor({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-500">Block {index + 1}</span>
                   <div className="flex gap-2 text-sm">
-                    <button type="button" disabled={index === 0} onClick={() => moveBlock(index, -1)} className="font-semibold disabled:opacity-40">Up</button>
-                    <button type="button" disabled={index === blocks.length - 1} onClick={() => moveBlock(index, 1)} className="font-semibold disabled:opacity-40">Down</button>
-                    <button type="button" onClick={() => setBlocks((current) => current.filter((item) => item.key !== block.key))} className="font-semibold text-red-600">Remove</button>
+                    <button type="button" disabled={!editing || index === 0} onClick={() => moveBlock(index, -1)} className="font-semibold disabled:opacity-40">Up</button>
+                    <button type="button" disabled={!editing || index === blocks.length - 1} onClick={() => moveBlock(index, 1)} className="font-semibold disabled:opacity-40">Down</button>
+                    <button type="button" disabled={!editing} onClick={() => setBlocks((current) => current.filter((item) => item.key !== block.key))} className="font-semibold text-red-600 disabled:opacity-40">Remove</button>
                   </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -218,6 +252,7 @@ export function WorkoutEditor({
                     <span className="font-medium text-slate-600">Type</span>
                     <select
                       value={block.blockType}
+                      disabled={!editing}
                       onChange={(event) => updateBlock(block.key, { blockType: isBlockType(event.target.value) ? event.target.value : block.blockType })}
                       className={fieldClass}
                     >
@@ -231,6 +266,7 @@ export function WorkoutEditor({
                       <span className="font-medium text-slate-600">Exercise</span>
                       <select
                         required
+                        disabled={!editing}
                         value={block.exerciseId}
                         onChange={(event) => updateBlock(block.key, { exerciseId: event.target.value })}
                         className={fieldClass}
@@ -244,17 +280,17 @@ export function WorkoutEditor({
                   ) : null}
                   <label className="grid gap-1 text-sm sm:col-span-2">
                     <span className="font-medium text-slate-600">Title</span>
-                    <input maxLength={160} value={block.title} onChange={(event) => updateBlock(block.key, { title: event.target.value })} className={fieldClass} />
+                    <input maxLength={160} disabled={!editing} value={block.title} onChange={(event) => updateBlock(block.key, { title: event.target.value })} className={fieldClass} />
                   </label>
-                  <NumberField label="Sets" value={block.sets} onChange={(sets) => updateBlock(block.key, { sets })} />
-                  <NumberField label="Reps min" value={block.repsMin} onChange={(repsMin) => updateBlock(block.key, { repsMin })} />
-                  <NumberField label="Reps max" value={block.repsMax} onChange={(repsMax) => updateBlock(block.key, { repsMax })} />
-                  <NumberField label="Load" value={block.load} onChange={(load) => updateBlock(block.key, { load })} step="any" />
+                  <NumberField label="Sets" value={block.sets} disabled={!editing} onChange={(sets) => updateBlock(block.key, { sets })} />
+                  <NumberField label="Reps min" value={block.repsMin} disabled={!editing} onChange={(repsMin) => updateBlock(block.key, { repsMin })} />
+                  <NumberField label="Reps max" value={block.repsMax} disabled={!editing} onChange={(repsMax) => updateBlock(block.key, { repsMax })} />
+                  <NumberField label="Load" value={block.load} disabled={!editing} onChange={(load) => updateBlock(block.key, { load })} step="any" />
                   <label className="grid gap-1 text-sm">
                     <span className="font-medium text-slate-600">Load unit</span>
-                    <input maxLength={20} value={block.loadUnit} onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value })} className={fieldClass} />
+                    <input maxLength={20} disabled={!editing} value={block.loadUnit} onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value })} className={fieldClass} />
                   </label>
-                  <NumberField label="Rest seconds" value={block.restSeconds} onChange={(restSeconds) => updateBlock(block.key, { restSeconds })} />
+                  <NumberField label="Rest seconds" value={block.restSeconds} disabled={!editing} onChange={(restSeconds) => updateBlock(block.key, { restSeconds })} />
                 </div>
               </div>
             ))}
@@ -281,9 +317,28 @@ export function WorkoutEditor({
             </button>
           </div>
 
-          <button type="submit" disabled={pending === "save-workout"} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-            {pending === "save-workout" ? "Saving..." : "Save workout"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <EditSaveActions
+              editing={editing}
+              dirty={dirty}
+              pending={pending === "save-workout"}
+              saveLabel="Save workout"
+              saveClassName="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              editClassName="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              onEdit={startEditing}
+              onCancel={cancelEdit}
+            />
+            <DeleteControl
+              key={selected.id}
+              itemLabel="workout"
+              detail={`Delete ${selected.name}? This cannot be undone. A workout still on a program or calendar is kept.`}
+              pending={pending === "delete-workout"}
+              disabled={pending !== null && pending !== "delete-workout"}
+              onDelete={() => {
+                void onDelete(selected.id);
+              }}
+            />
+          </div>
         </>
       )}
     </form>
@@ -295,18 +350,29 @@ function NumberField({
   value,
   onChange,
   step = "1",
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   step?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="grid gap-1 text-sm">
       <span className="font-medium text-slate-600">{label}</span>
-      <input type="number" min="0" step={step} value={value} onChange={(event) => onChange(event.target.value)} className={fieldClass} />
+      <input type="number" min="0" step={step} disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className={fieldClass} />
     </label>
   );
+}
+
+function workoutSnapshot(workout: LibraryWorkout): WorkoutSnapshot {
+  return {
+    name: workout.name,
+    description: workout.description ?? "",
+    duration: workout.durationMinutes == null ? "" : String(workout.durationMinutes),
+    blocks: workout.blocks.map(toDraft),
+  };
 }
 
 function toDraft(block: LibraryWorkout["blocks"][number]): BlockDraft {

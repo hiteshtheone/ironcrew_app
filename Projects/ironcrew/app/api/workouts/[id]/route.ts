@@ -4,6 +4,7 @@ import {
   asOptionalNumber,
   asTrimmedString,
   databaseErrorMessage,
+  isForeignKeyError,
   isRecord,
   isUuid,
   jsonError,
@@ -52,4 +53,24 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (error) return jsonError(databaseErrorMessage(error), rpcStatus(error.message));
 
   return NextResponse.json(data);
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  if (!isUuid(id)) return jsonError("Workout id must be a UUID", 400);
+
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+
+  const { data, error } = await auth.supabase.from("workouts").delete().eq("id", id).select("id").maybeSingle();
+  if (error) {
+    if (isForeignKeyError(error)) {
+      return jsonError("This workout is still on a program or a calendar, so it can't be deleted.", 409);
+    }
+    const status = /row-level security/i.test(error.message) ? 403 : 500;
+    return jsonError(databaseErrorMessage(error), status);
+  }
+  if (!data) return jsonError("Workout not found", 404);
+
+  return NextResponse.json({ id: data.id });
 }

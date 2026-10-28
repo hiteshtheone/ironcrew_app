@@ -1,15 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
+import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 
 const fieldClass =
-  "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400";
+  "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
 
 function activeWeekId(data: TrainerProgramsData, searchParams: { get(name: string): string | null }) {
   if (data.kind !== "ready") return null;
@@ -33,9 +34,12 @@ export function ProgramsPanel({
   const isClient = mode === "client";
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selectedProgram = data.kind === "ready"
+    ? data.programs.find((program) => program.id === searchParams.get("program")) ?? null
+    : null;
   const [programName, setProgramName] = useState("");
-  const [draftName, setDraftName] = useState("");
-  const [draftDescription, setDraftDescription] = useState("");
+  const [draftName, setDraftName] = useState(selectedProgram?.name ?? "");
+  const [draftDescription, setDraftDescription] = useState(selectedProgram?.description ?? "");
   const [phaseName, setPhaseName] = useState("");
   const [workoutName, setWorkoutName] = useState("");
   const [weekStart, setWeekStart] = useState("");
@@ -48,14 +52,22 @@ export function ProgramsPanel({
   const [goalTitle, setGoalTitle] = useState("");
   // Set when the server reports an active program the page did not know about.
   const [conflict, setConflict] = useState<ActiveProgramSummary[] | null>(null);
-  const selectedProgram = data.kind === "ready"
-    ? data.programs.find((program) => program.id === searchParams.get("program")) ?? null
-    : null;
   const selectedProgramId = selectedProgram?.id ?? null;
+  const { editing: editingProgram, startEditing: startProgramEdit, stopEditing: stopProgramEdit } = useEditMode(selectedProgramId ?? "");
+  const editingProgramRef = useRef(false);
+  editingProgramRef.current = editingProgram;
+  const [programOverride, setProgramOverride] = useState<{ id: string; name: string; description: string } | null>(null);
 
   useEffect(() => {
-    setDraftName(selectedProgram?.name ?? "");
-    setDraftDescription(selectedProgram?.description ?? "");
+    if (editingProgramRef.current) return;
+    const name = selectedProgram?.name ?? "";
+    const description = selectedProgram?.description ?? "";
+    setDraftName(name);
+    setDraftDescription(description);
+    setProgramOverride((current) => {
+      if (!current || current.id !== selectedProgram?.id) return null;
+      return { id: current.id, name, description };
+    });
   }, [selectedProgram?.id, selectedProgram?.name, selectedProgram?.description]);
 
   useEffect(() => {
@@ -110,22 +122,60 @@ export function ProgramsPanel({
     try {
       await action();
       router.refresh();
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");
+      return false;
     } finally {
       setPending(null);
     }
   };
 
+  const programBaseline = selected && programOverride?.id === selected.id
+    ? programOverride
+    : { name: selected?.name ?? "", description: selected?.description ?? "" };
+  const programDirty = !valuesEqual(
+    { name: draftName, description: draftDescription },
+    { name: programBaseline.name, description: programBaseline.description },
+  );
+
+  const cancelProgramEdit = () => {
+    setDraftName(programBaseline.name);
+    setDraftDescription(programBaseline.description);
+    setError(null);
+    stopProgramEdit();
+  };
+
   const saveProgram = (event: FormEvent) => {
     event.preventDefault();
-    if (!selected) return;
+    if (!selected || !editingProgram || !programDirty) return;
+    const savedName = draftName;
+    const savedDescription = draftDescription;
     void run("save-program", async () => {
       await patchJson(`/api/programs/${selected.id}`, {
         name: draftName,
         description: draftDescription.trim() || null,
       });
       setNotice("Program saved.");
+    }).then((saved) => {
+      if (!saved) return;
+      setProgramOverride({ id: selected.id, name: savedName, description: savedDescription });
+      stopProgramEdit();
+    });
+  };
+
+  const deleteProgram = () => {
+    if (!selected) return;
+    void run("delete-program", async () => {
+      const response = await fetch(`/api/programs/${selected.id}`, { method: "DELETE" });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to delete this program");
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("program");
+      params.delete("phase");
+      params.delete("week");
+      router.replace(`/dashboard?${params.toString()}`);
+      setNotice("Program deleted.");
     });
   };
 
@@ -309,20 +359,36 @@ export function ProgramsPanel({
                 </div>
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-slate-600">Name</span>
-                  <input required maxLength={160} value={draftName} onChange={(event) => setDraftName(event.target.value)} className={fieldClass} />
+                  <input required maxLength={160} disabled={!editingProgram} value={draftName} onChange={(event) => setDraftName(event.target.value)} className={fieldClass} />
                 </label>
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-slate-600">Description</span>
                   <textarea
                     value={draftDescription}
+                    disabled={!editingProgram}
                     onChange={(event) => setDraftDescription(event.target.value)}
                     rows={2}
-                    className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm"
+                    className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </label>
-                <button type="submit" disabled={pending === "save-program"} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                  {pending === "save-program" ? "Saving..." : "Save program"}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <EditSaveActions
+                    editing={editingProgram}
+                    dirty={programDirty}
+                    pending={pending === "save-program"}
+                    saveLabel="Save program"
+                    onEdit={startProgramEdit}
+                    onCancel={cancelProgramEdit}
+                  />
+                  <DeleteControl
+                    key={selected.id}
+                    itemLabel="program"
+                    detail={`Delete ${selected.name}? Its phases and weeks will be removed. This cannot be undone.`}
+                    pending={pending === "delete-program"}
+                    disabled={pending !== null && pending !== "delete-program"}
+                    onDelete={deleteProgram}
+                  />
+                </div>
               </form>
 
               {isClient ? (
@@ -525,6 +591,15 @@ export function ProgramsPanel({
             onSave={(workoutId, body) => run("save-workout", async () => {
               await patchJson(`/api/workouts/${workoutId}`, body);
               setNotice("Workout saved.");
+            })}
+            onDelete={(workoutId) => run("delete-workout", async () => {
+              const response = await fetch(`/api/workouts/${workoutId}`, { method: "DELETE" });
+              const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+              if (!response.ok) throw new Error(payload?.error || "Unable to delete this workout");
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete("workout");
+              router.replace(`/dashboard?${params.toString()}`);
+              setNotice("Workout deleted.");
             })}
             onCreateExercise={async (name) => {
               let created: { id: string; name: string } | null = null;

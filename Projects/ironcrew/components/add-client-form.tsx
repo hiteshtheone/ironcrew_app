@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,13 +36,22 @@ export function AddClientForm() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { editing, startEditing, stopEditing } = useEditMode("new-client");
+  const dirty = !valuesEqual(form, emptyForm);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const cancelEdit = () => {
+    setForm(emptyForm);
+    setError(null);
+    stopEditing();
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!editing || !dirty) return;
     setIsLoading(true);
     setError(null);
 
@@ -89,6 +99,7 @@ export function AddClientForm() {
             required
             maxLength={80}
             autoComplete="given-name"
+            disabled={!editing}
             value={form.first_name}
             onChange={(event) => updateField("first_name", event.target.value)}
           />
@@ -100,6 +111,7 @@ export function AddClientForm() {
             name="last_name"
             maxLength={80}
             autoComplete="family-name"
+            disabled={!editing}
             value={form.last_name}
             onChange={(event) => updateField("last_name", event.target.value)}
           />
@@ -111,6 +123,7 @@ export function AddClientForm() {
             name="email"
             required
             type="email"
+            disabled={!editing}
             value={form.email}
             onChange={(event) => updateField("email", event.target.value)}
           />
@@ -121,6 +134,7 @@ export function AddClientForm() {
             id="phone"
             name="phone"
             type="tel"
+            disabled={!editing}
             value={form.phone}
             onChange={(event) => updateField("phone", event.target.value)}
           />
@@ -133,6 +147,7 @@ export function AddClientForm() {
             type="date"
             required
             max={new Date().toISOString().slice(0, 10)}
+            disabled={!editing}
             value={form.date_of_birth}
             onChange={(event) =>
               updateField("date_of_birth", event.target.value)
@@ -144,6 +159,7 @@ export function AddClientForm() {
           <select
             id="status"
             name="status"
+            disabled={!editing}
             value={form.status}
             onChange={(event) =>
               updateField("status", event.target.value as FormState["status"])
@@ -163,11 +179,12 @@ export function AddClientForm() {
             id="onboarding_notes"
             name="onboarding_notes"
             rows={5}
+            disabled={!editing}
             value={form.onboarding_notes}
             onChange={(event) =>
               updateField("onboarding_notes", event.target.value)
             }
-            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </div>
       </div>
@@ -178,9 +195,15 @@ export function AddClientForm() {
         <Button asChild type="button" variant="outline">
           <Link href="/dashboard">Cancel</Link>
         </Button>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Saving..." : "Save client"}
-        </Button>
+        <EditSaveActions
+          appearance="button"
+          editing={editing}
+          dirty={dirty}
+          pending={isLoading}
+          saveLabel="Save client"
+          onEdit={startEditing}
+          onCancel={cancelEdit}
+        />
       </div>
     </form>
   );
