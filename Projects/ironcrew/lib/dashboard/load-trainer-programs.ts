@@ -3,12 +3,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type WorkoutOption = {
   id: string;
   name: string;
+  isSystem: boolean;
 };
 
 export type ExerciseOption = {
   id: string;
   name: string;
+  isSystem: boolean;
 };
+
+export function libraryItemLabel(name: string, isSystem: boolean) {
+  return isSystem ? `${name} (System)` : name;
+}
 
 export type WorkoutBlock = {
   id: string;
@@ -63,6 +69,7 @@ export type TrainerProgram = {
   name: string;
   description: string | null;
   status: string;
+  isSystem: boolean;
   phases: ProgramPhase[];
   assignedClients: AssignedClient[];
 };
@@ -91,8 +98,8 @@ export function loadClientPrograms(supabase: SupabaseClient, clientId: string): 
 export async function loadOwnedPrograms(supabase: SupabaseClient, owner: ProgramOwner): Promise<TrainerProgramsData> {
   const ownerColumn = owner.kind === "trainer" ? "trainer_id" : "owner_client_id";
   const ownerId = owner.kind === "trainer" ? owner.trainerId : owner.clientId;
-  // Exercises are visible when owned by this user or shared (no owner at all).
-  const exerciseFilter = `${ownerColumn}.eq.${ownerId},and(trainer_id.is.null,owner_client_id.is.null)`;
+  // Owned by this user, or system (no owner at all, available to everyone).
+  const visibleFilter = `${ownerColumn}.eq.${ownerId},and(trainer_id.is.null,owner_client_id.is.null)`;
 
   const [{ data: programRows, error: programError }, { data: workoutRows, error: workoutError }, { data: exerciseRows, error: exerciseError }] =
     await Promise.all([
@@ -104,6 +111,8 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
           name,
           description,
           status,
+          trainer_id,
+          owner_client_id,
           program_phases (
             id,
             name,
@@ -123,7 +132,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
           )
         `,
         )
-        .eq(ownerColumn, ownerId),
+        .or(visibleFilter),
       supabase
         .from("workouts")
         .select(
@@ -132,6 +141,8 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
           name,
           description,
           estimated_duration_minutes,
+          trainer_id,
+          owner_client_id,
           workout_blocks (
             id,
             position,
@@ -148,8 +159,8 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
           )
         `,
         )
-        .eq(ownerColumn, ownerId),
-      supabase.from("exercises").select("id, name").or(exerciseFilter),
+        .or(visibleFilter),
+      supabase.from("exercises").select("id, name, trainer_id, owner_client_id").or(visibleFilter),
     ]);
 
   if (programError) return { kind: "error", message: programError.message };
@@ -159,7 +170,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
   const programs = (programRows ?? [])
     .map(normalizeProgram)
     .filter((program): program is TrainerProgram => program !== null)
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort(compareLibrary);
 
   if (programs.length > 0) {
     const { data: assignmentRows, error: assignmentError } = await supabase
@@ -192,12 +203,12 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
   const workouts = (workoutRows ?? [])
     .map(normalizeWorkout)
     .filter((workout): workout is LibraryWorkout => workout !== null)
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort(compareLibrary);
 
   const exercises = (exerciseRows ?? [])
     .map(normalizeExercise)
     .filter((exercise): exercise is ExerciseOption => exercise !== null)
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort(compareLibrary);
 
   return { kind: "ready", programs, workouts, exercises };
 }
@@ -219,6 +230,7 @@ function normalizeProgram(row: unknown): TrainerProgram | null {
     name,
     description: stringField(record, "description"),
     status,
+    isSystem: isSystemRow(record),
     phases,
     assignedClients: [],
   };
@@ -292,6 +304,7 @@ function normalizeWorkout(row: unknown): LibraryWorkout | null {
     name,
     description: stringField(record, "description"),
     durationMinutes: numberField(record, "estimated_duration_minutes"),
+    isSystem: isSystemRow(record),
     blocks,
   };
 }
@@ -325,7 +338,16 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
   const id = stringField(record, "id");
   const name = stringField(record, "name");
   if (!id || !name) return null;
-  return { id, name };
+  return { id, name, isSystem: isSystemRow(record) };
+}
+
+function isSystemRow(record: Record<string, unknown> | null) {
+  return record?.trainer_id == null && record?.owner_client_id == null;
+}
+
+function compareLibrary<T extends { name: string; isSystem: boolean }>(left: T, right: T) {
+  if (left.isSystem !== right.isSystem) return left.isSystem ? 1 : -1;
+  return left.name.localeCompare(right.name);
 }
 
 function normalizeAssignedClient(row: unknown) {

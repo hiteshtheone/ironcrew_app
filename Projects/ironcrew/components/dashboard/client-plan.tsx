@@ -7,7 +7,7 @@ import { ActiveProgramWarning } from "@/components/dashboard/active-program-warn
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { ClientGoal, ClientWorkoutLog } from "@/lib/dashboard/load-client-list";
-import type { WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import { GOAL_STATUS_LABELS, GOAL_STATUSES, GOAL_TYPE_LABELS, GOAL_TYPES, isGoalStatus, isGoalType } from "@/lib/plans/constants";
 
@@ -50,7 +50,7 @@ type ClientPlanTarget = {
   workoutLogs: ClientWorkoutLog[];
 };
 
-type ProgramOption = { id: string; name: string };
+type ProgramOption = { id: string; name: string; isSystem?: boolean };
 
 export function ClientPlan({
   client,
@@ -290,7 +290,7 @@ export function ClientPlan({
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Program</span>
               <select required disabled={!editingPlan} value={selectedProgramId} onChange={(event) => setProgramId(event.target.value)} className={fieldClass}>
-                {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+                {programs.map((program) => <option key={program.id} value={program.id}>{libraryItemLabel(program.name, program.isSystem === true)}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-sm">
@@ -341,7 +341,7 @@ export function ClientPlan({
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Workout</span>
               <select required value={selectedWorkoutId} onChange={(event) => setWorkoutId(event.target.value)} className={fieldClass}>
-                {workouts.map((workout) => <option key={workout.id} value={workout.id}>{workout.name}</option>)}
+                {workouts.map((workout) => <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-sm">

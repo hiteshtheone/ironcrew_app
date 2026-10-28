@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
-import type { ExerciseOption, LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type ExerciseOption, type LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -82,7 +82,7 @@ export function WorkoutEditor({
     setKnownExercises((current) => {
       const ids = new Set(exercises.map((exercise) => exercise.id));
       const pendingExercises = current.filter((exercise) => !ids.has(exercise.id));
-      return [...exercises, ...pendingExercises].sort((left, right) => left.name.localeCompare(right.name));
+      return [...exercises, ...pendingExercises].sort(compareExercises);
     });
   }, [exercises]);
 
@@ -125,7 +125,7 @@ export function WorkoutEditor({
       setKnownExercises((current) =>
         current.some((exercise) => exercise.id === created.id)
           ? current
-          : [...current, created].sort((left, right) => left.name.localeCompare(right.name)),
+          : [...current, created].sort(compareExercises),
       );
       setExerciseName("");
     });
@@ -153,7 +153,11 @@ export function WorkoutEditor({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-lg font-bold">Workout</h2>
-          <p className="mt-1 text-sm text-slate-500">Edit sets, reps, and blocks. A duplicate can be changed on its own.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {selected?.isSystem
+              ? "This system workout is available to everyone. Duplicate it to make your own copy."
+              : "Edit sets, reps, and blocks. A duplicate can be changed on its own."}
+          </p>
         </div>
         <button
           type="button"
@@ -175,7 +179,7 @@ export function WorkoutEditor({
             <select value="" onChange={(event) => onSelect(event.target.value)} className={fieldClass}>
               <option value="">Select</option>
               {workouts.map((workout) => (
-                <option key={workout.id} value={workout.id}>{workout.name}</option>
+                <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>
               ))}
             </select>
           </label>
@@ -190,7 +194,7 @@ export function WorkoutEditor({
               className={fieldClass}
             >
               {workouts.map((workout) => (
-                <option key={workout.id} value={workout.id}>{workout.name}</option>
+                <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>
               ))}
             </select>
           </label>
@@ -227,6 +231,7 @@ export function WorkoutEditor({
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">Blocks</h3>
+              {selected.isSystem ? null : (
               <button
                 type="button"
                 disabled={!editing}
@@ -235,17 +240,20 @@ export function WorkoutEditor({
               >
                 Add block
               </button>
+              )}
             </div>
             {blocks.length === 0 ? <p className="text-sm text-slate-500">No blocks yet.</p> : null}
             {blocks.map((block, index) => (
               <div key={block.key} className="space-y-3 rounded-xl border border-slate-100 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-500">Block {index + 1}</span>
+                  {selected.isSystem ? null : (
                   <div className="flex gap-2 text-sm">
                     <button type="button" disabled={!editing || index === 0} onClick={() => moveBlock(index, -1)} className="font-semibold disabled:opacity-40">Up</button>
                     <button type="button" disabled={!editing || index === blocks.length - 1} onClick={() => moveBlock(index, 1)} className="font-semibold disabled:opacity-40">Down</button>
                     <button type="button" disabled={!editing} onClick={() => setBlocks((current) => current.filter((item) => item.key !== block.key))} className="font-semibold text-red-600 disabled:opacity-40">Remove</button>
                   </div>
+                  )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <label className="grid gap-1 text-sm">
@@ -273,7 +281,7 @@ export function WorkoutEditor({
                       >
                         <option value="">Select</option>
                         {knownExercises.map((exercise) => (
-                          <option key={exercise.id} value={exercise.id}>{exercise.name}</option>
+                          <option key={exercise.id} value={exercise.id}>{libraryItemLabel(exercise.name, exercise.isSystem)}</option>
                         ))}
                       </select>
                     </label>
@@ -296,6 +304,7 @@ export function WorkoutEditor({
             ))}
           </div>
 
+          {selected.isSystem ? null : (
           <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-end">
             <label className="grid flex-1 gap-1 text-sm">
               <span className="font-medium text-slate-600">New exercise</span>
@@ -316,7 +325,9 @@ export function WorkoutEditor({
               {pending === "exercise" ? "Adding..." : "Add exercise"}
             </button>
           </div>
+          )}
 
+          {selected.isSystem ? null : (
           <div className="flex flex-wrap items-center gap-2">
             <EditSaveActions
               editing={editing}
@@ -339,6 +350,7 @@ export function WorkoutEditor({
               }}
             />
           </div>
+          )}
         </>
       )}
     </form>
@@ -364,6 +376,11 @@ function NumberField({
       <input type="number" min="0" step={step} disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className={fieldClass} />
     </label>
   );
+}
+
+function compareExercises(left: ExerciseOption, right: ExerciseOption) {
+  if (left.isSystem !== right.isSystem) return left.isSystem ? 1 : -1;
+  return left.name.localeCompare(right.name);
 }
 
 function workoutSnapshot(workout: LibraryWorkout): WorkoutSnapshot {

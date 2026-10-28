@@ -8,7 +8,7 @@ import { ClientPlan } from "@/components/dashboard/client-plan";
 import type { ClientListData } from "@/lib/dashboard/load-client-list";
 import type { WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 
-type ProgramOption = { id: string; name: string };
+type ProgramOption = { id: string; name: string; isSystem?: boolean };
 
 export function ClientListPanel({
   data,

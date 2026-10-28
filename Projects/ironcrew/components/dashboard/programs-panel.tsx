@@ -7,7 +7,7 @@ import { ActiveProgramWarning } from "@/components/dashboard/active-program-warn
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 
 const fieldClass =
   "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
@@ -298,8 +298,8 @@ export function ProgramsPanel({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{isClient ? "My programs" : "Programs"}</h1>
         <p className="mt-2 text-sm text-slate-500">
           {isClient
-            ? "Build your own plan: phase, then the workouts for each week. Only you can see these."
-            : "Build a shared plan: phase, then the workouts for each week."}
+            ? "Build your own plan: phase, then the workouts for each week. System programs are available to everyone."
+            : "Build a shared plan: phase, then the workouts for each week. System programs are available to everyone."}
         </p>
       </div>
 
@@ -328,7 +328,7 @@ export function ProgramsPanel({
                   onClick={() => openProgram(program.id)}
                   className={`w-full rounded-xl px-3 py-2 text-left text-sm ${program.id === selected?.id ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
                 >
-                  <span className="block truncate">{program.name}</span>
+                  <span className="block truncate">{libraryItemLabel(program.name, program.isSystem)}</span>
                   <span className={`block truncate text-xs ${program.id === selected?.id ? "text-slate-300" : "text-slate-500"}`}>
                     {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}
                   </span>
@@ -347,7 +347,7 @@ export function ProgramsPanel({
             <div className="space-y-6">
               <form onSubmit={saveProgram} className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program{selected.status === "draft" ? " · Draft copy" : ""}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program{selected.isSystem ? " · System" : ""}{selected.status === "draft" ? " · Draft copy" : ""}</p>
                   <button
                     type="button"
                     onClick={duplicateProgram}
@@ -371,6 +371,9 @@ export function ProgramsPanel({
                     className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </label>
+                {selected.isSystem ? (
+                  <p className="text-sm text-slate-500">This system program is available to everyone. Duplicate it to make your own copy.</p>
+                ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <EditSaveActions
                     editing={editingProgram}
@@ -389,6 +392,7 @@ export function ProgramsPanel({
                     onDelete={deleteProgram}
                   />
                 </div>
+                )}
               </form>
 
               {isClient ? (
@@ -430,6 +434,7 @@ export function ProgramsPanel({
                     </button>
                   ))}
                 </div>
+                {selected.isSystem ? null : (
                 <form onSubmit={createPhase} className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <input
                     value={phaseName}
@@ -443,15 +448,18 @@ export function ProgramsPanel({
                     {pending === "phase" ? "Adding..." : "Add phase"}
                   </button>
                 </form>
+                )}
               </div>
 
               {phase ? (
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold">Week in {phase.name}</h3>
+                    {selected.isSystem ? null : (
                     <button type="button" onClick={createWeek} disabled={pending === "week"} className="text-sm font-semibold text-slate-700 disabled:opacity-60">
                       {pending === "week" ? "Adding..." : "Add week"}
                     </button>
+                    )}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {phase.weeks.length === 0 ? <p className="text-sm text-slate-500">No weeks in this phase yet.</p> : null}
@@ -508,13 +516,13 @@ export function ProgramsPanel({
                             <span className="text-xs font-semibold text-slate-500">Day {dayNumber}</span>
                             <select
                               value={dayOverrides[dayNumber] ?? slot?.workoutId ?? ""}
-                              disabled={pending === `day-${dayNumber}`}
+                              disabled={selected.isSystem || pending === `day-${dayNumber}`}
                               onChange={(event) => saveDay(dayNumber, event.target.value)}
                               className={`${fieldClass} mt-2`}
                             >
                               <option value="">Rest</option>
                               {data.workouts.map((workout) => (
-                                <option key={workout.id} value={workout.id}>{workout.name}</option>
+                                <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>
                               ))}
                             </select>
                           </label>
@@ -602,11 +610,11 @@ export function ProgramsPanel({
               setNotice("Workout deleted.");
             })}
             onCreateExercise={async (name) => {
-              let created: { id: string; name: string } | null = null;
+              let created: { id: string; name: string; isSystem: boolean } | null = null;
               await run("exercise", async () => {
                 const payload = await postJson("/api/exercises", { name });
                 if (typeof payload.id === "string" && typeof payload.name === "string") {
-                  created = { id: payload.id, name: payload.name };
+                  created = { id: payload.id, name: payload.name, isSystem: false };
                 }
               });
               return created;
