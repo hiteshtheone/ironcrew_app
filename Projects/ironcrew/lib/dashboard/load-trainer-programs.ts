@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isTrackingType, parametersFor, type TrackingParameter } from "@/lib/exercises/tracking";
+
 export type WorkoutOption = {
   id: string;
   name: string;
@@ -10,6 +12,7 @@ export type ExerciseOption = {
   id: string;
   name: string;
   isSystem: boolean;
+  trackingParameters: TrackingParameter[];
 };
 
 export function libraryItemLabel(name: string, isSystem: boolean) {
@@ -29,6 +32,9 @@ export type WorkoutBlock = {
   load: number | null;
   loadUnit: string | null;
   restSeconds: number | null;
+  durationSeconds: number | null;
+  distanceMeters: number | null;
+  heightCm: number | null;
 };
 
 export type LibraryWorkout = WorkoutOption & {
@@ -155,12 +161,15 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
             prescribed_load,
             load_unit,
             rest_seconds,
+            prescribed_duration_seconds,
+            prescribed_distance_meters,
+            prescribed_height_cm,
             exercises ( name )
           )
         `,
         )
         .or(visibleFilter),
-      supabase.from("exercises").select("id, name, trainer_id, owner_client_id").or(visibleFilter),
+      supabase.from("exercises").select("id, name, trainer_id, owner_client_id, tracking_type, tracking_parameters").or(visibleFilter),
     ]);
 
   if (programError) return { kind: "error", message: programError.message };
@@ -330,6 +339,9 @@ function normalizeBlock(row: unknown): WorkoutBlock | null {
     load: numberField(record, "prescribed_load"),
     loadUnit: stringField(record, "load_unit"),
     restSeconds: numberField(record, "rest_seconds"),
+    durationSeconds: numberField(record, "prescribed_duration_seconds"),
+    distanceMeters: numberField(record, "prescribed_distance_meters"),
+    heightCm: numberField(record, "prescribed_height_cm"),
   };
 }
 
@@ -337,8 +349,14 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
   const record = asRecord(row);
   const id = stringField(record, "id");
   const name = stringField(record, "name");
-  if (!id || !name) return null;
-  return { id, name, isSystem: isSystemRow(record) };
+  if (!record || !id || !name) return null;
+  const trackingType = stringField(record, "tracking_type");
+  return {
+    id,
+    name,
+    isSystem: isSystemRow(record),
+    trackingParameters: parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, record.tracking_parameters),
+  };
 }
 
 function isSystemRow(record: Record<string, unknown> | null) {

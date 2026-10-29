@@ -7,7 +7,7 @@ import { ActiveProgramWarning } from "@/components/dashboard/active-program-warn
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import { libraryItemLabel, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 
 const fieldClass =
   "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
@@ -610,16 +610,22 @@ export function ProgramsPanel({
               setNotice("Workout deleted.");
             })}
             onCreateExercise={async (input) => {
-              let created: { id: string; name: string; isSystem: boolean } | null = null;
+              let created: ExerciseOption | null = null;
               await run("exercise", async () => {
                 const payload = await postJson("/api/exercises", {
                   name: input.name,
                   tracking_type: input.trackingType,
                   tracking_parameters: input.trackingParameters,
+                  primary_muscle_group: input.primaryMuscleGroup.trim(),
                   secondary_muscle_group: input.secondaryMuscleGroup.trim() || null,
                 });
                 if (typeof payload.id === "string" && typeof payload.name === "string") {
-                  created = { id: payload.id, name: payload.name, isSystem: false };
+                  created = {
+                    id: payload.id,
+                    name: payload.name,
+                    isSystem: false,
+                    trackingParameters: input.trackingParameters,
+                  };
                 }
               });
               return created;

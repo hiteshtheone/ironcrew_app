@@ -209,6 +209,13 @@ export function prescriptionDetail(
   sets: number | null,
   repsMin: number | null,
   repsMax: number | null,
+  extras?: {
+    load?: number | null;
+    loadUnit?: string | null;
+    durationSeconds?: number | null;
+    distanceMeters?: number | null;
+    heightCm?: number | null;
+  },
 ) {
   const reps =
     repsMin && repsMax && repsMin !== repsMax
@@ -219,7 +226,20 @@ export function prescriptionDetail(
           ? `${repsMax} reps`
           : null;
   const setLabel = sets ? `${sets} ${sets === 1 ? "set" : "sets"}` : null;
-  return [setLabel, reps].filter(Boolean).join(" · ") || null;
+  const load =
+    extras?.load != null
+      ? extras.loadUnit
+        ? `${extras.load} ${extras.loadUnit}`
+        : String(extras.load)
+      : null;
+  const duration = extras?.durationSeconds != null ? `${extras.durationSeconds} sec` : null;
+  const distance = extras?.distanceMeters != null ? `${metersToKmLabel(extras.distanceMeters)} km` : null;
+  const height = extras?.heightCm != null ? `${extras.heightCm} cm` : null;
+  return [setLabel, load, reps, duration, distance, height].filter(Boolean).join(" · ") || null;
+}
+
+function metersToKmLabel(meters: number) {
+  return String(Math.round((meters / 1000) * 1000) / 1000);
 }
 
 function formatYmd(date: Date, timeZone: string) {

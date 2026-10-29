@@ -11,9 +11,11 @@ import {
   TRACKING_PARAMETERS,
   TRACKING_TYPE_LABELS,
   TRACKING_TYPES,
+  tracks,
   type ExerciseTrackingType,
   type TrackingParameter,
 } from "@/lib/exercises/tracking";
+import { muscleGroupsMatch } from "@/lib/exercises/muscle-group";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -39,6 +41,9 @@ type BlockDraft = {
   load: string;
   loadUnit: string;
   restSeconds: string;
+  durationSeconds: string;
+  distanceKm: string;
+  heightCm: string;
 };
 
 export function WorkoutEditor({
@@ -64,6 +69,7 @@ export function WorkoutEditor({
     name: string;
     trackingType: ExerciseTrackingType;
     trackingParameters: TrackingParameter[];
+    primaryMuscleGroup: string;
     secondaryMuscleGroup: string;
   }) => Promise<ExerciseOption | null>;
 }) {
@@ -76,6 +82,7 @@ export function WorkoutEditor({
   const [exerciseName, setExerciseName] = useState("");
   const [trackingType, setTrackingType] = useState<ExerciseTrackingType>("weight_reps");
   const [customParameters, setCustomParameters] = useState<TrackingParameter[]>(["weight", "reps"]);
+  const [primaryMuscleGroup, setPrimaryMuscleGroup] = useState("");
   const [secondaryMuscleGroup, setSecondaryMuscleGroup] = useState("");
   const [knownExercises, setKnownExercises] = useState(exercises);
   const workoutId = selected?.id ?? "";
@@ -120,17 +127,23 @@ export function WorkoutEditor({
       name,
       description: description.trim() || null,
       estimated_duration_minutes: duration.trim() === "" ? null : Number(duration),
-      blocks: blocks.map((block) => ({
-        block_type: block.blockType,
-        exercise_id: block.blockType === "exercise" ? block.exerciseId || null : null,
-        title: block.title.trim() || null,
-        prescribed_sets: emptyNumber(block.sets),
-        prescribed_reps_min: emptyNumber(block.repsMin),
-        prescribed_reps_max: emptyNumber(block.repsMax),
-        prescribed_load: emptyNumber(block.load),
-        load_unit: block.loadUnit.trim() || null,
-        rest_seconds: emptyNumber(block.restSeconds),
-      })),
+      blocks: blocks.map((block) => {
+        const parameters = prescriptionParameters(block, knownExercises);
+        return {
+          block_type: block.blockType,
+          exercise_id: block.blockType === "exercise" ? block.exerciseId || null : null,
+          title: block.title.trim() || null,
+          prescribed_sets: emptyNumber(block.sets),
+          prescribed_reps_min: includeParameter(parameters, "reps") ? emptyNumber(block.repsMin) : null,
+          prescribed_reps_max: includeParameter(parameters, "reps") ? emptyNumber(block.repsMax) : null,
+          prescribed_load: includeParameter(parameters, "weight") ? emptyNumber(block.load) : null,
+          load_unit: includeParameter(parameters, "weight") ? block.loadUnit.trim() || null : null,
+          rest_seconds: emptyNumber(block.restSeconds),
+          prescribed_duration_seconds: includeParameter(parameters, "time") ? emptyNumber(block.durationSeconds) : null,
+          prescribed_distance_meters: includeParameter(parameters, "distance") ? kilometersToMeters(block.distanceKm) : null,
+          prescribed_height_cm: includeParameter(parameters, "height") ? emptyNumber(block.heightCm) : null,
+        };
+      }),
     });
     if (!saved) return;
     setBaseline(nextBaseline);
@@ -139,11 +152,19 @@ export function WorkoutEditor({
 
   const createExercise = () => {
     const trackingParameters = trackingType === "custom" ? [...customParameters] : parametersFor(trackingType, null);
-    if (exerciseName.trim().length === 0 || trackingParameters.length === 0) return;
+    if (
+      exerciseName.trim().length === 0 ||
+      primaryMuscleGroup.trim().length === 0 ||
+      trackingParameters.length === 0 ||
+      muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup)
+    ) {
+      return;
+    }
     void onCreateExercise({
       name: exerciseName,
       trackingType,
       trackingParameters,
+      primaryMuscleGroup,
       secondaryMuscleGroup,
     }).then((created) => {
       if (!created) return;
@@ -155,6 +176,7 @@ export function WorkoutEditor({
       setExerciseName("");
       setTrackingType("weight_reps");
       setCustomParameters(["weight", "reps"]);
+      setPrimaryMuscleGroup("");
       setSecondaryMuscleGroup("");
     });
   };
@@ -319,13 +341,30 @@ export function WorkoutEditor({
                     <input maxLength={160} disabled={!editing} value={block.title} onChange={(event) => updateBlock(block.key, { title: event.target.value })} className={fieldClass} />
                   </label>
                   <NumberField label="Sets" value={block.sets} disabled={!editing} onChange={(sets) => updateBlock(block.key, { sets })} />
-                  <NumberField label="Reps min" value={block.repsMin} disabled={!editing} onChange={(repsMin) => updateBlock(block.key, { repsMin })} />
-                  <NumberField label="Reps max" value={block.repsMax} disabled={!editing} onChange={(repsMax) => updateBlock(block.key, { repsMax })} />
-                  <NumberField label="Load" value={block.load} disabled={!editing} onChange={(load) => updateBlock(block.key, { load })} step="any" />
-                  <label className="grid gap-1 text-sm">
-                    <span className="font-medium text-slate-600">Load unit</span>
-                    <input maxLength={20} disabled={!editing} value={block.loadUnit} onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value })} className={fieldClass} />
-                  </label>
+                  {showsParameter(block, knownExercises, "reps") ? (
+                    <>
+                      <NumberField label="Reps min" value={block.repsMin} disabled={!editing} onChange={(repsMin) => updateBlock(block.key, { repsMin })} />
+                      <NumberField label="Reps max" value={block.repsMax} disabled={!editing} onChange={(repsMax) => updateBlock(block.key, { repsMax })} />
+                    </>
+                  ) : null}
+                  {showsParameter(block, knownExercises, "weight") ? (
+                    <>
+                      <NumberField label="Load" value={block.load} disabled={!editing} onChange={(load) => updateBlock(block.key, { load })} step="any" />
+                      <label className="grid gap-1 text-sm">
+                        <span className="font-medium text-slate-600">Load unit</span>
+                        <input maxLength={20} disabled={!editing} value={block.loadUnit} onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value })} className={fieldClass} />
+                      </label>
+                    </>
+                  ) : null}
+                  {showsParameter(block, knownExercises, "time") ? (
+                    <NumberField label="Time (sec)" value={block.durationSeconds} disabled={!editing} onChange={(durationSeconds) => updateBlock(block.key, { durationSeconds })} />
+                  ) : null}
+                  {showsParameter(block, knownExercises, "distance") ? (
+                    <NumberField label="Distance (km)" value={block.distanceKm} disabled={!editing} onChange={(distanceKm) => updateBlock(block.key, { distanceKm })} step="any" />
+                  ) : null}
+                  {showsParameter(block, knownExercises, "height") ? (
+                    <NumberField label="Height (cm)" value={block.heightCm} disabled={!editing} onChange={(heightCm) => updateBlock(block.key, { heightCm })} step="any" />
+                  ) : null}
                   <NumberField label="Rest seconds" value={block.restSeconds} disabled={!editing} onChange={(restSeconds) => updateBlock(block.key, { restSeconds })} />
                 </div>
               </div>
@@ -362,7 +401,17 @@ export function WorkoutEditor({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-sm sm:col-span-2">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Primary muscle group</span>
+              <input
+                value={primaryMuscleGroup}
+                onChange={(event) => setPrimaryMuscleGroup(event.target.value)}
+                maxLength={80}
+                placeholder="Chest"
+                className={fieldClass}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Secondary muscle group</span>
               <input
                 value={secondaryMuscleGroup}
@@ -372,6 +421,9 @@ export function WorkoutEditor({
                 className={fieldClass}
               />
             </label>
+            {muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup) ? (
+              <p className="text-sm text-red-600 sm:col-span-2">Secondary muscle group must be different from the primary muscle group.</p>
+            ) : null}
             {trackingType === "custom" ? (
               <fieldset className="sm:col-span-2">
                 <legend className="text-sm font-medium text-slate-600">Parameters</legend>
@@ -401,7 +453,13 @@ export function WorkoutEditor({
             <div>
               <button
                 type="button"
-                disabled={pending === "exercise" || exerciseName.trim().length === 0 || (trackingType === "custom" && customParameters.length === 0)}
+                disabled={
+                  pending === "exercise" ||
+                  exerciseName.trim().length === 0 ||
+                  primaryMuscleGroup.trim().length === 0 ||
+                  (trackingType === "custom" && customParameters.length === 0) ||
+                  muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup)
+                }
                 onClick={createExercise}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-60"
               >
@@ -488,6 +546,9 @@ function toDraft(block: LibraryWorkout["blocks"][number]): BlockDraft {
     load: block.load == null ? "" : String(block.load),
     loadUnit: block.loadUnit ?? "",
     restSeconds: block.restSeconds == null ? "" : String(block.restSeconds),
+    durationSeconds: block.durationSeconds == null ? "" : String(block.durationSeconds),
+    distanceKm: metersToKm(block.distanceMeters),
+    heightCm: block.heightCm == null ? "" : String(block.heightCm),
   };
 }
 
@@ -503,6 +564,9 @@ function emptyBlock(exerciseId: string): BlockDraft {
     load: "",
     loadUnit: "",
     restSeconds: "",
+    durationSeconds: "",
+    distanceKm: "",
+    heightCm: "",
   };
 }
 
@@ -511,4 +575,30 @@ function emptyNumber(value: string) {
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function metersToKm(meters: number | null) {
+  if (meters == null) return "";
+  return String(Math.round((meters / 1000) * 1000) / 1000);
+}
+
+function kilometersToMeters(value: string) {
+  const kilometers = emptyNumber(value);
+  if (kilometers == null) return null;
+  return Math.round(kilometers * 1000 * 100) / 100;
+}
+
+/** Exercise blocks follow the selected exercise. Other blocks keep reps and weight. */
+function prescriptionParameters(block: BlockDraft, exercises: ExerciseOption[]): TrackingParameter[] | null {
+  if (block.blockType !== "exercise") return ["reps", "weight"];
+  if (!block.exerciseId) return [];
+  return exercises.find((exercise) => exercise.id === block.exerciseId)?.trackingParameters ?? [];
+}
+
+function includeParameter(parameters: TrackingParameter[] | null, parameter: TrackingParameter) {
+  return parameters?.includes(parameter) ?? false;
+}
+
+function showsParameter(block: BlockDraft, exercises: ExerciseOption[], parameter: TrackingParameter) {
+  return tracks(prescriptionParameters(block, exercises) ?? [], parameter);
 }

@@ -113,7 +113,11 @@ export async function loadClientDashboard(
               prescribed_sets,
               prescribed_reps_min,
               prescribed_reps_max,
+              prescribed_load,
               load_unit,
+              prescribed_duration_seconds,
+              prescribed_distance_meters,
+              prescribed_height_cm,
               exercises ( name, tracking_type, tracking_parameters )
             )
           )
@@ -257,18 +261,26 @@ function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet
   const name = stringField(exercise, "name") || stringField(block, "title") || labelForBlock(stringField(block, "block_type"));
   if (!name) return null;
 
+  const parameters = trackingParametersFor(exercise);
   return {
     id,
     exerciseId: stringField(block, "exercise_id"),
     name,
     detail: prescriptionDetail(
       positiveNumber(block.prescribed_sets),
-      positiveNumber(block.prescribed_reps_min),
-      positiveNumber(block.prescribed_reps_max),
+      parameters.includes("reps") ? positiveNumber(block.prescribed_reps_min) : null,
+      parameters.includes("reps") ? positiveNumber(block.prescribed_reps_max) : null,
+      {
+        load: parameters.includes("weight") ? nonNegativeNumber(block.prescribed_load) : null,
+        loadUnit: stringField(block, "load_unit"),
+        durationSeconds: parameters.includes("time") ? nonNegativeNumber(block.prescribed_duration_seconds) : null,
+        distanceMeters: parameters.includes("distance") ? nonNegativeNumber(block.prescribed_distance_meters) : null,
+        heightCm: parameters.includes("height") ? nonNegativeNumber(block.prescribed_height_cm) : null,
+      },
     ),
     prescribedSets: positiveNumber(block.prescribed_sets),
     loadUnit: stringField(block, "load_unit"),
-    trackingParameters: trackingParametersFor(exercise),
+    trackingParameters: parameters,
     sets,
   };
 }

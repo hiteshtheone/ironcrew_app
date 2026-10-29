@@ -16,6 +16,7 @@ import {
   type ExerciseTrackingType,
   type TrackingParameter,
 } from "@/lib/exercises/tracking";
+import { muscleGroupsMatch } from "@/lib/exercises/muscle-group";
 
 export async function POST(request: Request) {
   const parsedBody = await readJson(request);
@@ -36,8 +37,14 @@ export async function POST(request: Request) {
   const tracking = trackingParametersFrom(parsedBody.body.tracking_parameters, trackingType);
   if ("error" in tracking) return tracking.error;
 
+  const primaryMuscleGroup = requiredMuscleGroup(parsedBody.body.primary_muscle_group);
+  if ("error" in primaryMuscleGroup) return primaryMuscleGroup.error;
+
   const secondaryMuscleGroup = optionalMuscleGroup(parsedBody.body.secondary_muscle_group);
   if ("error" in secondaryMuscleGroup) return secondaryMuscleGroup.error;
+  if (secondaryMuscleGroup.value && muscleGroupsMatch(primaryMuscleGroup.value, secondaryMuscleGroup.value)) {
+    return jsonError("Secondary muscle group must be different from the primary muscle group", 400);
+  }
 
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
@@ -52,6 +59,7 @@ export async function POST(request: Request) {
       name,
       tracking_type: trackingType,
       tracking_parameters: tracking.parameters,
+      primary_muscle_group: primaryMuscleGroup.value,
       secondary_muscle_group: secondaryMuscleGroup.value,
     })
     .select("id, name")
@@ -59,6 +67,9 @@ export async function POST(request: Request) {
 
   if (error) {
     if (error.code === "23505") return jsonError("An exercise with that name already exists", 409);
+    if (error.code === "23514" && /muscle_groups_distinct/i.test(error.message)) {
+      return jsonError("Secondary muscle group must be different from the primary muscle group", 400);
+    }
     const status = /row-level security/i.test(error.message) ? 403 : 500;
     return jsonError(databaseErrorMessage(error), status);
   }
@@ -82,6 +93,17 @@ function trackingParametersFrom(
     if (!parameters.includes(item)) parameters.push(item);
   }
   return { parameters };
+}
+
+function requiredMuscleGroup(
+  value: unknown,
+): { error: ReturnType<typeof jsonError> } | { value: string } {
+  const muscleGroup = asTrimmedString(value);
+  if (muscleGroup == null) return { error: jsonError("A primary muscle group is required", 400) };
+  if (muscleGroup.length > 80) {
+    return { error: jsonError("primary_muscle_group must be 80 characters or fewer", 400) };
+  }
+  return { value: muscleGroup };
 }
 
 function optionalMuscleGroup(
