@@ -298,8 +298,8 @@ export function ProgramsPanel({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{isClient ? "My programs" : "Programs"}</h1>
         <p className="mt-2 text-sm text-slate-500">
           {isClient
-            ? "Build your own plan: phase, then the workouts for each week. Only you can see these."
-            : "Build a shared plan: phase, then the workouts for each week."}
+            ? "A program plans phases and weeks. A workout can stand on its own — add one in the library, then put it on a week or on your calendar."
+            : "A program is a shared plan: phases, then the workouts for each week. A workout can stand on its own in the library."}
         </p>
       </div>
 
@@ -341,7 +341,7 @@ export function ProgramsPanel({
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           {!selected ? (
             <p className="text-sm text-slate-500">
-              {selectedId ? "Opening this program..." : "Select a program, or create one, to set its phases and weekly workouts."}
+              {selectedId ? "Opening this program..." : "Select a program, or create one, to set its phases and weeks. Workouts below don't need a program."}
             </p>
           ) : (
             <div className="space-y-6">
@@ -475,30 +475,8 @@ export function ProgramsPanel({
                 <div>
                   <h3 className="text-sm font-semibold">Week {week.weekNumber} workouts</h3>
                   <p className="mt-1 text-xs text-slate-500">Day 1 is the start date you choose when you publish.</p>
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void run("workout", async () => {
-                        await postJson("/api/workouts", { name: workoutName });
-                        setWorkoutName("");
-                      });
-                    }}
-                    className="mt-3 flex flex-col gap-2 sm:flex-row"
-                  >
-                    <input
-                      value={workoutName}
-                      onChange={(event) => setWorkoutName(event.target.value)}
-                      placeholder="New library workout"
-                      maxLength={160}
-                      required
-                      className={fieldClass}
-                    />
-                    <button type="submit" disabled={pending === "workout"} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-60">
-                      {pending === "workout" ? "Adding..." : "Add workout"}
-                    </button>
-                  </form>
                   {data.workouts.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-500">Add a workout to your library before placing one on a day.</p>
+                    <p className="mt-3 text-sm text-slate-500">Add a workout in the library below before placing one on a day.</p>
                   ) : (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {Array.from({ length: 7 }, (_, index) => index + 1).map((dayNumber) => {
@@ -574,6 +552,36 @@ export function ProgramsPanel({
               ) : null}
             </div>
           )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run("workout", async () => {
+                const payload = await postJson("/api/workouts", { name: workoutName });
+                setWorkoutName("");
+                if (typeof payload.id === "string") openWorkout(payload.id);
+              });
+            }}
+            className="mt-6 space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+          >
+            <div>
+              <h2 className="text-lg font-bold">Workout library</h2>
+              <p className="mt-1 text-sm text-slate-500">Add a workout here. It does not need a program.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                value={workoutName}
+                onChange={(event) => setWorkoutName(event.target.value)}
+                placeholder="New library workout"
+                maxLength={160}
+                required
+                aria-label="New library workout"
+                className={fieldClass}
+              />
+              <button type="submit" disabled={pending === "workout"} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-60">
+                {pending === "workout" ? "Adding..." : "Add workout"}
+              </button>
+            </div>
+          </form>
           <div className="mt-6">
           <WorkoutEditor
             workouts={data.workouts}

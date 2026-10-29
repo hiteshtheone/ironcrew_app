@@ -166,7 +166,7 @@ export function WorkoutEditor({
       </div>
 
       {workouts.length === 0 ? (
-        <p className="text-sm text-slate-500">Add a workout from a week, then come back here to write its blocks.</p>
+        <p className="text-sm text-slate-500">Add a workout in the library above, then write its blocks here.</p>
       ) : !selected ? (
         <div className="space-y-3">
           <p className="text-sm text-slate-500">Opening this workout...</p>

@@ -15,7 +15,7 @@ export function WorkoutsEmptyState({ hasActiveFilters, onClearAll }: WorkoutsEmp
       <p className="mt-1 max-w-sm text-sm text-slate-500">
         {hasActiveFilters
           ? "No workouts match your current filters. Try removing a filter to see more."
-          : "Workouts your trainer assigns to you will show up here."}
+          : "Workouts you schedule, or that your trainer assigns, show up here."}
       </p>
       {hasActiveFilters && (
         <button

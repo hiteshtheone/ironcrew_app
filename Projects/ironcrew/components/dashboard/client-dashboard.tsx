@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useState, type ComponentType, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
@@ -32,7 +33,7 @@ import {
   type ClientWorkout,
 } from "@/lib/dashboard/client-week";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import type { TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import type { TrainerProgramsData, WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
@@ -181,7 +182,7 @@ function ClientShell({
         </header>
 
         {section === "dashboard" ? (
-          <ClientWeek data={data} />
+          <ClientWeek data={data} workouts={programs?.kind === "ready" ? programs.workouts : []} />
         ) : section === "settings" ? (
           <MyInfoForm />
         ) : section === "workouts" ? (
@@ -206,7 +207,13 @@ function ClientShell({
   );
 }
 
-function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
+function ClientWeek({
+  data,
+  workouts,
+}: {
+  data: Exclude<ClientDashboardData, { kind: "error" }>;
+  workouts: WorkoutOption[];
+}) {
   const router = useRouter();
   const today = data.kind === "ready" ? (data.days.find((day) => day.isToday)?.date ?? "") : "";
   const [selectedDate, setSelectedDate] = useState(today);
@@ -313,11 +320,11 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <h2 className="text-lg font-bold">Workout plan</h2>
               <p className="mt-1 text-sm text-slate-500">Monday through Sunday</p>
-              {days.every((day) => day.workouts.length === 0) && (
+              {days.every((day) => day.workouts.length === 0) ? (
                 <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Your trainer hasn&apos;t assigned a workout this week.
+                  Nothing is on your calendar this week. Add a workout from your library, or publish a program week.
                 </p>
-              )}
+              ) : null}
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
                 {days.map((day) => (
                   <DayCard
@@ -392,10 +399,89 @@ function ClientWeek({ data }: { data: Exclude<ClientDashboardData, { kind: "erro
                 ))}
               </div>
             )}
+            {selectedDay ? (
+              <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+            ) : null}
           </section>
         </>
       )}
     </div>
+  );
+}
+
+const scheduleFieldClass =
+  "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400";
+
+function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOption[] }) {
+  const router = useRouter();
+  const [workoutId, setWorkoutId] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const selectedId = workouts.some((workout) => workout.id === workoutId) ? workoutId : (workouts[0]?.id ?? "");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedId || pending) return;
+    setPending(true);
+    setError(null);
+    void fetch("/api/me/workouts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workout_id: selectedId, scheduled_for: date }),
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "Couldn't add this workout");
+        router.refresh();
+      })
+      .catch((caught: unknown) => {
+        setError(caught instanceof Error ? caught.message : "Couldn't add this workout");
+      })
+      .finally(() => {
+        setPending(false);
+      });
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-6 space-y-3 border-t border-slate-100 pt-5">
+      <div>
+        <h3 className="text-sm font-semibold">Add a workout</h3>
+        <p className="mt-1 text-sm text-slate-500">Schedules a library workout for this day. It does not start a program.</p>
+      </div>
+      {workouts.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No workouts in your library yet.{" "}
+          <Link href="/dashboard?section=programs" className="font-semibold text-slate-800 underline">
+            Add one under My programs
+          </Link>{" "}
+          first.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className="grid flex-1 gap-1 text-sm">
+            <span className="font-medium text-slate-600">Workout</span>
+            <select
+              required
+              value={selectedId}
+              onChange={(event) => setWorkoutId(event.target.value)}
+              className={scheduleFieldClass}
+            >
+              {workouts.map((workout) => (
+                <option key={workout.id} value={workout.id}>{workout.name}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          >
+            {pending ? "Adding..." : "Add to this day"}
+          </button>
+        </div>
+      )}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+    </form>
   );
 }
 
