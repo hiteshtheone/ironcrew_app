@@ -4,10 +4,12 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
+import { ExerciseEditor } from "@/components/dashboard/exercise-editor";
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import { TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
 
 const fieldClass =
   "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
@@ -42,6 +44,7 @@ export function ProgramsPanel({
   const [draftDescription, setDraftDescription] = useState(selectedProgram?.description ?? "");
   const [phaseName, setPhaseName] = useState("");
   const [workoutName, setWorkoutName] = useState("");
+  const [exerciseName, setExerciseName] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [checkedClients, setCheckedClients] = useState<string[] | null>(null);
   const [dayOverrides, setDayOverrides] = useState<Record<number, string>>({});
@@ -91,7 +94,9 @@ export function ProgramsPanel({
 
   const selectedId = searchParams.get("program");
   const selectedWorkoutId = searchParams.get("workout");
+  const selectedExerciseId = searchParams.get("exercise");
   const selected = data.programs.find((program) => program.id === selectedId) ?? null;
+  const selectedExercise = data.exercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
   const requestedPhase = selected?.phases.find((item) => item.id === searchParams.get("phase"));
   const phase = requestedPhase ?? selected?.phases[0] ?? null;
   const week = phase?.weeks.find((item) => item.id === searchParams.get("week")) ?? phase?.weeks[0] ?? null;
@@ -107,6 +112,7 @@ export function ProgramsPanel({
     if (weekId) params.set("week", weekId);
     else params.delete("week");
     params.delete("workout");
+    params.delete("exercise");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -117,6 +123,18 @@ export function ProgramsPanel({
     params.delete("program");
     params.delete("phase");
     params.delete("week");
+    params.delete("exercise");
+    router.replace(`/dashboard?${params.toString()}`);
+  };
+
+  const openExercise = (exerciseId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", "programs");
+    params.set("exercise", exerciseId);
+    params.delete("program");
+    params.delete("phase");
+    params.delete("week");
+    params.delete("workout");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -208,6 +226,15 @@ export function ProgramsPanel({
       const payload = await postJson("/api/workouts", { name: workoutName });
       setWorkoutName("");
       if (typeof payload.id === "string") openWorkout(payload.id);
+    });
+  };
+
+  const createExercise = (event: FormEvent) => {
+    event.preventDefault();
+    void run("exercise", async () => {
+      const payload = await postJson("/api/exercises", { name: exerciseName });
+      setExerciseName("");
+      if (typeof payload.id === "string") openExercise(payload.id);
     });
   };
 
@@ -389,9 +416,71 @@ export function ProgramsPanel({
               ))}
             </ul>
           </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold">Exercises</h2>
+            <p className="mt-1 text-xs text-slate-500">These are the movements a workout can include.</p>
+            <form onSubmit={createExercise} className="mt-4 space-y-2">
+              <input
+                value={exerciseName}
+                onChange={(event) => setExerciseName(event.target.value)}
+                placeholder="New exercise name"
+                maxLength={160}
+                required
+                aria-label="New exercise name"
+                className={fieldClass}
+              />
+              <button type="submit" disabled={pending === "exercise"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {pending === "exercise" ? "Creating..." : "Create exercise"}
+              </button>
+            </form>
+            <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
+              {data.exercises.length === 0 ? <li className="text-sm text-slate-500">No exercises yet.</li> : null}
+              {data.exercises.map((exercise) => (
+                <li key={exercise.id}>
+                  <button
+                    type="button"
+                    onClick={() => openExercise(exercise.id)}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${exercise.id === selectedExerciseId ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
+                  >
+                    <span className="block truncate">{libraryItemLabel(exercise.name, exercise.isSystem)}</span>
+                    <span className={`block truncate text-xs ${exercise.id === selectedExerciseId ? "text-slate-300" : "text-slate-500"}`}>
+                      {exerciseSummary(exercise)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
 
-        {selectedWorkoutId ? (
+        {selectedExerciseId ? (
+          <div className="space-y-4">
+            {selectedExercise ? (
+              <ExerciseEditor
+                exercise={selectedExercise}
+                pending={pending}
+                onSave={(exerciseId, body) => run("save-exercise", async () => {
+                  await patchJson(`/api/exercises/${exerciseId}`, body);
+                  setNotice("Exercise saved.");
+                })}
+                onDelete={(exerciseId) => run("delete-exercise", async () => {
+                  const response = await fetch(`/api/exercises/${exerciseId}`, { method: "DELETE" });
+                  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+                  if (!response.ok) throw new Error(payload?.error || "Unable to delete this exercise");
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete("exercise");
+                  router.replace(`/dashboard?${params.toString()}`);
+                  setNotice("Exercise deleted.");
+                })}
+              />
+            ) : (
+              <p className="text-sm text-slate-500">Opening this exercise...</p>
+            )}
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+          </div>
+        ) : selectedWorkoutId ? (
           <div className="space-y-4">
             <WorkoutEditor
               workouts={data.workouts}
@@ -419,27 +508,6 @@ export function ProgramsPanel({
                 router.replace(`/dashboard?${params.toString()}`);
                 setNotice("Workout deleted.");
               })}
-              onCreateExercise={async (input) => {
-                let created: ExerciseOption | null = null;
-                await run("exercise", async () => {
-                  const payload = await postJson("/api/exercises", {
-                    name: input.name,
-                    tracking_type: input.trackingType,
-                    tracking_parameters: input.trackingParameters,
-                    primary_muscle_group: input.primaryMuscleGroup.trim(),
-                    secondary_muscle_group: input.secondaryMuscleGroup.trim() || null,
-                  });
-                  if (typeof payload.id === "string" && typeof payload.name === "string") {
-                    created = {
-                      id: payload.id,
-                      name: payload.name,
-                      isSystem: false,
-                      trackingParameters: input.trackingParameters,
-                    };
-                  }
-                });
-                return created;
-              }}
             />
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
             {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
@@ -450,7 +518,7 @@ export function ProgramsPanel({
             <p className="text-sm text-slate-500">
               {selectedId
                 ? "Opening this program..."
-                : "Select a program to plan its phases and weeks, or a workout to edit it on its own."}
+                : "Select a program to plan its phases and weeks, a workout to edit it on its own, or an exercise to edit its details."}
             </p>
           ) : (
             <div className="space-y-6">
@@ -676,6 +744,11 @@ export function ProgramsPanel({
       </div>
     </div>
   );
+}
+
+function exerciseSummary(exercise: ExerciseOption) {
+  const tracking = TRACKING_TYPE_LABELS[exercise.trackingType];
+  return exercise.primaryMuscleGroup ? `${tracking} · ${exercise.primaryMuscleGroup}` : tracking;
 }
 
 async function postJson(url: string, body: unknown) {
