@@ -3,9 +3,15 @@ import { SearchX } from "lucide-react";
 type WorkoutsEmptyStateProps = {
   hasActiveFilters: boolean;
   onClearAll: () => void;
+  /** Shown when nothing is assigned and no filters are active. */
+  emptyMessage?: string;
 };
 
-export function WorkoutsEmptyState({ hasActiveFilters, onClearAll }: WorkoutsEmptyStateProps) {
+export function WorkoutsEmptyState({
+  hasActiveFilters,
+  onClearAll,
+  emptyMessage = "Workouts your trainer assigns to you will show up here.",
+}: WorkoutsEmptyStateProps) {
   return (
     <div className="flex flex-col items-center px-4 py-10 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-slate-100 text-slate-500">
@@ -15,7 +21,7 @@ export function WorkoutsEmptyState({ hasActiveFilters, onClearAll }: WorkoutsEmp
       <p className="mt-1 max-w-sm text-sm text-slate-500">
         {hasActiveFilters
           ? "No workouts match your current filters. Try removing a filter to see more."
-          : "Workouts your trainer assigns to you will show up here."}
+          : emptyMessage}
       </p>
       {hasActiveFilters && (
         <button

@@ -18,6 +18,7 @@ import {
 
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
 export type TrainerSection =
   | "dashboard"
@@ -64,7 +65,10 @@ export function TrainerShell({
 
   const openSection = (id: TrainerSection) => {
     setNavOpen(false);
-    const params = new URLSearchParams(searchParams.toString());
+    // Workout filters belong to a client detail view. Drop them when leaving Clients.
+    const params = id === "clients"
+      ? new URLSearchParams(searchParams.toString())
+      : stripWorkoutParams(searchParams.toString());
     if (id === "dashboard") {
       params.delete("section");
       params.delete("client");

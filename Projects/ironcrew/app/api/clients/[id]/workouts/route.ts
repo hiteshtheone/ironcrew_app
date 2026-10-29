@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   asTrimmedString,
@@ -10,8 +11,29 @@ import {
   readJson,
   requireUser,
 } from "@/lib/api/route-utils";
+import { resolveTimeZone } from "@/lib/dashboard/client-week";
+import { listAssignedWorkouts } from "@/lib/dashboard/list-assigned-workouts";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(request: Request, context: RouteContext) {
+  const { id: clientId } = await context.params;
+  if (!isUuid(clientId)) return jsonError("Client id must be a UUID", 400);
+
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+
+  const access = await clientTimeZoneForTrainer(auth.supabase, auth.user.id, clientId);
+  if ("error" in access) return access.error;
+
+  const listed = await listAssignedWorkouts(auth.supabase, {
+    clientId,
+    timeZone: access.timeZone,
+    searchParams: new URL(request.url).searchParams,
+  });
+  if ("error" in listed) return jsonError(listed.error.message, listed.error.status);
+  return NextResponse.json(listed.page);
+}
 
 export async function POST(request: Request, context: RouteContext) {
   const { id: clientId } = await context.params;
@@ -55,4 +77,37 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   return NextResponse.json(data, { status: 201 });
+}
+
+/** Active coaching link, plus the client's timezone so date filters match their Workouts tab. */
+async function clientTimeZoneForTrainer(supabase: SupabaseClient, trainerId: string, clientId: string) {
+  const [linkResult, clientResult] = await Promise.all([
+    supabase
+      .from("trainer_clients")
+      .select("client_id")
+      .eq("trainer_id", trainerId)
+      .eq("client_id", clientId)
+      .eq("status", "active")
+      .maybeSingle(),
+    supabase.from("clients").select("profile_id").eq("id", clientId).maybeSingle(),
+  ]);
+
+  if (linkResult.error) return { error: jsonError(databaseErrorMessage(linkResult.error), 500) };
+  if (!linkResult.data) return { error: jsonError("Client not found", 404) };
+  if (clientResult.error) return { error: jsonError(databaseErrorMessage(clientResult.error), 500) };
+  if (!clientResult.data) return { error: jsonError("Client not found", 404) };
+
+  const client = clientResult.data;
+
+  const profileId = typeof client.profile_id === "string" ? client.profile_id : null;
+  if (!profileId) return { timeZone: resolveTimeZone(null) };
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (profileError) return { error: jsonError(databaseErrorMessage(profileError), 500) };
+  return { timeZone: resolveTimeZone(typeof profile?.timezone === "string" ? profile.timezone : null) };
 }

@@ -1,134 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { jsonError, requireUser } from "@/lib/api/route-utils";
 import { requireClientAccount } from "@/lib/api/signed-in-client";
-import { databaseErrorMessage, jsonError, requireUser } from "@/lib/api/route-utils";
-import { currentWeek } from "@/lib/dashboard/client-week";
-import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
-import {
-  DEFAULT_FILTERS,
-  PAGE_SIZE,
-  STATUS_GROUPS,
-  computeCounts,
-  isSortOrder,
-  isStatusFilter,
-  isWhenFilter,
-  parsePage,
-  whenRange,
-  type DateBounds,
-} from "@/lib/dashboard/workout-filters";
+import { listAssignedWorkouts } from "@/lib/dashboard/list-assigned-workouts";
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const when = url.searchParams.get("when") ?? DEFAULT_FILTERS.when;
-  const status = url.searchParams.get("status") ?? DEFAULT_FILTERS.status;
-  const sort = url.searchParams.get("sort") ?? DEFAULT_FILTERS.sort;
-  const page = parsePage(url.searchParams.get("page"));
-
-  if (!isWhenFilter(when)) {
-    return jsonError("when must be all, past, present, future, this_week, last_week or next_week", 400);
-  }
-  if (!isStatusFilter(status)) return jsonError("status must be finished, unfinished, cancelled or all", 400);
-  if (!isSortOrder(sort)) return jsonError("sort must be date_desc or date_asc", 400);
-  if (page == null) return jsonError("page must be a whole number of 1 or greater", 400);
-
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
 
   const client = await requireClientAccount(auth.supabase, auth.user.id);
   if ("error" in client) return client.error;
 
-  const week = currentWeek(client.timeZone);
-  const bounds: DateBounds = { today: week.today, weekStart: week.start, weekEnd: week.end };
-  const range = whenRange(when, bounds);
-  const ascending = sort === "date_asc";
-  const from = (page - 1) * PAGE_SIZE;
-
-  let listQuery = auth.supabase
-    .from("workout_assignments")
-    .select(
-      `
-      id,
-      scheduled_for,
-      status,
-      ${WORKOUT_SOURCE_COLUMNS},
-      workouts ( name, estimated_duration_minutes )
-    `,
-      { count: "exact" },
-    )
-    .eq("client_id", client.clientId)
-    .in("status", [...STATUS_GROUPS[status]]);
-
-  if (range.gte) listQuery = listQuery.gte("scheduled_for", range.gte);
-  if (range.lte) listQuery = listQuery.lte("scheduled_for", range.lte);
-
-  // Lightweight rows used only to derive the faceted count badges.
-  const countsQuery = auth.supabase
-    .from("workout_assignments")
-    .select("scheduled_for, status")
-    .eq("client_id", client.clientId);
-
-  const [list, facets] = await Promise.all([
-    listQuery
-      .order("scheduled_for", { ascending })
-      .order("id", { ascending })
-      .range(from, from + PAGE_SIZE - 1),
-    countsQuery,
-  ]);
-
-  if (list.error) return jsonError(databaseErrorMessage(list.error), 500);
-  if (facets.error) return jsonError(databaseErrorMessage(facets.error), 500);
-
-  const facetRows = (facets.data ?? []).flatMap((row) => {
-    const record = asRecord(row);
-    const scheduledFor = stringField(record, "scheduled_for");
-    const rowStatus = stringField(record, "status");
-    return scheduledFor && rowStatus ? [{ scheduledFor, status: rowStatus }] : [];
+  const listed = await listAssignedWorkouts(auth.supabase, {
+    clientId: client.clientId,
+    timeZone: client.timeZone,
+    searchParams: new URL(request.url).searchParams,
   });
-
-  return NextResponse.json({
-    workouts: (list.data ?? []).map(normalizeWorkout).filter((workout) => workout !== null),
-    page,
-    pageSize: PAGE_SIZE,
-    total: list.count ?? 0,
-    counts: computeCounts(facetRows, { when, status }, bounds),
-  });
-}
-
-function normalizeWorkout(row: unknown) {
-  const record = asRecord(row);
-  const id = stringField(record, "id");
-  const scheduledFor = stringField(record, "scheduled_for");
-  const status = stringField(record, "status");
-  if (!record || !id || !scheduledFor || !status) return null;
-  const workout = asRecord(firstRelation(record.workouts));
-  const source = workoutSourceFromRow(record);
-  const duration = positiveNumber(workout?.estimated_duration_minutes);
-  return {
-    id,
-    name: stringField(workout, "name") || "Workout",
-    scheduledFor,
-    status,
-    durationMinutes: duration,
-    programName: source.programName,
-    givenBy: source.givenBy,
-  };
-}
-
-function firstRelation(value: unknown) {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-function stringField(record: Record<string, unknown> | null | undefined, key: string) {
-  const value = record?.[key];
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function positiveNumber(value: unknown) {
-  const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : null;
-  return parsed != null && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  if ("error" in listed) return jsonError(listed.error.message, listed.error.status);
+  return NextResponse.json(listed.page);
 }
