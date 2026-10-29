@@ -130,6 +130,7 @@ export function WorkoutEditor({
       blocks: blocks.map((block) => {
         const parameters = prescriptionParameters(block, knownExercises);
         return {
+          id: block.key,
           block_type: block.blockType,
           exercise_id: block.blockType === "exercise" ? block.exerciseId || null : null,
           title: block.title.trim() || null,
@@ -278,6 +279,105 @@ export function WorkoutEditor({
             </label>
           </div>
 
+          <div className="grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">New exercise</span>
+              <input
+                value={exerciseName}
+                onChange={(event) => setExerciseName(event.target.value)}
+                maxLength={160}
+                placeholder="Exercise name"
+                className={fieldClass}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Tracks</span>
+              <select
+                value={trackingType}
+                onChange={(event) => {
+                  const next = isTrackingType(event.target.value) ? event.target.value : trackingType;
+                  if (next === "custom" && trackingType !== "custom") {
+                    setCustomParameters(parametersFor(trackingType, customParameters));
+                  }
+                  setTrackingType(next);
+                }}
+                className={fieldClass}
+              >
+                {TRACKING_TYPES.map((type) => (
+                  <option key={type} value={type}>{TRACKING_TYPE_LABELS[type]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Primary muscle group</span>
+              <input
+                value={primaryMuscleGroup}
+                onChange={(event) => setPrimaryMuscleGroup(event.target.value)}
+                maxLength={80}
+                placeholder="Chest"
+                className={fieldClass}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Secondary muscle group</span>
+              <input
+                value={secondaryMuscleGroup}
+                onChange={(event) => setSecondaryMuscleGroup(event.target.value)}
+                maxLength={80}
+                placeholder="Optional"
+                className={fieldClass}
+              />
+            </label>
+            {muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup) ? (
+              <p className="text-sm text-red-600 sm:col-span-2">Secondary muscle group must be different from the primary muscle group.</p>
+            ) : null}
+            {trackingType === "custom" ? (
+              <fieldset className="sm:col-span-2">
+                <legend className="text-sm font-medium text-slate-600">Parameters</legend>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                  {TRACKING_PARAMETERS.map((parameter) => (
+                    <label key={parameter} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={customParameters.includes(parameter)}
+                        onChange={(event) => {
+                          setCustomParameters((current) =>
+                            event.target.checked
+                              ? [...current, parameter]
+                              : current.filter((item) => item !== parameter),
+                          );
+                        }}
+                      />
+                      {TRACKING_PARAMETER_LABELS[parameter]}
+                    </label>
+                  ))}
+                </div>
+                {customParameters.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">Choose at least one parameter.</p>
+                ) : null}
+              </fieldset>
+            ) : null}
+            {selected.isSystem ? (
+              <p className="text-sm text-slate-500 sm:col-span-2">Saved to your library. Duplicate this workout to place it on a copy.</p>
+            ) : null}
+            <div>
+              <button
+                type="button"
+                disabled={
+                  pending === "exercise" ||
+                  exerciseName.trim().length === 0 ||
+                  primaryMuscleGroup.trim().length === 0 ||
+                  (trackingType === "custom" && customParameters.length === 0) ||
+                  muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup)
+                }
+                onClick={createExercise}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                {pending === "exercise" ? "Adding..." : "Add exercise"}
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold">Blocks</h3>
@@ -370,104 +470,6 @@ export function WorkoutEditor({
               </div>
             ))}
           </div>
-
-          {selected.isSystem ? null : (
-          <div className="grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-600">New exercise</span>
-              <input
-                value={exerciseName}
-                onChange={(event) => setExerciseName(event.target.value)}
-                maxLength={160}
-                placeholder="Exercise name"
-                className={fieldClass}
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-600">Tracks</span>
-              <select
-                value={trackingType}
-                onChange={(event) => {
-                  const next = isTrackingType(event.target.value) ? event.target.value : trackingType;
-                  if (next === "custom" && trackingType !== "custom") {
-                    setCustomParameters(parametersFor(trackingType, customParameters));
-                  }
-                  setTrackingType(next);
-                }}
-                className={fieldClass}
-              >
-                {TRACKING_TYPES.map((type) => (
-                  <option key={type} value={type}>{TRACKING_TYPE_LABELS[type]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-600">Primary muscle group</span>
-              <input
-                value={primaryMuscleGroup}
-                onChange={(event) => setPrimaryMuscleGroup(event.target.value)}
-                maxLength={80}
-                placeholder="Chest"
-                className={fieldClass}
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-600">Secondary muscle group</span>
-              <input
-                value={secondaryMuscleGroup}
-                onChange={(event) => setSecondaryMuscleGroup(event.target.value)}
-                maxLength={80}
-                placeholder="Optional"
-                className={fieldClass}
-              />
-            </label>
-            {muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup) ? (
-              <p className="text-sm text-red-600 sm:col-span-2">Secondary muscle group must be different from the primary muscle group.</p>
-            ) : null}
-            {trackingType === "custom" ? (
-              <fieldset className="sm:col-span-2">
-                <legend className="text-sm font-medium text-slate-600">Parameters</legend>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                  {TRACKING_PARAMETERS.map((parameter) => (
-                    <label key={parameter} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={customParameters.includes(parameter)}
-                        onChange={(event) => {
-                          setCustomParameters((current) =>
-                            event.target.checked
-                              ? [...current, parameter]
-                              : current.filter((item) => item !== parameter),
-                          );
-                        }}
-                      />
-                      {TRACKING_PARAMETER_LABELS[parameter]}
-                    </label>
-                  ))}
-                </div>
-                {customParameters.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-500">Choose at least one parameter.</p>
-                ) : null}
-              </fieldset>
-            ) : null}
-            <div>
-              <button
-                type="button"
-                disabled={
-                  pending === "exercise" ||
-                  exerciseName.trim().length === 0 ||
-                  primaryMuscleGroup.trim().length === 0 ||
-                  (trackingType === "custom" && customParameters.length === 0) ||
-                  muscleGroupsMatch(primaryMuscleGroup, secondaryMuscleGroup)
-                }
-                onClick={createExercise}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-60"
-              >
-                {pending === "exercise" ? "Adding..." : "Add exercise"}
-              </button>
-            </div>
-          </div>
-          )}
 
           {selected.isSystem ? null : (
           <div className="flex flex-wrap items-center gap-2">

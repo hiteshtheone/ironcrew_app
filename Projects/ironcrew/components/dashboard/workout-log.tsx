@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
-import type { ClientExercise, ClientLoggedSet, ClientWorkout } from "@/lib/dashboard/client-week";
+import { muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
 import { tracks, type TrackingParameter } from "@/lib/exercises/tracking";
 
 type DraftSet = {
@@ -21,6 +21,7 @@ type DraftBlock = {
   id: string;
   name: string;
   detail: string | null;
+  muscleGroups: string | null;
   parameters: TrackingParameter[];
   sets: DraftSet[];
 };
@@ -147,6 +148,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{block.name}</p>
+                      {block.muscleGroups ? <p className="text-xs text-slate-500">{block.muscleGroups}</p> : null}
                       {block.detail && <p className="text-xs text-slate-500">{block.detail}</p>}
                     </div>
                   </div>
@@ -352,6 +354,7 @@ function draftBlock(exercise: ClientExercise): DraftBlock {
     id: exercise.id,
     name: exercise.name,
     detail: exercise.detail,
+    muscleGroups: muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroup),
     parameters: exercise.trackingParameters,
     sets: Array.from({ length: count }, (_, index) => draftSet(saved.get(index + 1), unit)),
   };

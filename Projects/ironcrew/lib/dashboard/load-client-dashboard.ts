@@ -118,7 +118,7 @@ export async function loadClientDashboard(
               prescribed_duration_seconds,
               prescribed_distance_meters,
               prescribed_height_cm,
-              exercises ( name, tracking_type, tracking_parameters )
+              exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
             )
           )
         `,
@@ -281,6 +281,8 @@ function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet
     prescribedSets: positiveNumber(block.prescribed_sets),
     loadUnit: stringField(block, "load_unit"),
     trackingParameters: parameters,
+    primaryMuscleGroup: stringField(exercise, "primary_muscle_group"),
+    secondaryMuscleGroup: stringField(exercise, "secondary_muscle_group"),
     sets,
   };
 }

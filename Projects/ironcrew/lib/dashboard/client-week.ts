@@ -39,6 +39,8 @@ export type ClientExercise = {
   loadUnit: string | null;
   /** Fields this block records. Blocks without an exercise keep the original set. */
   trackingParameters: TrackingParameter[];
+  primaryMuscleGroup: string | null;
+  secondaryMuscleGroup: string | null;
   sets: ClientLoggedSet[];
 };
 
@@ -203,6 +205,13 @@ export function statusLabel(status: AssignmentStatus) {
     default:
       return "Scheduled";
   }
+}
+
+export function muscleGroupLabel(primary: string | null, secondary: string | null) {
+  if (primary && secondary) return `Primary: ${primary} · Secondary: ${secondary}`;
+  if (primary) return `Primary: ${primary}`;
+  if (secondary) return `Secondary: ${secondary}`;
+  return null;
 }
 
 export function prescriptionDetail(
