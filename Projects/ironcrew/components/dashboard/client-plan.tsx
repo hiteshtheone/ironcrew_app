@@ -7,7 +7,8 @@ import { ActiveProgramWarning } from "@/components/dashboard/active-program-warn
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { ClientGoal, ClientWorkoutLog } from "@/lib/dashboard/load-client-list";
-import type { WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
+import { muscleGroupLabel } from "@/lib/dashboard/client-week";
+import { libraryItemLabel, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import { GOAL_STATUS_LABELS, GOAL_STATUSES, GOAL_TYPE_LABELS, GOAL_TYPES, isGoalStatus, isGoalType } from "@/lib/plans/constants";
 
@@ -50,7 +51,7 @@ type ClientPlanTarget = {
   workoutLogs: ClientWorkoutLog[];
 };
 
-type ProgramOption = { id: string; name: string };
+type ProgramOption = { id: string; name: string; isSystem?: boolean };
 
 export function ClientPlan({
   client,
@@ -290,7 +291,7 @@ export function ClientPlan({
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Program</span>
               <select required disabled={!editingPlan} value={selectedProgramId} onChange={(event) => setProgramId(event.target.value)} className={fieldClass}>
-                {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+                {programs.map((program) => <option key={program.id} value={program.id}>{libraryItemLabel(program.name, program.isSystem === true)}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-sm">
@@ -341,7 +342,7 @@ export function ClientPlan({
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Workout</span>
               <select required value={selectedWorkoutId} onChange={(event) => setWorkoutId(event.target.value)} className={fieldClass}>
-                {workouts.map((workout) => <option key={workout.id} value={workout.id}>{workout.name}</option>)}
+                {workouts.map((workout) => <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-sm">
@@ -412,9 +413,12 @@ function WorkoutDetails({ logs }: { logs: ClientWorkoutLog[] }) {
                 <p className="mt-3 text-sm text-slate-500">No blocks in this workout.</p>
               ) : (
                 <ul className="mt-3 space-y-3">
-                  {log.blocks.map((block) => (
+                  {log.blocks.map((block) => {
+                    const muscles = muscleGroupLabel(block.primaryMuscleGroup, block.secondaryMuscleGroup);
+                    return (
                     <li key={block.id}>
                       <p className="text-sm font-medium">{block.name}</p>
+                      {muscles ? <p className="text-xs text-slate-500">{muscles}</p> : null}
                       {block.sets.length === 0 ? (
                         <p className="mt-1 text-xs text-slate-500">No details logged.</p>
                       ) : (
@@ -427,7 +431,8 @@ function WorkoutDetails({ logs }: { logs: ClientWorkoutLog[] }) {
                         </ul>
                       )}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               )}
             </article>
@@ -455,6 +460,8 @@ function setSummary(set: ClientWorkoutLog["blocks"][number]["sets"][number]) {
   if (set.load != null) parts.push(set.loadUnit ? `${set.load} ${set.loadUnit}` : String(set.load));
   if (set.repetitions != null) parts.push(`${set.repetitions} reps`);
   if (set.durationSeconds != null) parts.push(`${set.durationSeconds} sec`);
+  if (set.distanceMeters != null) parts.push(`${Math.round((set.distanceMeters / 1000) * 1000) / 1000} km`);
+  if (set.heightCm != null) parts.push(`${set.heightCm} cm`);
   if (set.notes) parts.push(set.notes);
   return parts.join(" · ");
 }

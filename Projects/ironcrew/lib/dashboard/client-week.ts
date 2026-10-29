@@ -1,4 +1,5 @@
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import type { TrackingParameter } from "@/lib/exercises/tracking";
 
 export const ASSIGNMENT_STATUSES = [
   "scheduled",
@@ -25,6 +26,7 @@ export type ClientLoggedSet = {
   loadUnit: string | null;
   durationSeconds: number | null;
   distanceMeters: number | null;
+  heightCm: number | null;
   notes: string | null;
 };
 
@@ -35,6 +37,10 @@ export type ClientExercise = {
   detail: string | null;
   prescribedSets: number | null;
   loadUnit: string | null;
+  /** Fields this block records. Blocks without an exercise keep the original set. */
+  trackingParameters: TrackingParameter[];
+  primaryMuscleGroup: string | null;
+  secondaryMuscleGroup: string | null;
   sets: ClientLoggedSet[];
 };
 
@@ -201,10 +207,24 @@ export function statusLabel(status: AssignmentStatus) {
   }
 }
 
+export function muscleGroupLabel(primary: string | null, secondary: string | null) {
+  if (primary && secondary) return `Primary: ${primary} · Secondary: ${secondary}`;
+  if (primary) return `Primary: ${primary}`;
+  if (secondary) return `Secondary: ${secondary}`;
+  return null;
+}
+
 export function prescriptionDetail(
   sets: number | null,
   repsMin: number | null,
   repsMax: number | null,
+  extras?: {
+    load?: number | null;
+    loadUnit?: string | null;
+    durationSeconds?: number | null;
+    distanceMeters?: number | null;
+    heightCm?: number | null;
+  },
 ) {
   const reps =
     repsMin && repsMax && repsMin !== repsMax
@@ -215,7 +235,20 @@ export function prescriptionDetail(
           ? `${repsMax} reps`
           : null;
   const setLabel = sets ? `${sets} ${sets === 1 ? "set" : "sets"}` : null;
-  return [setLabel, reps].filter(Boolean).join(" · ") || null;
+  const load =
+    extras?.load != null
+      ? extras.loadUnit
+        ? `${extras.load} ${extras.loadUnit}`
+        : String(extras.load)
+      : null;
+  const duration = extras?.durationSeconds != null ? `${extras.durationSeconds} sec` : null;
+  const distance = extras?.distanceMeters != null ? `${metersToKmLabel(extras.distanceMeters)} km` : null;
+  const height = extras?.heightCm != null ? `${extras.heightCm} cm` : null;
+  return [setLabel, load, reps, duration, distance, height].filter(Boolean).join(" · ") || null;
+}
+
+function metersToKmLabel(meters: number) {
+  return String(Math.round((meters / 1000) * 1000) / 1000);
 }
 
 function formatYmd(date: Date, timeZone: string) {

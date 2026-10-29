@@ -68,7 +68,9 @@ async function AuthenticatedDashboard() {
     return <TrainerLoadError message={dashboard.message} />;
   }
 
-  const programs = planning.kind === "ready" ? planning.programs.map((program) => ({ id: program.id, name: program.name })) : [];
+  const programs = planning.kind === "ready"
+    ? planning.programs.map((program) => ({ id: program.id, name: program.name, isSystem: program.isSystem }))
+    : [];
   const workouts = planning.kind === "ready" ? planning.workouts : [];
 
   return (

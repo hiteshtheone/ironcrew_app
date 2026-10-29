@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
+import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
 import {
   type ClientDashboardData,
   type ClientExercise,
@@ -96,6 +97,7 @@ export async function loadClientDashboard(
               load_unit,
               duration_seconds,
               distance_meters,
+              height_cm,
               notes
             )
           ),
@@ -111,8 +113,12 @@ export async function loadClientDashboard(
               prescribed_sets,
               prescribed_reps_min,
               prescribed_reps_max,
+              prescribed_load,
               load_unit,
-              exercises ( name )
+              prescribed_duration_seconds,
+              prescribed_distance_meters,
+              prescribed_height_cm,
+              exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
             )
           )
         `,
@@ -235,6 +241,7 @@ function loggedSetsByBlock(value: unknown) {
       loadUnit: stringField(record, "load_unit"),
       durationSeconds: nonNegativeNumber(record.duration_seconds),
       distanceMeters: nonNegativeNumber(record.distance_meters),
+      heightCm: nonNegativeNumber(record.height_cm),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);
@@ -254,19 +261,36 @@ function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet
   const name = stringField(exercise, "name") || stringField(block, "title") || labelForBlock(stringField(block, "block_type"));
   if (!name) return null;
 
+  const parameters = trackingParametersFor(exercise);
   return {
     id,
     exerciseId: stringField(block, "exercise_id"),
     name,
     detail: prescriptionDetail(
       positiveNumber(block.prescribed_sets),
-      positiveNumber(block.prescribed_reps_min),
-      positiveNumber(block.prescribed_reps_max),
+      parameters.includes("reps") ? positiveNumber(block.prescribed_reps_min) : null,
+      parameters.includes("reps") ? positiveNumber(block.prescribed_reps_max) : null,
+      {
+        load: parameters.includes("weight") ? nonNegativeNumber(block.prescribed_load) : null,
+        loadUnit: stringField(block, "load_unit"),
+        durationSeconds: parameters.includes("time") ? nonNegativeNumber(block.prescribed_duration_seconds) : null,
+        distanceMeters: parameters.includes("distance") ? nonNegativeNumber(block.prescribed_distance_meters) : null,
+        heightCm: parameters.includes("height") ? nonNegativeNumber(block.prescribed_height_cm) : null,
+      },
     ),
     prescribedSets: positiveNumber(block.prescribed_sets),
     loadUnit: stringField(block, "load_unit"),
+    trackingParameters: parameters,
+    primaryMuscleGroup: stringField(exercise, "primary_muscle_group"),
+    secondaryMuscleGroup: stringField(exercise, "secondary_muscle_group"),
     sets,
   };
+}
+
+function trackingParametersFor(exercise: Record<string, unknown> | null) {
+  if (!exercise) return [...LEGACY_TRACKING_PARAMETERS];
+  const trackingType = stringField(exercise, "tracking_type");
+  return parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, exercise.tracking_parameters);
 }
 
 function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {

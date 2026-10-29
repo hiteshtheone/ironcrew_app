@@ -79,6 +79,8 @@ export type ClientWorkoutLog = {
 export type ClientWorkoutBlockLog = {
   id: string;
   name: string;
+  primaryMuscleGroup: string | null;
+  secondaryMuscleGroup: string | null;
   sets: ClientWorkoutSetLog[];
 };
 
@@ -88,6 +90,8 @@ export type ClientWorkoutSetLog = {
   load: number | null;
   loadUnit: string | null;
   durationSeconds: number | null;
+  distanceMeters: number | null;
+  heightCm: number | null;
   notes: string | null;
 };
 
@@ -189,6 +193,8 @@ async function loadWorkoutLogs(supabase: SupabaseClient, clientIds: string[], st
           load,
           load_unit,
           duration_seconds,
+          distance_meters,
+          height_cm,
           notes
         )
       ),
@@ -199,7 +205,7 @@ async function loadWorkoutLogs(supabase: SupabaseClient, clientIds: string[], st
           position,
           title,
           block_type,
-          exercises ( name )
+          exercises ( name, primary_muscle_group, secondary_muscle_group )
         )
       )
     `,
@@ -373,6 +379,8 @@ function setsForBlocks(value: unknown) {
       load: nonNegativeNumber(record.load),
       loadUnit: stringField(record, "load_unit"),
       durationSeconds: nonNegativeNumber(record.duration_seconds),
+      distanceMeters: nonNegativeNumber(record.distance_meters),
+      heightCm: nonNegativeNumber(record.height_cm),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);
@@ -389,7 +397,13 @@ function normalizeBlockLog(block: Record<string, unknown>, setsByBlock: Map<stri
   const exercise = asRecord(firstRelation(block.exercises));
   const name = stringField(exercise, "name") || stringField(block, "title") || labelForBlock(stringField(block, "block_type"));
   if (!name) return null;
-  return { id, name, sets: setsByBlock.get(id) ?? [] };
+  return {
+    id,
+    name,
+    primaryMuscleGroup: stringField(exercise, "primary_muscle_group"),
+    secondaryMuscleGroup: stringField(exercise, "secondary_muscle_group"),
+    sets: setsByBlock.get(id) ?? [],
+  };
 }
 
 function labelForBlock(blockType: string | null) {
