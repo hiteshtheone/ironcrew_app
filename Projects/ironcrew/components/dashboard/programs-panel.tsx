@@ -609,10 +609,15 @@ export function ProgramsPanel({
               router.replace(`/dashboard?${params.toString()}`);
               setNotice("Workout deleted.");
             })}
-            onCreateExercise={async (name) => {
+            onCreateExercise={async (input) => {
               let created: { id: string; name: string; isSystem: boolean } | null = null;
               await run("exercise", async () => {
-                const payload = await postJson("/api/exercises", { name });
+                const payload = await postJson("/api/exercises", {
+                  name: input.name,
+                  tracking_type: input.trackingType,
+                  tracking_parameters: input.trackingParameters,
+                  secondary_muscle_group: input.secondaryMuscleGroup.trim() || null,
+                });
                 if (typeof payload.id === "string" && typeof payload.name === "string") {
                   created = { id: payload.id, name: payload.name, isSystem: false };
                 }

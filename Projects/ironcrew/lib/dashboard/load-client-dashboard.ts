@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
+import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
 import {
   type ClientDashboardData,
   type ClientExercise,
@@ -96,6 +97,7 @@ export async function loadClientDashboard(
               load_unit,
               duration_seconds,
               distance_meters,
+              height_cm,
               notes
             )
           ),
@@ -112,7 +114,7 @@ export async function loadClientDashboard(
               prescribed_reps_min,
               prescribed_reps_max,
               load_unit,
-              exercises ( name )
+              exercises ( name, tracking_type, tracking_parameters )
             )
           )
         `,
@@ -235,6 +237,7 @@ function loggedSetsByBlock(value: unknown) {
       loadUnit: stringField(record, "load_unit"),
       durationSeconds: nonNegativeNumber(record.duration_seconds),
       distanceMeters: nonNegativeNumber(record.distance_meters),
+      heightCm: nonNegativeNumber(record.height_cm),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);
@@ -265,8 +268,15 @@ function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet
     ),
     prescribedSets: positiveNumber(block.prescribed_sets),
     loadUnit: stringField(block, "load_unit"),
+    trackingParameters: trackingParametersFor(exercise),
     sets,
   };
+}
+
+function trackingParametersFor(exercise: Record<string, unknown> | null) {
+  if (!exercise) return [...LEGACY_TRACKING_PARAMETERS];
+  const trackingType = stringField(exercise, "tracking_type");
+  return parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, exercise.tracking_parameters);
 }
 
 function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {

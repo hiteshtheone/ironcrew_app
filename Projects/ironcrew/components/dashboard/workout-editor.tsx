@@ -4,6 +4,16 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { libraryItemLabel, type ExerciseOption, type LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
+import {
+  isTrackingType,
+  parametersFor,
+  TRACKING_PARAMETER_LABELS,
+  TRACKING_PARAMETERS,
+  TRACKING_TYPE_LABELS,
+  TRACKING_TYPES,
+  type ExerciseTrackingType,
+  type TrackingParameter,
+} from "@/lib/exercises/tracking";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -50,7 +60,12 @@ export function WorkoutEditor({
   onDuplicate: (workoutId: string) => void;
   onSave: (workoutId: string, body: Record<string, unknown>) => Promise<boolean>;
   onDelete: (workoutId: string) => Promise<boolean>;
-  onCreateExercise: (name: string) => Promise<ExerciseOption | null>;
+  onCreateExercise: (input: {
+    name: string;
+    trackingType: ExerciseTrackingType;
+    trackingParameters: TrackingParameter[];
+    secondaryMuscleGroup: string;
+  }) => Promise<ExerciseOption | null>;
 }) {
   const requested = workouts.find((workout) => workout.id === selectedWorkoutId) ?? null;
   const selected = requested ?? (selectedWorkoutId ? null : workouts[0] ?? null);
@@ -59,6 +74,9 @@ export function WorkoutEditor({
   const [duration, setDuration] = useState(selected?.durationMinutes == null ? "" : String(selected.durationMinutes));
   const [blocks, setBlocks] = useState<BlockDraft[]>(() => (selected ? selected.blocks.map(toDraft) : []));
   const [exerciseName, setExerciseName] = useState("");
+  const [trackingType, setTrackingType] = useState<ExerciseTrackingType>("weight_reps");
+  const [customParameters, setCustomParameters] = useState<TrackingParameter[]>(["weight", "reps"]);
+  const [secondaryMuscleGroup, setSecondaryMuscleGroup] = useState("");
   const [knownExercises, setKnownExercises] = useState(exercises);
   const workoutId = selected?.id ?? "";
   const [loadedId, setLoadedId] = useState(workoutId);
@@ -120,7 +138,14 @@ export function WorkoutEditor({
   };
 
   const createExercise = () => {
-    void onCreateExercise(exerciseName).then((created) => {
+    const trackingParameters = trackingType === "custom" ? [...customParameters] : parametersFor(trackingType, null);
+    if (exerciseName.trim().length === 0 || trackingParameters.length === 0) return;
+    void onCreateExercise({
+      name: exerciseName,
+      trackingType,
+      trackingParameters,
+      secondaryMuscleGroup,
+    }).then((created) => {
       if (!created) return;
       setKnownExercises((current) =>
         current.some((exercise) => exercise.id === created.id)
@@ -128,6 +153,9 @@ export function WorkoutEditor({
           : [...current, created].sort(compareExercises),
       );
       setExerciseName("");
+      setTrackingType("weight_reps");
+      setCustomParameters(["weight", "reps"]);
+      setSecondaryMuscleGroup("");
     });
   };
 
@@ -305,8 +333,8 @@ export function WorkoutEditor({
           </div>
 
           {selected.isSystem ? null : (
-          <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3 sm:flex-row sm:items-end">
-            <label className="grid flex-1 gap-1 text-sm">
+          <div className="grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">New exercise</span>
               <input
                 value={exerciseName}
@@ -316,14 +344,70 @@ export function WorkoutEditor({
                 className={fieldClass}
               />
             </label>
-            <button
-              type="button"
-              disabled={pending === "exercise" || exerciseName.trim().length === 0}
-              onClick={createExercise}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-60"
-            >
-              {pending === "exercise" ? "Adding..." : "Add exercise"}
-            </button>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Tracks</span>
+              <select
+                value={trackingType}
+                onChange={(event) => {
+                  const next = isTrackingType(event.target.value) ? event.target.value : trackingType;
+                  if (next === "custom" && trackingType !== "custom") {
+                    setCustomParameters(parametersFor(trackingType, customParameters));
+                  }
+                  setTrackingType(next);
+                }}
+                className={fieldClass}
+              >
+                {TRACKING_TYPES.map((type) => (
+                  <option key={type} value={type}>{TRACKING_TYPE_LABELS[type]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-slate-600">Secondary muscle group</span>
+              <input
+                value={secondaryMuscleGroup}
+                onChange={(event) => setSecondaryMuscleGroup(event.target.value)}
+                maxLength={80}
+                placeholder="Optional"
+                className={fieldClass}
+              />
+            </label>
+            {trackingType === "custom" ? (
+              <fieldset className="sm:col-span-2">
+                <legend className="text-sm font-medium text-slate-600">Parameters</legend>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                  {TRACKING_PARAMETERS.map((parameter) => (
+                    <label key={parameter} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={customParameters.includes(parameter)}
+                        onChange={(event) => {
+                          setCustomParameters((current) =>
+                            event.target.checked
+                              ? [...current, parameter]
+                              : current.filter((item) => item !== parameter),
+                          );
+                        }}
+                      />
+                      {TRACKING_PARAMETER_LABELS[parameter]}
+                    </label>
+                  ))}
+                </div>
+                {customParameters.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">Choose at least one parameter.</p>
+                ) : null}
+              </fieldset>
+            ) : null}
+            <div>
+              <button
+                type="button"
+                disabled={pending === "exercise" || exerciseName.trim().length === 0 || (trackingType === "custom" && customParameters.length === 0)}
+                onClick={createExercise}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                {pending === "exercise" ? "Adding..." : "Add exercise"}
+              </button>
+            </div>
           </div>
           )}
 

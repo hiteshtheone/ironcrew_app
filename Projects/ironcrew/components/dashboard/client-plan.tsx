@@ -455,6 +455,7 @@ function setSummary(set: ClientWorkoutLog["blocks"][number]["sets"][number]) {
   if (set.load != null) parts.push(set.loadUnit ? `${set.load} ${set.loadUnit}` : String(set.load));
   if (set.repetitions != null) parts.push(`${set.repetitions} reps`);
   if (set.durationSeconds != null) parts.push(`${set.durationSeconds} sec`);
+  if (set.heightCm != null) parts.push(`${set.heightCm} cm`);
   if (set.notes) parts.push(set.notes);
   return parts.join(" · ");
 }

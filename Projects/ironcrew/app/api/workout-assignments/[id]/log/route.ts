@@ -11,6 +11,12 @@ import {
   readJson,
   requireUser,
 } from "@/lib/api/route-utils";
+import {
+  isTrackingType,
+  LEGACY_TRACKING_PARAMETERS,
+  parametersFor,
+  type TrackingParameter,
+} from "@/lib/exercises/tracking";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,6 +27,7 @@ type LoggedSet = {
   load_unit: string | null;
   duration_seconds: number | null;
   distance_meters: number | null;
+  height_cm: number | null;
   notes: string | null;
   exercise_id: string | null;
   workout_block_id: string;
@@ -53,7 +60,11 @@ export async function PUT(request: Request, context: RouteContext) {
       client_id,
       workout_id,
       workouts (
-        workout_blocks ( id, exercise_id )
+        workout_blocks (
+          id,
+          exercise_id,
+          exercises ( tracking_type, tracking_parameters )
+        )
       )
     `,
     )
@@ -89,6 +100,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   const rows = parsedSets.sets
+    .map((set) => restrictToParameters(set, blocksById.get(set.workout_block_id)?.parameters ?? [...LEGACY_TRACKING_PARAMETERS]))
     .filter((set) => !isBlankSet(set))
     .map((set) => ({
       workout_session_id: sessionId.id,
@@ -100,6 +112,7 @@ export async function PUT(request: Request, context: RouteContext) {
       load_unit: set.load_unit,
       duration_seconds: set.duration_seconds,
       distance_meters: set.distance_meters,
+      height_cm: set.height_cm,
       notes: set.notes,
     }));
 
@@ -116,7 +129,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
 function parseBlocks(
   blocks: unknown[],
-  knownBlocks: Map<string, string | null>,
+  knownBlocks: Map<string, BlockTracking>,
 ): { error: ReturnType<typeof jsonError> } | { sets: LoggedSet[] } {
   const sets: LoggedSet[] = [];
   const seenBlocks = new Set<string>();
@@ -133,7 +146,7 @@ function parseBlocks(
 
     const seenSets = new Set<number>();
     for (const set of block.sets) {
-      const parsed = parseSet(set, blockId, knownBlocks.get(blockId) ?? null);
+      const parsed = parseSet(set, blockId, knownBlocks.get(blockId)?.exerciseId ?? null);
       if ("error" in parsed) return { error: parsed.error };
       if (seenSets.has(parsed.set.set_number)) {
         return { error: jsonError("set_number must be unique within a block", 400) };
@@ -172,6 +185,10 @@ function parseSet(
   if (distanceMeters === undefined) {
     return { error: jsonError("distance_meters must be a number that is zero or greater", 400) };
   }
+  const heightCm = optionalNonNegative(value.height_cm);
+  if (heightCm === undefined) {
+    return { error: jsonError("height_cm must be a number that is zero or greater", 400) };
+  }
 
   const loadUnit = asTrimmedString(value.load_unit);
   if (loadUnit === undefined) return { error: jsonError("load_unit must be a string or null", 400) };
@@ -189,6 +206,7 @@ function parseSet(
       load_unit: load == null ? null : loadUnit ?? "kg",
       duration_seconds: durationSeconds,
       distance_meters: distanceMeters,
+      height_cm: heightCm,
       notes,
       exercise_id: exerciseId,
       workout_block_id: blockId,
@@ -216,6 +234,7 @@ function isBlankSet(set: LoggedSet) {
     set.load == null &&
     set.duration_seconds == null &&
     set.distance_meters == null &&
+    set.height_cm == null &&
     !set.notes
   );
 }
@@ -272,16 +291,45 @@ async function ensureSession(
 
 function blocksForAssignment(assignment: { workouts: unknown }) {
   const workout = firstRelation(assignment.workouts);
-  const blocks = new Map<string, string | null>();
+  const blocks = new Map<string, BlockTracking>();
   if (!isRecord(workout)) return blocks;
   for (const block of relationList(workout.workout_blocks)) {
     if (!isRecord(block)) continue;
     const id = asTrimmedString(block.id);
     if (!id) continue;
     const exerciseId = asTrimmedString(block.exercise_id);
-    blocks.set(id, exerciseId ?? null);
+    blocks.set(id, {
+      exerciseId: exerciseId ?? null,
+      parameters: parametersForBlock(block.exercises),
+    });
   }
   return blocks;
+}
+
+type BlockTracking = {
+  exerciseId: string | null;
+  parameters: TrackingParameter[];
+};
+
+function parametersForBlock(exercise: unknown): TrackingParameter[] {
+  const record = firstRelation(exercise);
+  if (!isRecord(record)) return [...LEGACY_TRACKING_PARAMETERS];
+  const trackingType = asTrimmedString(record.tracking_type);
+  return parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, record.tracking_parameters);
+}
+
+function restrictToParameters(set: LoggedSet, parameters: readonly TrackingParameter[]): LoggedSet {
+  const tracked = new Set(parameters);
+  const load = tracked.has("weight") ? set.load : null;
+  return {
+    ...set,
+    repetitions: tracked.has("reps") ? set.repetitions : null,
+    load,
+    load_unit: load == null ? null : set.load_unit,
+    duration_seconds: tracked.has("time") ? set.duration_seconds : null,
+    distance_meters: tracked.has("distance") ? set.distance_meters : null,
+    height_cm: tracked.has("height") ? set.height_cm : null,
+  };
 }
 
 function firstRelation(value: unknown) {

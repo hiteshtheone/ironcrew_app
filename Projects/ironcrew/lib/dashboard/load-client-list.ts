@@ -88,6 +88,7 @@ export type ClientWorkoutSetLog = {
   load: number | null;
   loadUnit: string | null;
   durationSeconds: number | null;
+  heightCm: number | null;
   notes: string | null;
 };
 
@@ -189,6 +190,7 @@ async function loadWorkoutLogs(supabase: SupabaseClient, clientIds: string[], st
           load,
           load_unit,
           duration_seconds,
+          height_cm,
           notes
         )
       ),
@@ -373,6 +375,7 @@ function setsForBlocks(value: unknown) {
       load: nonNegativeNumber(record.load),
       loadUnit: stringField(record, "load_unit"),
       durationSeconds: nonNegativeNumber(record.duration_seconds),
+      heightCm: nonNegativeNumber(record.height_cm),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);

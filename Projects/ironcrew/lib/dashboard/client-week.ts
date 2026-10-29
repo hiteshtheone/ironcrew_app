@@ -1,4 +1,5 @@
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import type { TrackingParameter } from "@/lib/exercises/tracking";
 
 export const ASSIGNMENT_STATUSES = [
   "scheduled",
@@ -25,6 +26,7 @@ export type ClientLoggedSet = {
   loadUnit: string | null;
   durationSeconds: number | null;
   distanceMeters: number | null;
+  heightCm: number | null;
   notes: string | null;
 };
 
@@ -35,6 +37,8 @@ export type ClientExercise = {
   detail: string | null;
   prescribedSets: number | null;
   loadUnit: string | null;
+  /** Fields this block records. Blocks without an exercise keep the original set. */
+  trackingParameters: TrackingParameter[];
   sets: ClientLoggedSet[];
 };
 
