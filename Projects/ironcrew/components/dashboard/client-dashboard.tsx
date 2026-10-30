@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
-  Bell,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -162,21 +161,23 @@ function ClientShell({
       </aside>
 
       <section className="lg:pl-64">
-        <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8">
-          <button
-            type="button"
-            className="rounded-lg p-2 text-slate-600 lg:hidden"
-            aria-label="Open navigation"
-            aria-expanded={navOpen}
-            onClick={() => setNavOpen((open) => !open)}
-          >
-            <Menu className="size-5" />
-          </button>
-          <p className="hidden text-sm text-slate-500 sm:block">{data.dateLabel}</p>
-          <div className="flex items-center gap-1">
-            <button className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications">
-              <Bell className="size-5" />
+        <header className="flex h-20 items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 sm:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              className="shrink-0 rounded-lg p-2 text-slate-600 lg:hidden"
+              aria-label="Open navigation"
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen((open) => !open)}
+            >
+              <Menu className="size-5" />
             </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-950">{data.firstName}</p>
+              <p className="hidden truncate text-xs text-slate-500 sm:block">{data.dateLabel}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <HeaderLogoutButton />
           </div>
         </header>

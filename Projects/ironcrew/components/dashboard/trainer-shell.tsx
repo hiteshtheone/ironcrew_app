@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type ComponentType, type ReactNode } from "react";
 import {
   Activity,
-  Bell,
   CalendarDays,
   Dumbbell,
   Menu,
@@ -126,24 +125,23 @@ export function TrainerShell({
       </aside>
 
       <section className="lg:pl-64">
-        <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8">
-          <button
-            type="button"
-            className="rounded-lg p-2 text-slate-600 lg:hidden"
-            aria-label="Open navigation"
-            aria-expanded={navOpen}
-            onClick={() => setNavOpen((open) => !open)}
-          >
-            <Menu className="size-5" />
-          </button>
-          <div className="hidden sm:block">
-            <p className="text-sm text-slate-500">{profile.dateLabel}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications">
-              <Bell className="size-5" />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-orange-500 ring-2 ring-white" />
+        <header className="flex h-20 items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 sm:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              className="shrink-0 rounded-lg p-2 text-slate-600 lg:hidden"
+              aria-label="Open navigation"
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen((open) => !open)}
+            >
+              <Menu className="size-5" />
             </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-950">{profile.fullName}</p>
+              <p className="hidden truncate text-xs text-slate-500 sm:block">{profile.dateLabel}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
             <HeaderLogoutButton />
             <Link
               href="/clients/new"
