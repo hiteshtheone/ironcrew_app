@@ -10,7 +10,7 @@ type WorkoutsEmptyStateProps = {
 export function WorkoutsEmptyState({
   hasActiveFilters,
   onClearAll,
-  emptyMessage = "Workouts your trainer assigns to you will show up here.",
+  emptyMessage = "Workouts you schedule, or that your trainer assigns, show up here.",
 }: WorkoutsEmptyStateProps) {
   return (
     <div className="flex flex-col items-center px-4 py-10 text-center">

@@ -19,7 +19,7 @@ export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { 
         <div className="mt-6">
           <WorkoutsBrowser
             endpoint="/api/me/workouts"
-            emptyMessage="Workouts your trainer assigns to you will show up here."
+            emptyMessage="Workouts you schedule, or that your trainer assigns, show up here."
           />
         </div>
       )}
