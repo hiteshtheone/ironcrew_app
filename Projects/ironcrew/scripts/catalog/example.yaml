@@ -1,0 +1,21 @@
+# Shared catalog. Both owner columns stay null, so every signed-in user can use these rows.
+exercises:
+  - name: Bench Press
+    muscle: chest
+    equipment: barbell
+workouts:
+  - name: Push A
+    minutes: 60
+    blocks:
+      - exercise: Bench Press
+        sets: 4
+        reps: 6-8
+        rest: 120
+programs:
+  - name: Push Pull
+    phases:
+      - name: Base
+        weeks:
+          - days:
+              - day: 1
+                workout: Push A
