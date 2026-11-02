@@ -261,6 +261,92 @@ test("a workout can use a shared exercise that is already in the catalog", async
   assert.equal(blocks.rows[0]?.name, "Bench Press");
 });
 
+test("a program file can use workout and exercise ids without repeating them", async () => {
+  const db = await database();
+  const exerciseId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const workoutId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  await applyInTransaction(
+    db,
+    parseCatalog({
+      exercises: [{ id: exerciseId, name: "Bench Press", muscle: "chest" }],
+      workouts: [{ id: workoutId, name: "Push A", blocks: [{ exercise_id: exerciseId, sets: 4, reps: 5 }] }],
+    }),
+    "library.yaml",
+  );
+
+  const counts = await applyInTransaction(
+    db,
+    parseCatalog({
+      programs: [{ name: "Push Pull", phases: [{ name: "Base", weeks: [{ days: [{ day: 1, workout_id: workoutId }] }] }] }],
+    }),
+    "program.yaml",
+  );
+  assert.deepEqual(counts, {
+    exercises: { created: 0, updated: 0 },
+    workouts: { created: 0, updated: 0 },
+    programs: { created: 1, updated: 0 },
+  });
+
+  const slots = await db.query<{ workout_id: string }>(
+    `select workout_id::text as workout_id from public.program_workouts`,
+  );
+  assert.equal(slots.rows[0]?.workout_id, workoutId);
+
+  const renamed = await applyInTransaction(
+    db,
+    parseCatalog({ exercises: [{ id: exerciseId, name: "Bench Press Wide" }] }),
+    "rename.yaml",
+  );
+  assert.equal(renamed.exercises.updated, 1);
+  const names = await db.query<{ name: string }>(`select name from public.exercises`);
+  assert.deepEqual(names.rows.map((row) => row.name), ["Bench Press Wide"]);
+});
+
+test("an unknown workout id is rejected before any rows are written", async () => {
+  const db = await database();
+  await assert.rejects(
+    () =>
+      applyInTransaction(
+        db,
+        parseCatalog({
+          exercises: [{ name: "Bench Press" }],
+          programs: [
+            {
+              name: "Push Pull",
+              phases: [{ name: "Base", weeks: [{ days: [{ day: 1, workout_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }] }] }],
+            },
+          ],
+        }),
+        "program.yaml",
+      ),
+    /unknown workout id bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/,
+  );
+  const exercises = await db.query(`select id from public.exercises`);
+  assert.equal(exercises.rows.length, 0);
+});
+
+test("a private workout id cannot be placed on a catalog program", async () => {
+  const db = await database();
+  const workoutId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  await db.query(
+    `insert into public.workouts (id, trainer_id, name) values ($1, '11111111-1111-4111-8111-111111111111', 'Push A')`,
+    [workoutId],
+  );
+  await assert.rejects(
+    () =>
+      applyInTransaction(
+        db,
+        parseCatalog({
+          programs: [{ name: "Push Pull", phases: [{ name: "Base", weeks: [{ days: [{ day: 1, workout_id: workoutId }] }] }] }],
+        }),
+        "program.yaml",
+      ),
+    /is not in the shared catalog/,
+  );
+  const programs = await db.query(`select id from public.programs`);
+  assert.equal(programs.rows.length, 0);
+});
+
 async function database() {
   const db = new PGlite();
   await db.exec(schema);

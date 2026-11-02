@@ -49,7 +49,7 @@ test("a later slot on the same day gets the next position", () => {
   });
   const days = document.programs[0]?.phases[0]?.weeks[0]?.days ?? [];
   assert.deepEqual(
-    days.map((day) => [day.day, day.position, day.workout]),
+    days.map((day) => [day.day, day.position, day.workoutName]),
     [
       [1, 1, "Push A"],
       [1, 2, "Push B"],
@@ -91,6 +91,36 @@ test("a block without an exercise needs a type, and an exercise block needs a na
   const notes = parseCatalog({ workouts: [{ name: "Push", blocks: [{ type: "notes", title: "Breathe" }] }] });
   assert.equal(notes.workouts[0]?.blocks[0]?.blockType, "notes");
   assert.equal(notes.workouts[0]?.blocks[0]?.exercise, null);
+});
+
+test("programs and workouts can point at catalog ids", () => {
+  const exerciseId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const workoutId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const document = parseCatalog({
+    exercises: [{ id: exerciseId, name: "Bench Press" }],
+    workouts: [{ id: workoutId, name: "Push A", blocks: [{ exercise_id: exerciseId, sets: 4, reps: 6 }] }],
+    programs: [{ name: "Push Pull", phases: [{ name: "Base", weeks: [{ days: [{ day: 1, workout_id: workoutId }] }] }] }],
+  });
+  assert.equal(document.exercises[0]?.id, exerciseId);
+  assert.equal(document.workouts[0]?.blocks[0]?.exerciseId, exerciseId);
+  assert.equal(document.workouts[0]?.blocks[0]?.exercise, null);
+  assert.equal(document.programs[0]?.phases[0]?.weeks[0]?.days[0]?.workoutId, workoutId);
+  assert.equal(document.programs[0]?.phases[0]?.weeks[0]?.days[0]?.workoutName, null);
+});
+
+test("a reference cannot use a name and an id together", () => {
+  assert.throws(
+    () => parseCatalog({ workouts: [{ name: "Push", blocks: [{ exercise: "Bench Press", exercise_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }] }] }),
+    /use an exercise name or exercise_id, not both/,
+  );
+  assert.throws(
+    () =>
+      parseCatalog({
+        programs: [{ name: "Push Pull", phases: [{ name: "Base", weeks: [{ days: [{ day: 1, workout: "Push A", workout_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }] }] }] }],
+      }),
+    /use a workout name or workout_id, not both/,
+  );
+  assert.throws(() => parseCatalog({ exercises: [{ id: "not-a-uuid", name: "Bench Press" }] }), /must be a uuid/);
 });
 
 test("the same day position cannot be used twice", () => {

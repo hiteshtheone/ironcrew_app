@@ -8,14 +8,16 @@ import { isBlockType, type BlockType } from "../../lib/plans/constants";
 const NAME_LIMIT = 160;
 const INTEGER_LIMIT = 2_147_483_647;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const ROOT_KEYS = new Set(["exercises", "workouts", "programs"]);
-const EXERCISE_KEYS = new Set(["name", "muscle", "equipment", "description", "instructions", "video_url"]);
-const WORKOUT_KEYS = new Set(["name", "description", "minutes", "blocks"]);
-const BLOCK_KEYS = new Set(["type", "exercise", "title", "sets", "reps", "load", "unit", "rest"]);
+const EXERCISE_KEYS = new Set(["id", "name", "muscle", "equipment", "description", "instructions", "video_url"]);
+const WORKOUT_KEYS = new Set(["id", "name", "description", "minutes", "blocks"]);
+const BLOCK_KEYS = new Set(["type", "exercise", "exercise_id", "title", "sets", "reps", "load", "unit", "rest"]);
 const PROGRAM_KEYS = new Set(["name", "description", "status", "phases"]);
 const PHASE_KEYS = new Set(["name", "description", "weeks"]);
 const WEEK_KEYS = new Set(["name", "days"]);
-const DAY_KEYS = new Set(["day", "workout", "position"]);
+const DAY_KEYS = new Set(["day", "workout", "workout_id", "position"]);
 const PROGRAM_STATUSES = new Set(["draft", "active", "archived"]);
 
 export class CatalogError extends Error {
@@ -29,6 +31,7 @@ export class CatalogError extends Error {
 }
 
 export type CatalogExercise = {
+  id: string | null;
   name: string;
   description: string | null;
   instructions: string | null;
@@ -40,6 +43,7 @@ export type CatalogExercise = {
 export type CatalogBlock = {
   blockType: BlockType;
   exercise: string | null;
+  exerciseId: string | null;
   title: string | null;
   sets: number | null;
   repsMin: number | null;
@@ -50,6 +54,7 @@ export type CatalogBlock = {
 };
 
 export type CatalogWorkout = {
+  id: string | null;
   name: string;
   description: string | null;
   minutes: number | null;
@@ -58,7 +63,8 @@ export type CatalogWorkout = {
 
 export type CatalogDay = {
   day: number;
-  workout: string;
+  workoutName: string | null;
+  workoutId: string | null;
   position: number;
 };
 
@@ -155,6 +161,18 @@ export function parseCatalog(value: unknown, label = "catalog"): CatalogDocument
     "program",
     issues,
   );
+  rejectDuplicateIds(
+    exercises.flatMap((exercise) => (exercise?.id ? [exercise.id] : [])),
+    "exercises",
+    "exercise",
+    issues,
+  );
+  rejectDuplicateIds(
+    workouts.flatMap((workout) => (workout?.id ? [workout.id] : [])),
+    "workouts",
+    "workout",
+    issues,
+  );
 
   if (issues.length > 0) throw new CatalogError(issues.map((issue) => `${label}: ${issue}`));
 
@@ -170,8 +188,10 @@ function parseExercise(value: unknown, path: string, issues: string[]): CatalogE
   if (!record) return null;
   rejectUnknown(record, EXERCISE_KEYS, path, issues);
   const name = requireName(record.name, `${path}.name`, issues);
+  const id = optionalUuid(record, "id", path, issues);
   if (!name) return null;
   return {
+    id,
     name,
     description: optionalText(record, "description", path, issues),
     instructions: optionalText(record, "instructions", path, issues),
@@ -186,11 +206,13 @@ function parseWorkout(value: unknown, path: string, issues: string[]): CatalogWo
   if (!record) return null;
   rejectUnknown(record, WORKOUT_KEYS, path, issues);
   const name = requireName(record.name, `${path}.name`, issues);
+  const id = optionalUuid(record, "id", path, issues);
   const blocks = listField(record, "blocks", `${path}.blocks`, issues).map((item, index) =>
     parseBlock(item, `${path}.blocks[${index}]`, issues),
   );
   if (!name) return null;
   return {
+    id,
     name,
     description: optionalText(record, "description", path, issues),
     minutes: optionalInteger(record, "minutes", `${path}.minutes`, issues, { min: 1 }),
@@ -204,6 +226,8 @@ function parseBlock(value: unknown, path: string, issues: string[]): CatalogBloc
   rejectUnknown(record, BLOCK_KEYS, path, issues);
 
   const exercise = optionalText(record, "exercise", path, issues);
+  const exerciseId = optionalUuid(record, "exercise_id", path, issues);
+  if (exercise && exerciseId) issues.push(`${path}: use an exercise name or exercise_id, not both`);
   let blockType: BlockType = "exercise";
   if ("type" in record && record.type !== undefined) {
     if (typeof record.type !== "string" || !isBlockType(record.type)) {
@@ -211,18 +235,19 @@ function parseBlock(value: unknown, path: string, issues: string[]): CatalogBloc
     } else {
       blockType = record.type;
     }
-  } else if (!exercise) {
+  } else if (!exercise && !exerciseId) {
     issues.push(`${path}: a block needs an exercise or a type`);
   }
 
-  if (blockType === "exercise" && !exercise) {
-    issues.push(`${path}.exercise: an exercise block needs an exercise name`);
+  if (blockType === "exercise" && !exercise && !exerciseId) {
+    issues.push(`${path}.exercise: an exercise block needs an exercise name or exercise_id`);
   }
 
   const reps = parseReps(record.reps, `${path}.reps`, "reps" in record, issues);
   return {
     blockType,
     exercise,
+    exerciseId,
     title: optionalBoundedText(record, "title", path, issues),
     sets: optionalInteger(record, "sets", `${path}.sets`, issues, { min: 1 }),
     repsMin: reps?.min ?? null,
@@ -295,24 +320,33 @@ function assignDayPositions(values: unknown[], path: string, issues: string[]): 
       continue;
     }
     used.add(key);
-    days.push({ day: day.day, workout: day.workout, position });
+    days.push({ day: day.day, workoutName: day.workoutName, workoutId: day.workoutId, position });
   }
 
   return days;
 }
 
-function parseDay(value: unknown, path: string, issues: string[]): { day: number; workout: string; position: number | null } | null {
+function parseDay(
+  value: unknown,
+  path: string,
+  issues: string[],
+): { day: number; workoutName: string | null; workoutId: string | null; position: number | null } | null {
   const record = asObject(value, path, issues);
   if (!record) return null;
   rejectUnknown(record, DAY_KEYS, path, issues);
   const day = requiredInteger(record.day, `${path}.day`, issues, { min: 1, max: 7, label: "day" });
-  const workout = requireName(record.workout, `${path}.workout`, issues, "workout");
+  const hasName = "workout" in record && record.workout !== undefined;
+  const hasId = "workout_id" in record && record.workout_id !== undefined;
+  if (hasName && hasId) issues.push(`${path}: use a workout name or workout_id, not both`);
+  if (!hasName && !hasId) issues.push(`${path}: a day needs a workout name or workout_id`);
+  const workoutName = hasName ? requireName(record.workout, `${path}.workout`, issues, "workout") : null;
+  const workoutId = hasId ? requireUuid(record.workout_id, `${path}.workout_id`, issues) : null;
   const position =
     "position" in record && record.position !== undefined
       ? requiredInteger(record.position, `${path}.position`, issues, { min: 1, label: "position" })
       : null;
-  if (day == null || !workout) return null;
-  return { day, workout, position };
+  if (day == null || (hasName && hasId) || (!workoutName && !workoutId)) return null;
+  return { day, workoutName, workoutId, position };
 }
 
 function parseStatus(record: Record<string, unknown>, path: string, issues: string[]): CatalogProgram["status"] {
@@ -411,6 +445,27 @@ function optionalBoundedText(record: Record<string, unknown>, key: string, path:
     return null;
   }
   return text;
+}
+
+function optionalUuid(record: Record<string, unknown>, key: string, path: string, issues: string[]) {
+  if (!(key in record) || record[key] == null) return null;
+  return requireUuid(record[key], `${path}.${key}`, issues);
+}
+
+function requireUuid(value: unknown, path: string, issues: string[]) {
+  if (typeof value !== "string" || !UUID.test(value.trim())) {
+    issues.push(`${path}: must be a uuid`);
+    return null;
+  }
+  return value.trim().toLowerCase();
+}
+
+function rejectDuplicateIds(ids: string[], path: string, label: string, issues: string[]) {
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) issues.push(`${path}: duplicate ${label} id ${id}`);
+    seen.add(id);
+  }
 }
 
 function requireName(value: unknown, path: string, issues: string[], label = "name") {

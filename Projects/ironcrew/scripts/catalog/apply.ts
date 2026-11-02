@@ -21,6 +21,26 @@ const emptyCounts = (): ApplyCounts => ({
 
 export async function applyDocument(client: SqlClient, document: CatalogDocument, label: string): Promise<ApplyCounts> {
   const counts = emptyCounts();
+  const definedExerciseIds = new Set(document.exercises.flatMap((exercise) => (exercise.id ? [exercise.id] : [])));
+  const definedWorkoutIds = new Set(document.workouts.flatMap((workout) => (workout.id ? [workout.id] : [])));
+  await assertCatalogIds(
+    client,
+    "exercises",
+    "exercise",
+    document.workouts.flatMap((workout) => workout.blocks.flatMap((block) => (block.exerciseId ? [block.exerciseId] : []))),
+    definedExerciseIds,
+    label,
+  );
+  await assertCatalogIds(
+    client,
+    "workouts",
+    "workout",
+    document.programs.flatMap((program) =>
+      program.phases.flatMap((phase) => phase.weeks.flatMap((week) => week.days.flatMap((day) => (day.workoutId ? [day.workoutId] : [])))),
+    ),
+    definedWorkoutIds,
+    label,
+  );
   const exerciseIds = await resolveSharedIds(
     client,
     "exercises",
@@ -33,33 +53,45 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
     client,
     "workouts",
     "workout",
-    document.programs.flatMap((program) => program.phases.flatMap((phase) => phase.weeks.flatMap((week) => week.days.map((day) => day.workout)))),
+    document.programs.flatMap((program) =>
+      program.phases.flatMap((phase) => phase.weeks.flatMap((week) => week.days.flatMap((day) => (day.workoutName ? [day.workoutName] : [])))),
+    ),
     new Set(document.workouts.map((workout) => workout.name)),
     label,
   );
 
   for (const exercise of document.exercises) {
-    const existing = exerciseIds.get(exercise.name) ?? (await findSharedId(client, "exercises", exercise.name));
+    const existing = exercise.id
+      ? await sharedRowId(client, "exercises", "exercise", exercise.id, label)
+      : (exerciseIds.get(exercise.name) ?? (await findSharedId(client, "exercises", exercise.name)));
     if (existing) {
       await client.query(
         `update public.exercises
-         set description = $2,
-             instructions = $3,
-             primary_muscle_group = $4,
-             equipment = $5,
-             video_url = $6
+         set name = $2,
+             description = $3,
+             instructions = $4,
+             primary_muscle_group = $5,
+             equipment = $6,
+             video_url = $7
          where id = $1`,
-        [existing, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl],
+        [existing, exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl],
       );
       exerciseIds.set(exercise.name, existing);
       counts.exercises.updated += 1;
     } else {
       const inserted = await client.query(
-        `insert into public.exercises (
-           trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url
-         ) values (null, null, $1, $2, $3, $4, $5, $6)
-         returning id`,
-        [exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl],
+        exercise.id
+          ? `insert into public.exercises (
+               id, trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url
+             ) values ($1, null, null, $2, $3, $4, $5, $6, $7)
+             returning id`
+          : `insert into public.exercises (
+               trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url
+             ) values (null, null, $1, $2, $3, $4, $5, $6)
+             returning id`,
+        exercise.id
+          ? [exercise.id, exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl]
+          : [exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl],
       );
       exerciseIds.set(exercise.name, idOf(inserted.rows[0]));
       counts.exercises.created += 1;
@@ -67,17 +99,24 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
   }
 
   for (const workout of document.workouts) {
-    const existing = workoutIds.get(workout.name) ?? (await findSharedId(client, "workouts", workout.name));
+    const existing = workout.id
+      ? await sharedRowId(client, "workouts", "workout", workout.id, label)
+      : (workoutIds.get(workout.name) ?? (await findSharedId(client, "workouts", workout.name)));
     const workoutId = existing
       ? existing
       : idOf(
           (
             await client.query(
-              `insert into public.workouts (
-                 trainer_id, owner_client_id, name, description, estimated_duration_minutes, is_template
-               ) values (null, null, $1, $2, $3, true)
-               returning id`,
-              [workout.name, workout.description, workout.minutes],
+              workout.id
+                ? `insert into public.workouts (
+                     id, trainer_id, owner_client_id, name, description, estimated_duration_minutes, is_template
+                   ) values ($1, null, null, $2, $3, $4, true)
+                   returning id`
+                : `insert into public.workouts (
+                     trainer_id, owner_client_id, name, description, estimated_duration_minutes, is_template
+                   ) values (null, null, $1, $2, $3, true)
+                   returning id`,
+              workout.id ? [workout.id, workout.name, workout.description, workout.minutes] : [workout.name, workout.description, workout.minutes],
             )
           ).rows[0],
         );
@@ -85,9 +124,9 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
     if (existing) {
       await client.query(
         `update public.workouts
-         set description = $2, estimated_duration_minutes = $3, is_template = true
+         set name = $2, description = $3, estimated_duration_minutes = $4, is_template = true
          where id = $1`,
-        [workoutId, workout.description, workout.minutes],
+        [workoutId, workout.name, workout.description, workout.minutes],
       );
       counts.workouts.updated += 1;
     } else {
@@ -97,9 +136,9 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
 
     await client.query(`delete from public.workout_blocks where workout_id = $1`, [workoutId]);
     for (const [index, block] of workout.blocks.entries()) {
-      const exerciseId = block.exercise ? exerciseIds.get(block.exercise) : null;
-      if (block.exercise && !exerciseId) {
-        throw new CatalogError([`${label}: unknown exercise "${block.exercise}"`]);
+      const exerciseId = block.exerciseId ?? (block.exercise ? exerciseIds.get(block.exercise) : null);
+      if ((block.exercise || block.exerciseId) && !exerciseId) {
+        throw new CatalogError([`${label}: unknown exercise "${block.exercise ?? block.exerciseId}"`]);
       }
       await client.query(
         `insert into public.workout_blocks (
@@ -176,8 +215,8 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
         );
 
         for (const day of week.days) {
-          const workoutId = workoutIds.get(day.workout);
-          if (!workoutId) throw new CatalogError([`${label}: unknown workout "${day.workout}"`]);
+          const workoutId = day.workoutId ?? (day.workoutName ? workoutIds.get(day.workoutName) : null);
+          if (!workoutId) throw new CatalogError([`${label}: unknown workout "${day.workoutName ?? day.workoutId}"`]);
           await client.query(
             `insert into public.program_workouts (program_week_id, workout_id, day_number, position)
              values ($1, $2, $3, $4)`,
@@ -189,6 +228,41 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
   }
 
   return counts;
+}
+
+async function assertCatalogIds(client: SqlClient, table: string, label: string, referenced: string[], definedInFile: Set<string>, fileLabel: string) {
+  const ids = [...new Set([...referenced, ...definedInFile])];
+  const found = await findRowsById(client, table, ids);
+  const issues: string[] = [];
+  for (const id of ids) {
+    const row = found.get(id);
+    if (row && !row.shared) issues.push(`${fileLabel}: ${label} id ${id} is not in the shared catalog`);
+    else if (!row && !definedInFile.has(id)) issues.push(`${fileLabel}: unknown ${label} id ${id}`);
+  }
+  if (issues.length > 0) throw new CatalogError(issues);
+}
+
+async function sharedRowId(client: SqlClient, table: string, label: string, id: string, fileLabel: string) {
+  const found = await findRowsById(client, table, [id]);
+  const row = found.get(id);
+  if (!row) return null;
+  if (!row.shared) throw new CatalogError([`${fileLabel}: ${label} id ${id} is not in the shared catalog`]);
+  return id;
+}
+
+async function findRowsById(client: SqlClient, table: string, ids: string[]) {
+  const found = new Map<string, { shared: boolean }>();
+  if (ids.length === 0) return found;
+  const rows = await client.query(
+    `select id::text as id, (trainer_id is null and owner_client_id is null) as shared
+     from public.${table}
+     where id::text = any($1::text[])`,
+    [ids],
+  );
+  for (const row of rows.rows) {
+    found.set(idOf(row), { shared: row.shared === true });
+  }
+  return found;
 }
 
 async function resolveSharedIds(client: SqlClient, table: string, label: string, referenced: string[], definedInFile: Set<string>, fileLabel: string) {

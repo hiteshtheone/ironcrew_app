@@ -1,4 +1,5 @@
 # Shared catalog. Both owner columns stay null, so every signed-in user can use these rows.
+# A later file can refer to these with exercise_id or workout_id instead of repeating them.
 exercises:
   - name: Bench Press
     muscle: chest
