@@ -5,6 +5,60 @@ from devshell.models import KNOWN_TABLES, missing_known_tables
 from devshell.namespace import make_banner, missing_tables_message
 
 
+def test_dangling_foreign_key_does_not_block_flush(tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import class_mapper
+
+    from devshell.namespace import build_namespace
+
+    path = tmp_path / "dangling.db"
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                create table profiles (
+                    id integer primary key references users (id),
+                    full_name text not null
+                )
+                """
+            )
+        )
+    shell = build_namespace(engine, schema=None)
+    try:
+        assert shell["tables"]() == ["profiles"]
+        described = shell["describe"]("profiles")
+        assert any(item["references"] == "users.id" for item in described["foreign_keys"])
+        class_mapper(shell["profiles"])._sorted_tables
+        shell["session"].add(shell["profiles"](id=1, full_name="Ada"))
+        shell["session"].flush()
+        assert shell["get"]("profiles", 1).full_name == "Ada"
+    finally:
+        shell["rollback"]()
+        shell["session"].close()
+        engine.dispose()
+
+
+def test_auth_users_foreign_key_can_be_sorted():
+    from sqlalchemy import Column, ForeignKey, Integer, Table
+    from sqlalchemy.orm import DeclarativeBase
+
+    from devshell.models import _stub_unresolved_foreign_keys
+
+    class Base(DeclarativeBase):
+        pass
+
+    Table(
+        "profiles",
+        Base.metadata,
+        Column("id", Integer, ForeignKey("auth.users.id"), primary_key=True),
+        schema="public",
+    )
+    _stub_unresolved_foreign_keys(Base.metadata)
+    assert "auth.users" in Base.metadata.tables
+    assert [table.name for table in Base.metadata.sorted_tables] == ["users", "profiles"]
+
+
 def test_known_tables_cover_the_initial_schema():
     assert len(KNOWN_TABLES) == 18
     assert KNOWN_TABLES[0] == "profiles"
