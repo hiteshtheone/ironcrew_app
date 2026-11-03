@@ -104,6 +104,16 @@ def test_rows_get_and_sql_share_the_open_transaction(namespace):
     assert dict(selected[0]) == {"full_name": "Ada"}
 
 
+def test_as_dict_returns_every_column(namespace):
+    namespace["sql"](
+        "insert into profiles (id, full_name, role) values ('p1', 'Ada', 'trainer')"
+    )
+    row = namespace["get"]("profiles", "p1")
+    assert namespace["as_dict"](row) == {"id": "p1", "full_name": "Ada", "role": "trainer"}
+    with pytest.raises(TypeError, match="mapped row"):
+        namespace["as_dict"](namespace["profiles"])
+
+
 def test_composite_primary_key_get(namespace):
     namespace["sql"](
         "insert into profiles (id, full_name, role) values ('t1', 'Ada', 'trainer')"

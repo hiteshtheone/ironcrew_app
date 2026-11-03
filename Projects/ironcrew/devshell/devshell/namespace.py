@@ -3,8 +3,8 @@
 from collections.abc import Mapping
 from typing import Any
 
-from sqlalchemy import Engine, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy import Engine, inspect, select, text
+from sqlalchemy.orm import InstanceState, Session
 
 from devshell.models import missing_known_tables, reflect_models
 
@@ -13,6 +13,7 @@ HELPERS = (
     "describe",
     "get",
     "rows",
+    "as_dict",
     "sql",
     "commit",
     "rollback",
@@ -43,7 +44,7 @@ def make_banner(namespace: Mapping[str, Any]) -> str:
         "This connection uses the database role in DATABASE_URL and does not apply Supabase row-level security.",
         "Uncommitted work rolls back when the shell exits. Call commit() to persist changes.",
         f"Models: {', '.join(names) if names else '(none)'}",
-        "Helpers: tables(), describe(model), get(model, pk), rows(model, limit=20), sql(statement, **params), commit(), rollback()",
+        "Helpers: tables(), describe(model), get(model, pk), rows(model, limit=20), as_dict(entity), sql(statement, **params), commit(), rollback()",
         "Also bound: engine, session, select, text",
     ]
     message = missing_tables_message(namespace)
@@ -99,6 +100,15 @@ def build_namespace(engine: Engine, *, schema: str | None = "public") -> dict[st
     def rows(model: type | str, limit: int = 20) -> list[Any]:
         return list(session.scalars(select(resolve(model)).limit(limit)).all())
 
+    def as_dict(entity: Any) -> dict[str, Any]:
+        state = inspect(entity, raiseerr=False)
+        if not isinstance(state, InstanceState):
+            raise TypeError("as_dict() expects a mapped row")
+        return {
+            attribute.key: getattr(entity, attribute.key)
+            for attribute in state.mapper.column_attrs
+        }
+
     def sql(statement: str, **params: Any) -> Any:
         result = session.execute(text(statement), params)
         if result.returns_rows:
@@ -122,6 +132,7 @@ def build_namespace(engine: Engine, *, schema: str | None = "public") -> dict[st
         "describe": describe,
         "get": get,
         "rows": rows,
+        "as_dict": as_dict,
         "sql": sql,
         "commit": commit,
         "rollback": rollback,
