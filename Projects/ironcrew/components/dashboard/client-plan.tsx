@@ -4,12 +4,12 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
+import { WorkoutsBrowser } from "@/components/dashboard/workouts/workouts-browser";
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import type { ClientGoal, ClientWorkoutLog } from "@/lib/dashboard/load-client-list";
-import { muscleGroupLabel } from "@/lib/dashboard/client-week";
+import type { ClientGoal } from "@/lib/dashboard/load-client-list";
 import { libraryItemLabel, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
-import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
+import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 import { GOAL_STATUS_LABELS, GOAL_STATUSES, GOAL_TYPE_LABELS, GOAL_TYPES, isGoalStatus, isGoalType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -48,7 +48,6 @@ type ClientPlanTarget = {
   programStartsOn: string | null;
   hasActiveProgram: boolean;
   activePrograms: ActiveProgramSummary[];
-  workoutLogs: ClientWorkoutLog[];
 };
 
 type ProgramOption = { id: string; name: string; isSystem?: boolean };
@@ -109,7 +108,7 @@ export function ClientPlan({
   const overlapPrograms = conflict ?? (client.activePrograms.length > 0 ? client.activePrograms : null);
 
   const backToList = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = stripWorkoutParams(searchParams.toString());
     params.set("section", "clients");
     params.delete("client");
     router.replace(`/dashboard?${params.toString()}`);
@@ -117,7 +116,7 @@ export function ClientPlan({
 
   const openProgram = () => {
     if (!client.programId) return;
-    const params = new URLSearchParams(searchParams.toString());
+    const params = stripWorkoutParams(searchParams.toString());
     params.set("section", "programs");
     params.set("program", client.programId);
     params.delete("client");
@@ -244,7 +243,19 @@ export function ClientPlan({
       </div>
       <p className="mt-2 text-sm text-slate-500">Set a goal and assign a program, or put a single workout on their calendar.</p>
 
-      <WorkoutDetails logs={client.workoutLogs} />
+      <section className="mt-8">
+        <h2 className="text-lg font-bold">Workouts</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Browse this client&apos;s sessions by status or date, from this week to their full history.
+        </p>
+        <div className="mt-6">
+          <WorkoutsBrowser
+            key={client.id}
+            endpoint={`/api/clients/${client.id}/workouts`}
+            emptyMessage="Workouts assigned to this client will show up here."
+          />
+        </div>
+      </section>
 
       {client.hasActiveProgram ? (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -388,61 +399,6 @@ export function ClientPlan({
   );
 }
 
-function WorkoutDetails({ logs }: { logs: ClientWorkoutLog[] }) {
-  const visible = logs.filter((log) => log.status !== "cancelled");
-
-  return (
-    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-bold">Workout details</h2>
-      <p className="mt-1 text-sm text-slate-500">What this client logged for the current week.</p>
-      {visible.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">No workouts scheduled this week.</p>
-      ) : (
-        <div className="mt-4 space-y-4">
-          {visible.map((log) => (
-            <article key={log.id} className="rounded-xl border border-slate-100 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="font-semibold">{log.workoutName}</p>
-                  <p className="mt-1 text-xs text-slate-500">{log.dateLabel} · {workoutSourceLabel(log)}</p>
-                </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{log.statusLabel}</span>
-              </div>
-              {log.note ? <p className="mt-3 text-sm text-slate-700">{log.note}</p> : null}
-              {log.blocks.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">No blocks in this workout.</p>
-              ) : (
-                <ul className="mt-3 space-y-3">
-                  {log.blocks.map((block) => {
-                    const muscles = muscleGroupLabel(block.primaryMuscleGroup, block.secondaryMuscleGroup);
-                    return (
-                    <li key={block.id}>
-                      <p className="text-sm font-medium">{block.name}</p>
-                      {muscles ? <p className="text-xs text-slate-500">{muscles}</p> : null}
-                      {block.sets.length === 0 ? (
-                        <p className="mt-1 text-xs text-slate-500">No details logged.</p>
-                      ) : (
-                        <ul className="mt-1 space-y-1">
-                          {block.sets.map((set) => (
-                            <li key={set.setNumber} className="text-xs text-slate-600">
-                              {setSummary(set)}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function goalDraftFrom(goal: ClientGoal | null): GoalDraft {
   return {
     title: goal?.title ?? "",
@@ -453,17 +409,6 @@ function goalDraftFrom(goal: ClientGoal | null): GoalDraft {
     targetDate: goal?.targetDate ?? "",
     notes: goal?.notes ?? "",
   };
-}
-
-function setSummary(set: ClientWorkoutLog["blocks"][number]["sets"][number]) {
-  const parts = [`Set ${set.setNumber}`];
-  if (set.load != null) parts.push(set.loadUnit ? `${set.load} ${set.loadUnit}` : String(set.load));
-  if (set.repetitions != null) parts.push(`${set.repetitions} reps`);
-  if (set.durationSeconds != null) parts.push(`${set.durationSeconds} sec`);
-  if (set.distanceMeters != null) parts.push(`${Math.round((set.distanceMeters / 1000) * 1000) / 1000} km`);
-  if (set.heightCm != null) parts.push(`${set.heightCm} cm`);
-  if (set.notes) parts.push(set.notes);
-  return parts.join(" · ");
 }
 
 function GoalEditor({
