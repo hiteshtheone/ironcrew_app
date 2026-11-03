@@ -9,6 +9,10 @@ import { CatalogError, parseCatalog, type CatalogDocument } from "./document";
 const schema = `
 create type public.program_status as enum ('draft', 'active', 'archived');
 create type public.workout_block_type as enum ('warmup', 'exercise', 'superset', 'circuit', 'conditioning', 'cooldown', 'notes');
+create type public.exercise_tracking_type as enum (
+  'time', 'reps', 'weight', 'weight_reps', 'distance', 'distance_weight', 'distance_time', 'reps_height', 'custom'
+);
+create type public.exercise_tracking_parameter as enum ('time', 'reps', 'weight', 'distance', 'height');
 
 create table public.exercises (
   id uuid primary key default gen_random_uuid(),
@@ -20,6 +24,10 @@ create table public.exercises (
   primary_muscle_group text,
   equipment text,
   video_url text,
+  secondary_muscle_group text,
+  tracking_type public.exercise_tracking_type not null default 'custom',
+  tracking_parameters public.exercise_tracking_parameter[] not null
+    default array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[],
   constraint exercises_at_most_one_owner check (num_nonnulls(trainer_id, owner_client_id) <= 1)
 );
 create unique index exercises_owner_name_key on public.exercises (trainer_id, owner_client_id, name) nulls not distinct;
@@ -43,6 +51,7 @@ create table public.programs (
   name text not null check (char_length(trim(name)) between 1 and 160),
   description text,
   status public.program_status not null default 'draft',
+  estimated_duration_weeks integer check (estimated_duration_weeks > 0),
   constraint programs_at_most_one_owner check (num_nonnulls(trainer_id, owner_client_id) <= 1)
 );
 create unique index programs_shared_name_key on public.programs (name) where trainer_id is null and owner_client_id is null;
@@ -60,6 +69,13 @@ create table public.workout_blocks (
   prescribed_load numeric(10,3) check (prescribed_load >= 0),
   load_unit text,
   rest_seconds integer check (rest_seconds >= 0),
+  tempo text,
+  rpe_target numeric(3,1) check (rpe_target between 0 and 10),
+  instructions text,
+  configuration jsonb not null default '{}'::jsonb,
+  prescribed_duration_seconds integer check (prescribed_duration_seconds is null or prescribed_duration_seconds >= 0),
+  prescribed_distance_meters numeric(12,2) check (prescribed_distance_meters is null or prescribed_distance_meters >= 0),
+  prescribed_height_cm numeric(8,2) check (prescribed_height_cm is null or prescribed_height_cm >= 0),
   unique (workout_id, position),
   check (block_type <> 'exercise' or exercise_id is not null)
 );
@@ -78,6 +94,7 @@ create table public.program_weeks (
   program_phase_id uuid not null references public.program_phases(id) on delete cascade,
   week_number integer not null check (week_number > 0),
   name text,
+  notes text,
   unique (program_phase_id, week_number)
 );
 
@@ -87,6 +104,8 @@ create table public.program_workouts (
   workout_id uuid not null references public.workouts(id) on delete restrict,
   day_number integer not null check (day_number between 1 and 7),
   position integer not null default 1 check (position > 0),
+  title_override text,
+  notes text,
   unique (program_week_id, day_number, position)
 );
 
@@ -323,6 +342,150 @@ test("an unknown workout id is rejected before any rows are written", async () =
   );
   const exercises = await db.query(`select id from public.exercises`);
   assert.equal(exercises.rows.length, 0);
+});
+
+test("apply stores every content column and keeps omitted tracking on update", async () => {
+  const db = await database();
+  const full = parseCatalog({
+    exercises: [
+      {
+        name: "Bench Press",
+        primary_muscle_group: "chest",
+        secondary_muscle_group: "triceps",
+        tracking_type: "weight_reps",
+        instructions: "Brace",
+      },
+    ],
+    workouts: [
+      {
+        name: "Push A",
+        estimated_duration_minutes: 45,
+        is_template: false,
+        blocks: [
+          {
+            exercise: "Bench Press",
+            prescribed_sets: 4,
+            prescribed_reps_min: 6,
+            prescribed_reps_max: 8,
+            prescribed_load: 60.5,
+            load_unit: "kg",
+            rest_seconds: 90,
+            tempo: "31X1",
+            rpe_target: 8.5,
+            instructions: "Pause",
+            configuration: { grip: "medium" },
+            prescribed_duration_seconds: 3,
+            prescribed_distance_meters: 1.25,
+            prescribed_height_cm: 40,
+          },
+        ],
+      },
+    ],
+    programs: [
+      {
+        name: "Push Pull",
+        status: "active",
+        estimated_duration_weeks: 10,
+        phases: [
+          {
+            name: "Peak",
+            position: 2,
+            weeks: [
+              {
+                name: "Heavy",
+                week_number: 3,
+                notes: "Leave a rep",
+                days: [{ day_number: 2, workout: "Push A", position: 4, title_override: "Push", notes: "First" }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  await applyInTransaction(db, full, "full.yaml");
+
+  const stored = await db.query<{
+    secondary_muscle_group: string;
+    tracking_type: string;
+    tracking_parameters: string[];
+    is_template: boolean;
+    minutes: number;
+    tempo: string;
+    rpe_target: string;
+    configuration: { grip: string };
+    duration_seconds: number;
+    distance_meters: string;
+    height_cm: string;
+    estimated_duration_weeks: number;
+    phase_position: number;
+    week_number: number;
+    week_notes: string;
+    day_number: number;
+    slot_position: number;
+    title_override: string;
+    slot_notes: string;
+  }>(`
+    select
+      e.secondary_muscle_group,
+      e.tracking_type::text as tracking_type,
+      e.tracking_parameters::text[] as tracking_parameters,
+      w.is_template,
+      w.estimated_duration_minutes as minutes,
+      b.tempo,
+      b.rpe_target::text as rpe_target,
+      b.configuration,
+      b.prescribed_duration_seconds as duration_seconds,
+      b.prescribed_distance_meters::text as distance_meters,
+      b.prescribed_height_cm::text as height_cm,
+      p.estimated_duration_weeks,
+      pp.position as phase_position,
+      pw.week_number,
+      pw.notes as week_notes,
+      slot.day_number,
+      slot.position as slot_position,
+      slot.title_override,
+      slot.notes as slot_notes
+    from public.exercises e
+    join public.workout_blocks b on b.exercise_id = e.id
+    join public.workouts w on w.id = b.workout_id
+    join public.programs p on p.name = 'Push Pull'
+    join public.program_phases pp on pp.program_id = p.id
+    join public.program_weeks pw on pw.program_phase_id = pp.id
+    join public.program_workouts slot on slot.program_week_id = pw.id
+  `);
+  const row = stored.rows[0];
+  assert.ok(row);
+  assert.equal(row.secondary_muscle_group, "triceps");
+  assert.equal(row.tracking_type, "weight_reps");
+  assert.deepEqual(row.tracking_parameters, ["weight", "reps"]);
+  assert.equal(row.is_template, false);
+  assert.equal(row.minutes, 45);
+  assert.equal(row.tempo, "31X1");
+  assert.equal(row.rpe_target, "8.5");
+  assert.deepEqual(row.configuration, { grip: "medium" });
+  assert.equal(row.duration_seconds, 3);
+  assert.equal(row.distance_meters, "1.25");
+  assert.equal(row.height_cm, "40.00");
+  assert.equal(row.estimated_duration_weeks, 10);
+  assert.equal(row.phase_position, 2);
+  assert.equal(row.week_number, 3);
+  assert.equal(row.week_notes, "Leave a rep");
+  assert.equal(row.day_number, 2);
+  assert.equal(row.slot_position, 4);
+  assert.equal(row.title_override, "Push");
+  assert.equal(row.slot_notes, "First");
+
+  await applyInTransaction(
+    db,
+    parseCatalog({ exercises: [{ name: "Bench Press", muscle: "chest", equipment: "dumbbell" }] }),
+    "keep-tracking.yaml",
+  );
+  const kept = await db.query<{ tracking_type: string; secondary_muscle_group: string | null }>(
+    `select tracking_type::text as tracking_type, secondary_muscle_group from public.exercises where name = 'Bench Press'`,
+  );
+  assert.equal(kept.rows[0]?.tracking_type, "weight_reps");
+  assert.equal(kept.rows[0]?.secondary_muscle_group, null);
 });
 
 test("a private workout id cannot be placed on a catalog program", async () => {

@@ -4,6 +4,7 @@ exercises:
   - name: Bench Press
     muscle: chest
     equipment: barbell
+    tracking_type: weight_reps
 workouts:
   - name: Push A
     minutes: 60
@@ -14,6 +15,7 @@ workouts:
         rest: 120
 programs:
   - name: Push Pull
+    estimated_duration_weeks: 4
     phases:
       - name: Base
         weeks:

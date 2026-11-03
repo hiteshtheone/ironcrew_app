@@ -1,4 +1,4 @@
-import type { CatalogDocument } from "./document";
+import type { CatalogDocument, CatalogExercise } from "./document";
 import { CatalogError } from "./document";
 
 export type SqlClient = {
@@ -72,9 +72,12 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
              instructions = $4,
              primary_muscle_group = $5,
              equipment = $6,
-             video_url = $7
+             video_url = $7,
+             secondary_muscle_group = $8,
+             tracking_type = coalesce($9::public.exercise_tracking_type, tracking_type),
+             tracking_parameters = coalesce($10::public.exercise_tracking_parameter[], tracking_parameters)
          where id = $1`,
-        [existing, exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl],
+        [existing, ...exerciseValues(exercise)],
       );
       exerciseIds.set(exercise.name, existing);
       counts.exercises.updated += 1;
@@ -82,16 +85,24 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
       const inserted = await client.query(
         exercise.id
           ? `insert into public.exercises (
-               id, trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url
-             ) values ($1, null, null, $2, $3, $4, $5, $6, $7)
+               id, trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url,
+               secondary_muscle_group, tracking_type, tracking_parameters
+             ) values (
+               $1, null, null, $2, $3, $4, $5, $6, $7, $8,
+               coalesce($9::public.exercise_tracking_type, 'custom'),
+               coalesce($10::public.exercise_tracking_parameter[], array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[])
+             )
              returning id`
           : `insert into public.exercises (
-               trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url
-             ) values (null, null, $1, $2, $3, $4, $5, $6)
+               trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url,
+               secondary_muscle_group, tracking_type, tracking_parameters
+             ) values (
+               null, null, $1, $2, $3, $4, $5, $6, $7,
+               coalesce($8::public.exercise_tracking_type, 'custom'),
+               coalesce($9::public.exercise_tracking_parameter[], array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[])
+             )
              returning id`,
-        exercise.id
-          ? [exercise.id, exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl]
-          : [exercise.name, exercise.description, exercise.instructions, exercise.muscle, exercise.equipment, exercise.videoUrl],
+        exercise.id ? [exercise.id, ...exerciseValues(exercise)] : exerciseValues(exercise),
       );
       exerciseIds.set(exercise.name, idOf(inserted.rows[0]));
       counts.exercises.created += 1;
@@ -110,13 +121,15 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
               workout.id
                 ? `insert into public.workouts (
                      id, trainer_id, owner_client_id, name, description, estimated_duration_minutes, is_template
-                   ) values ($1, null, null, $2, $3, $4, true)
+                   ) values ($1, null, null, $2, $3, $4, $5)
                    returning id`
                 : `insert into public.workouts (
                      trainer_id, owner_client_id, name, description, estimated_duration_minutes, is_template
-                   ) values (null, null, $1, $2, $3, true)
+                   ) values (null, null, $1, $2, $3, $4)
                    returning id`,
-              workout.id ? [workout.id, workout.name, workout.description, workout.minutes] : [workout.name, workout.description, workout.minutes],
+              workout.id
+                ? [workout.id, workout.name, workout.description, workout.minutes, workout.isTemplate]
+                : [workout.name, workout.description, workout.minutes, workout.isTemplate],
             )
           ).rows[0],
         );
@@ -124,9 +137,9 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
     if (existing) {
       await client.query(
         `update public.workouts
-         set name = $2, description = $3, estimated_duration_minutes = $4, is_template = true
+         set name = $2, description = $3, estimated_duration_minutes = $4, is_template = $5
          where id = $1`,
-        [workoutId, workout.name, workout.description, workout.minutes],
+        [workoutId, workout.name, workout.description, workout.minutes, workout.isTemplate],
       );
       counts.workouts.updated += 1;
     } else {
@@ -135,7 +148,7 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
     workoutIds.set(workout.name, workoutId);
 
     await client.query(`delete from public.workout_blocks where workout_id = $1`, [workoutId]);
-    for (const [index, block] of workout.blocks.entries()) {
+    for (const block of workout.blocks) {
       const exerciseId = block.exerciseId ?? (block.exercise ? exerciseIds.get(block.exercise) : null);
       if ((block.exercise || block.exerciseId) && !exerciseId) {
         throw new CatalogError([`${label}: unknown exercise "${block.exercise ?? block.exerciseId}"`]);
@@ -144,13 +157,14 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
         `insert into public.workout_blocks (
            workout_id, exercise_id, block_type, position, title,
            prescribed_sets, prescribed_reps_min, prescribed_reps_max,
-           prescribed_load, load_unit, rest_seconds
-         ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+           prescribed_load, load_unit, rest_seconds, tempo, rpe_target, instructions, configuration,
+           prescribed_duration_seconds, prescribed_distance_meters, prescribed_height_cm
+         ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17, $18)`,
         [
           workoutId,
           exerciseId,
           block.blockType,
-          index + 1,
+          block.position,
           block.title,
           block.sets,
           block.repsMin,
@@ -158,6 +172,13 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
           block.load,
           block.loadUnit,
           block.restSeconds,
+          block.tempo,
+          block.rpeTarget,
+          block.instructions,
+          JSON.stringify(block.configuration),
+          block.durationSeconds,
+          block.distanceMeters,
+          block.heightCm,
         ],
       );
     }
@@ -171,18 +192,18 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
           (
             await client.query(
               `insert into public.programs (
-                 trainer_id, owner_client_id, name, description, status
-               ) values (null, null, $1, $2, $3)
+                 trainer_id, owner_client_id, name, description, status, estimated_duration_weeks
+               ) values (null, null, $1, $2, $3, $4)
                returning id`,
-              [program.name, program.description, program.status],
+              [program.name, program.description, program.status, program.estimatedDurationWeeks],
             )
           ).rows[0],
         );
 
     if (existing) {
       await client.query(
-        `update public.programs set description = $2, status = $3 where id = $1`,
-        [programId, program.description, program.status],
+        `update public.programs set description = $2, status = $3, estimated_duration_weeks = $4 where id = $1`,
+        [programId, program.description, program.status, program.estimatedDurationWeeks],
       );
       counts.programs.updated += 1;
     } else {
@@ -190,26 +211,26 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
     }
 
     await client.query(`delete from public.program_phases where program_id = $1`, [programId]);
-    for (const [phaseIndex, phase] of program.phases.entries()) {
+    for (const phase of program.phases) {
       const phaseId = idOf(
         (
           await client.query(
             `insert into public.program_phases (program_id, name, position, description)
              values ($1, $2, $3, $4)
              returning id`,
-            [programId, phase.name, phaseIndex + 1, phase.description],
+            [programId, phase.name, phase.position, phase.description],
           )
         ).rows[0],
       );
 
-      for (const [weekIndex, week] of phase.weeks.entries()) {
+      for (const week of phase.weeks) {
         const weekId = idOf(
           (
             await client.query(
-              `insert into public.program_weeks (program_phase_id, week_number, name)
-               values ($1, $2, $3)
+              `insert into public.program_weeks (program_phase_id, week_number, name, notes)
+               values ($1, $2, $3, $4)
                returning id`,
-              [phaseId, weekIndex + 1, week.name],
+              [phaseId, week.weekNumber, week.name, week.notes],
             )
           ).rows[0],
         );
@@ -218,9 +239,10 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
           const workoutId = day.workoutId ?? (day.workoutName ? workoutIds.get(day.workoutName) : null);
           if (!workoutId) throw new CatalogError([`${label}: unknown workout "${day.workoutName ?? day.workoutId}"`]);
           await client.query(
-            `insert into public.program_workouts (program_week_id, workout_id, day_number, position)
-             values ($1, $2, $3, $4)`,
-            [weekId, workoutId, day.day, day.position],
+            `insert into public.program_workouts (
+               program_week_id, workout_id, day_number, position, title_override, notes
+             ) values ($1, $2, $3, $4, $5, $6)`,
+            [weekId, workoutId, day.day, day.position, day.titleOverride, day.notes],
           );
         }
       }
@@ -294,6 +316,20 @@ async function findSharedIds(client: SqlClient, table: string, names: string[]) 
 async function findSharedId(client: SqlClient, table: string, name: string) {
   const ids = await findSharedIds(client, table, [name]);
   return ids.get(name) ?? null;
+}
+
+function exerciseValues(exercise: CatalogExercise) {
+  return [
+    exercise.name,
+    exercise.description,
+    exercise.instructions,
+    exercise.muscle,
+    exercise.equipment,
+    exercise.videoUrl,
+    exercise.secondaryMuscleGroup,
+    exercise.trackingType,
+    exercise.trackingParameters ? `{${exercise.trackingParameters.join(",")}}` : null,
+  ];
 }
 
 function idOf(row: Record<string, unknown> | undefined) {
