@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { isTrackingType, parametersFor, type TrackingParameter } from "@/lib/exercises/tracking";
+import { isTrackingType, parametersFor, type ExerciseTrackingType, type TrackingParameter } from "@/lib/exercises/tracking";
 
 export type WorkoutOption = {
   id: string;
@@ -12,7 +12,10 @@ export type ExerciseOption = {
   id: string;
   name: string;
   isSystem: boolean;
+  trackingType: ExerciseTrackingType;
   trackingParameters: TrackingParameter[];
+  primaryMuscleGroup: string | null;
+  secondaryMuscleGroup: string | null;
 };
 
 export function libraryItemLabel(name: string, isSystem: boolean) {
@@ -169,7 +172,10 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
         `,
         )
         .or(visibleFilter),
-      supabase.from("exercises").select("id, name, trainer_id, owner_client_id, tracking_type, tracking_parameters").or(visibleFilter),
+      supabase
+        .from("exercises")
+        .select("id, name, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group")
+        .or(visibleFilter),
     ]);
 
   if (programError) return { kind: "error", message: programError.message };
@@ -350,12 +356,16 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
   const id = stringField(record, "id");
   const name = stringField(record, "name");
   if (!record || !id || !name) return null;
-  const trackingType = stringField(record, "tracking_type");
+  const rawTrackingType = stringField(record, "tracking_type");
+  const trackingType = rawTrackingType && isTrackingType(rawTrackingType) ? rawTrackingType : "custom";
   return {
     id,
     name,
     isSystem: isSystemRow(record),
-    trackingParameters: parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, record.tracking_parameters),
+    trackingType,
+    trackingParameters: parametersFor(trackingType, record.tracking_parameters),
+    primaryMuscleGroup: stringField(record, "primary_muscle_group"),
+    secondaryMuscleGroup: stringField(record, "secondary_muscle_group"),
   };
 }
 

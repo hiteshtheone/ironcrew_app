@@ -4,10 +4,12 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
+import { ExerciseEditor } from "@/components/dashboard/exercise-editor";
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import { TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
 
 const fieldClass =
   "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
@@ -42,6 +44,7 @@ export function ProgramsPanel({
   const [draftDescription, setDraftDescription] = useState(selectedProgram?.description ?? "");
   const [phaseName, setPhaseName] = useState("");
   const [workoutName, setWorkoutName] = useState("");
+  const [exerciseName, setExerciseName] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [checkedClients, setCheckedClients] = useState<string[] | null>(null);
   const [dayOverrides, setDayOverrides] = useState<Record<number, string>>({});
@@ -90,7 +93,10 @@ export function ProgramsPanel({
   }
 
   const selectedId = searchParams.get("program");
+  const selectedWorkoutId = searchParams.get("workout");
+  const selectedExerciseId = searchParams.get("exercise");
   const selected = data.programs.find((program) => program.id === selectedId) ?? null;
+  const selectedExercise = data.exercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
   const requestedPhase = selected?.phases.find((item) => item.id === searchParams.get("phase"));
   const phase = requestedPhase ?? selected?.phases[0] ?? null;
   const week = phase?.weeks.find((item) => item.id === searchParams.get("week")) ?? phase?.weeks[0] ?? null;
@@ -105,6 +111,8 @@ export function ProgramsPanel({
     else params.delete("phase");
     if (weekId) params.set("week", weekId);
     else params.delete("week");
+    params.delete("workout");
+    params.delete("exercise");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -112,6 +120,21 @@ export function ProgramsPanel({
     const params = new URLSearchParams(searchParams.toString());
     params.set("section", "programs");
     params.set("workout", workoutId);
+    params.delete("program");
+    params.delete("phase");
+    params.delete("week");
+    params.delete("exercise");
+    router.replace(`/dashboard?${params.toString()}`);
+  };
+
+  const openExercise = (exerciseId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", "programs");
+    params.set("exercise", exerciseId);
+    params.delete("program");
+    params.delete("phase");
+    params.delete("week");
+    params.delete("workout");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -194,6 +217,24 @@ export function ProgramsPanel({
       const payload = await postJson("/api/programs", { name: programName, description: null });
       setProgramName("");
       if (typeof payload.id === "string") openProgram(payload.id);
+    });
+  };
+
+  const createWorkout = (event: FormEvent) => {
+    event.preventDefault();
+    void run("workout", async () => {
+      const payload = await postJson("/api/workouts", { name: workoutName });
+      setWorkoutName("");
+      if (typeof payload.id === "string") openWorkout(payload.id);
+    });
+  };
+
+  const createExercise = (event: FormEvent) => {
+    event.preventDefault();
+    void run("exercise", async () => {
+      const payload = await postJson("/api/exercises", { name: exerciseName });
+      setExerciseName("");
+      if (typeof payload.id === "string") openExercise(payload.id);
     });
   };
 
@@ -298,50 +339,186 @@ export function ProgramsPanel({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{isClient ? "My programs" : "Programs"}</h1>
         <p className="mt-2 text-sm text-slate-500">
           {isClient
-            ? "Build your own plan: phase, then the workouts for each week. System programs are available to everyone."
-            : "Build a shared plan: phase, then the workouts for each week. System programs are available to everyone."}
+            ? "A program plans phases and weeks. A workout can stand on its own. System programs are available to everyone."
+            : "A program is a shared plan: phases, then the workouts for each week. A workout can stand on its own. System programs are available to everyone."}
         </p>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold">Library</h2>
-          <form onSubmit={createProgram} className="mt-4 space-y-2">
-            <input
-              value={programName}
-              onChange={(event) => setProgramName(event.target.value)}
-              placeholder="New program name"
-              maxLength={160}
-              required
-              className={fieldClass}
-            />
-            <button type="submit" disabled={pending === "program"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              {pending === "program" ? "Creating..." : "Create program"}
-            </button>
-          </form>
-          <ul className="mt-4 space-y-1">
-            {data.programs.length === 0 ? <li className="text-sm text-slate-500">No programs yet.</li> : null}
-            {data.programs.map((program) => (
-              <li key={program.id}>
-                <button
-                  type="button"
-                  onClick={() => openProgram(program.id)}
-                  className={`w-full rounded-xl px-3 py-2 text-left text-sm ${program.id === selected?.id ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
-                >
-                  <span className="block truncate">{libraryItemLabel(program.name, program.isSystem)}</span>
-                  <span className={`block truncate text-xs ${program.id === selected?.id ? "text-slate-300" : "text-slate-500"}`}>
-                    {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold">Programs</h2>
+            <form onSubmit={createProgram} className="mt-4 space-y-2">
+              <input
+                value={programName}
+                onChange={(event) => setProgramName(event.target.value)}
+                placeholder="New program name"
+                maxLength={160}
+                required
+                aria-label="New program name"
+                className={fieldClass}
+              />
+              <button type="submit" disabled={pending === "program"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {pending === "program" ? "Creating..." : "Create program"}
+              </button>
+            </form>
+            <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
+              {data.programs.length === 0 ? <li className="text-sm text-slate-500">No programs yet.</li> : null}
+              {data.programs.map((program) => (
+                <li key={program.id}>
+                  <button
+                    type="button"
+                    onClick={() => openProgram(program.id)}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${program.id === selected?.id ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
+                  >
+                    <span className="block truncate">{libraryItemLabel(program.name, program.isSystem)}</span>
+                    <span className={`block truncate text-xs ${program.id === selected?.id ? "text-slate-300" : "text-slate-500"}`}>
+                      {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
 
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold">Workouts</h2>
+            <p className="mt-1 text-xs text-slate-500">These stand on their own until you place one on a week.</p>
+            <form onSubmit={createWorkout} className="mt-4 space-y-2">
+              <input
+                value={workoutName}
+                onChange={(event) => setWorkoutName(event.target.value)}
+                placeholder="New workout name"
+                maxLength={160}
+                required
+                aria-label="New workout name"
+                className={fieldClass}
+              />
+              <button type="submit" disabled={pending === "workout"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {pending === "workout" ? "Creating..." : "Create workout"}
+              </button>
+            </form>
+            <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
+              {data.workouts.length === 0 ? <li className="text-sm text-slate-500">No workouts yet.</li> : null}
+              {data.workouts.map((workout) => (
+                <li key={workout.id}>
+                  <button
+                    type="button"
+                    onClick={() => openWorkout(workout.id)}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${workout.id === selectedWorkoutId ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
+                  >
+                    <span className="block truncate">{libraryItemLabel(workout.name, workout.isSystem)}</span>
+                    <span className={`block truncate text-xs ${workout.id === selectedWorkoutId ? "text-slate-300" : "text-slate-500"}`}>
+                      {workout.blocks.length === 0 ? "No blocks yet" : `${workout.blocks.length} block${workout.blocks.length === 1 ? "" : "s"}`}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-sm font-semibold">Exercises</h2>
+            <p className="mt-1 text-xs text-slate-500">These are the movements a workout can include.</p>
+            <form onSubmit={createExercise} className="mt-4 space-y-2">
+              <input
+                value={exerciseName}
+                onChange={(event) => setExerciseName(event.target.value)}
+                placeholder="New exercise name"
+                maxLength={160}
+                required
+                aria-label="New exercise name"
+                className={fieldClass}
+              />
+              <button type="submit" disabled={pending === "exercise"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {pending === "exercise" ? "Creating..." : "Create exercise"}
+              </button>
+            </form>
+            <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
+              {data.exercises.length === 0 ? <li className="text-sm text-slate-500">No exercises yet.</li> : null}
+              {data.exercises.map((exercise) => (
+                <li key={exercise.id}>
+                  <button
+                    type="button"
+                    onClick={() => openExercise(exercise.id)}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${exercise.id === selectedExerciseId ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
+                  >
+                    <span className="block truncate">{libraryItemLabel(exercise.name, exercise.isSystem)}</span>
+                    <span className={`block truncate text-xs ${exercise.id === selectedExerciseId ? "text-slate-300" : "text-slate-500"}`}>
+                      {exerciseSummary(exercise)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        {selectedExerciseId ? (
+          <div className="space-y-4">
+            {selectedExercise ? (
+              <ExerciseEditor
+                exercise={selectedExercise}
+                pending={pending}
+                onSave={(exerciseId, body) => run("save-exercise", async () => {
+                  await patchJson(`/api/exercises/${exerciseId}`, body);
+                  setNotice("Exercise saved.");
+                })}
+                onDelete={(exerciseId) => run("delete-exercise", async () => {
+                  const response = await fetch(`/api/exercises/${exerciseId}`, { method: "DELETE" });
+                  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+                  if (!response.ok) throw new Error(payload?.error || "Unable to delete this exercise");
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete("exercise");
+                  router.replace(`/dashboard?${params.toString()}`);
+                  setNotice("Exercise deleted.");
+                })}
+              />
+            ) : (
+              <p className="text-sm text-slate-500">Opening this exercise...</p>
+            )}
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+          </div>
+        ) : selectedWorkoutId ? (
+          <div className="space-y-4">
+            <WorkoutEditor
+              workouts={data.workouts}
+              exercises={data.exercises}
+              selectedWorkoutId={selectedWorkoutId}
+              pending={pending}
+              onSelect={openWorkout}
+              onDuplicate={(workoutId) => {
+                void run("duplicate-workout", async () => {
+                  const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
+                  if (typeof payload.id === "string") openWorkout(payload.id);
+                  setNotice("Workout duplicated. This copy can be edited on its own.");
+                });
+              }}
+              onSave={(workoutId, body) => run("save-workout", async () => {
+                await patchJson(`/api/workouts/${workoutId}`, body);
+                setNotice("Workout saved.");
+              })}
+              onDelete={(workoutId) => run("delete-workout", async () => {
+                const response = await fetch(`/api/workouts/${workoutId}`, { method: "DELETE" });
+                const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+                if (!response.ok) throw new Error(payload?.error || "Unable to delete this workout");
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete("workout");
+                router.replace(`/dashboard?${params.toString()}`);
+                setNotice("Workout deleted.");
+              })}
+            />
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+          </div>
+        ) : (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           {!selected ? (
             <p className="text-sm text-slate-500">
-              {selectedId ? "Opening this program..." : "Select a program, or create one, to set its phases and weekly workouts."}
+              {selectedId
+                ? "Opening this program..."
+                : "Select a program to plan its phases and weeks, a workout to edit it on its own, or an exercise to edit its details."}
             </p>
           ) : (
             <div className="space-y-6">
@@ -483,30 +660,8 @@ export function ProgramsPanel({
                 <div>
                   <h3 className="text-sm font-semibold">Week {week.weekNumber} workouts</h3>
                   <p className="mt-1 text-xs text-slate-500">Day 1 is the start date you choose when you publish.</p>
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void run("workout", async () => {
-                        await postJson("/api/workouts", { name: workoutName });
-                        setWorkoutName("");
-                      });
-                    }}
-                    className="mt-3 flex flex-col gap-2 sm:flex-row"
-                  >
-                    <input
-                      value={workoutName}
-                      onChange={(event) => setWorkoutName(event.target.value)}
-                      placeholder="New library workout"
-                      maxLength={160}
-                      required
-                      className={fieldClass}
-                    />
-                    <button type="submit" disabled={pending === "workout"} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-60">
-                      {pending === "workout" ? "Adding..." : "Add workout"}
-                    </button>
-                  </form>
                   {data.workouts.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-500">Add a workout to your library before placing one on a day.</p>
+                    <p className="mt-3 text-sm text-slate-500">Create a workout in Workouts before placing one on a day.</p>
                   ) : (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {Array.from({ length: 7 }, (_, index) => index + 1).map((dayNumber) => {
@@ -582,62 +737,18 @@ export function ProgramsPanel({
               ) : null}
             </div>
           )}
-          <div className="mt-6">
-          <WorkoutEditor
-            workouts={data.workouts}
-            exercises={data.exercises}
-            selectedWorkoutId={searchParams.get("workout")}
-            pending={pending}
-            onSelect={openWorkout}
-            onDuplicate={(workoutId) => {
-              void run("duplicate-workout", async () => {
-                const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
-                if (typeof payload.id === "string") openWorkout(payload.id);
-                setNotice("Workout duplicated. This copy can be edited on its own.");
-              });
-            }}
-            onSave={(workoutId, body) => run("save-workout", async () => {
-              await patchJson(`/api/workouts/${workoutId}`, body);
-              setNotice("Workout saved.");
-            })}
-            onDelete={(workoutId) => run("delete-workout", async () => {
-              const response = await fetch(`/api/workouts/${workoutId}`, { method: "DELETE" });
-              const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-              if (!response.ok) throw new Error(payload?.error || "Unable to delete this workout");
-              const params = new URLSearchParams(searchParams.toString());
-              params.delete("workout");
-              router.replace(`/dashboard?${params.toString()}`);
-              setNotice("Workout deleted.");
-            })}
-            onCreateExercise={async (input) => {
-              let created: ExerciseOption | null = null;
-              await run("exercise", async () => {
-                const payload = await postJson("/api/exercises", {
-                  name: input.name,
-                  tracking_type: input.trackingType,
-                  tracking_parameters: input.trackingParameters,
-                  primary_muscle_group: input.primaryMuscleGroup.trim(),
-                  secondary_muscle_group: input.secondaryMuscleGroup.trim() || null,
-                });
-                if (typeof payload.id === "string" && typeof payload.name === "string") {
-                  created = {
-                    id: payload.id,
-                    name: payload.name,
-                    isSystem: false,
-                    trackingParameters: input.trackingParameters,
-                  };
-                }
-              });
-              return created;
-            }}
-          />
-          </div>
           {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
           {notice ? <p className="mt-4 text-sm text-emerald-700">{notice}</p> : null}
         </section>
+        )}
       </div>
     </div>
   );
+}
+
+function exerciseSummary(exercise: ExerciseOption) {
+  const tracking = TRACKING_TYPE_LABELS[exercise.trackingType];
+  return exercise.primaryMuscleGroup ? `${tracking} · ${exercise.primaryMuscleGroup}` : tracking;
 }
 
 async function postJson(url: string, body: unknown) {
