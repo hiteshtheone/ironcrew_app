@@ -39,12 +39,9 @@ export function ProgramsPanel({
   const selectedProgram = data.kind === "ready"
     ? data.programs.find((program) => program.id === searchParams.get("program")) ?? null
     : null;
-  const [programName, setProgramName] = useState("");
   const [draftName, setDraftName] = useState(selectedProgram?.name ?? "");
   const [draftDescription, setDraftDescription] = useState(selectedProgram?.description ?? "");
   const [phaseName, setPhaseName] = useState("");
-  const [workoutName, setWorkoutName] = useState("");
-  const [exerciseName, setExerciseName] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [checkedClients, setCheckedClients] = useState<string[] | null>(null);
   const [dayOverrides, setDayOverrides] = useState<Record<number, string>>({});
@@ -95,6 +92,7 @@ export function ProgramsPanel({
   const selectedId = searchParams.get("program");
   const selectedWorkoutId = searchParams.get("workout");
   const selectedExerciseId = searchParams.get("exercise");
+  const creating = creationKind(searchParams.get("creating"));
   const selected = data.programs.find((program) => program.id === selectedId) ?? null;
   const selectedExercise = data.exercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
   const requestedPhase = selected?.phases.find((item) => item.id === searchParams.get("phase"));
@@ -113,6 +111,7 @@ export function ProgramsPanel({
     else params.delete("week");
     params.delete("workout");
     params.delete("exercise");
+    params.delete("creating");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -124,6 +123,7 @@ export function ProgramsPanel({
     params.delete("phase");
     params.delete("week");
     params.delete("exercise");
+    params.delete("creating");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -135,6 +135,25 @@ export function ProgramsPanel({
     params.delete("phase");
     params.delete("week");
     params.delete("workout");
+    params.delete("creating");
+    router.replace(`/dashboard?${params.toString()}`);
+  };
+
+  const openCreate = (kind: CreationKind) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", "programs");
+    params.set("creating", kind);
+    params.delete("program");
+    params.delete("phase");
+    params.delete("week");
+    params.delete("workout");
+    params.delete("exercise");
+    router.replace(`/dashboard?${params.toString()}`);
+  };
+
+  const closeCreate = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("creating");
     router.replace(`/dashboard?${params.toString()}`);
   };
 
@@ -211,32 +230,38 @@ export function ProgramsPanel({
     });
   };
 
-  const createProgram = (event: FormEvent) => {
-    event.preventDefault();
-    void run("program", async () => {
-      const payload = await postJson("/api/programs", { name: programName, description: null });
-      setProgramName("");
+  const createProgram = (name: string, description: string) => {
+    void run("create-program", async () => {
+      const payload = await postJson("/api/programs", { name, description: description.trim() || null });
       if (typeof payload.id === "string") openProgram(payload.id);
     });
   };
 
-  const createWorkout = (event: FormEvent) => {
-    event.preventDefault();
-    void run("workout", async () => {
-      const payload = await postJson("/api/workouts", { name: workoutName });
-      setWorkoutName("");
-      if (typeof payload.id === "string") openWorkout(payload.id);
+  const createWorkout = (body: Record<string, unknown>) =>
+    run("create-workout", async () => {
+      const payload = await postJson("/api/workouts", { name: body.name });
+      if (typeof payload.id !== "string") throw new Error("Unable to create this workout");
+      const hasDetails =
+        (typeof body.description === "string" && body.description.length > 0)
+        || body.estimated_duration_minutes != null
+        || (Array.isArray(body.blocks) && body.blocks.length > 0);
+      if (hasDetails) {
+        try {
+          await patchJson(`/api/workouts/${payload.id}`, body);
+        } catch (caught) {
+          openWorkout(payload.id);
+          router.refresh();
+          throw caught;
+        }
+      }
+      openWorkout(payload.id);
     });
-  };
 
-  const createExercise = (event: FormEvent) => {
-    event.preventDefault();
-    void run("exercise", async () => {
-      const payload = await postJson("/api/exercises", { name: exerciseName });
-      setExerciseName("");
+  const createExercise = (body: Record<string, unknown>) =>
+    run("create-exercise", async () => {
+      const payload = await postJson("/api/exercises", body);
       if (typeof payload.id === "string") openExercise(payload.id);
     });
-  };
 
   const createPhase = (event: FormEvent) => {
     event.preventDefault();
@@ -348,20 +373,14 @@ export function ProgramsPanel({
         <div className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-sm font-semibold">Programs</h2>
-            <form onSubmit={createProgram} className="mt-4 space-y-2">
-              <input
-                value={programName}
-                onChange={(event) => setProgramName(event.target.value)}
-                placeholder="New program name"
-                maxLength={160}
-                required
-                aria-label="New program name"
-                className={fieldClass}
-              />
-              <button type="submit" disabled={pending === "program"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                {pending === "program" ? "Creating..." : "Create program"}
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => openCreate("program")}
+              aria-pressed={creating === "program"}
+              className={createButtonClass(creating === "program")}
+            >
+              Create program
+            </button>
             <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
               {data.programs.length === 0 ? <li className="text-sm text-slate-500">No programs yet.</li> : null}
               {data.programs.map((program) => (
@@ -384,20 +403,14 @@ export function ProgramsPanel({
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-sm font-semibold">Workouts</h2>
             <p className="mt-1 text-xs text-slate-500">These stand on their own until you place one on a week.</p>
-            <form onSubmit={createWorkout} className="mt-4 space-y-2">
-              <input
-                value={workoutName}
-                onChange={(event) => setWorkoutName(event.target.value)}
-                placeholder="New workout name"
-                maxLength={160}
-                required
-                aria-label="New workout name"
-                className={fieldClass}
-              />
-              <button type="submit" disabled={pending === "workout"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                {pending === "workout" ? "Creating..." : "Create workout"}
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => openCreate("workout")}
+              aria-pressed={creating === "workout"}
+              className={createButtonClass(creating === "workout")}
+            >
+              Create workout
+            </button>
             <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
               {data.workouts.length === 0 ? <li className="text-sm text-slate-500">No workouts yet.</li> : null}
               {data.workouts.map((workout) => (
@@ -420,20 +433,14 @@ export function ProgramsPanel({
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-sm font-semibold">Exercises</h2>
             <p className="mt-1 text-xs text-slate-500">These are the movements a workout can include.</p>
-            <form onSubmit={createExercise} className="mt-4 space-y-2">
-              <input
-                value={exerciseName}
-                onChange={(event) => setExerciseName(event.target.value)}
-                placeholder="New exercise name"
-                maxLength={160}
-                required
-                aria-label="New exercise name"
-                className={fieldClass}
-              />
-              <button type="submit" disabled={pending === "exercise"} className="w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                {pending === "exercise" ? "Creating..." : "Create exercise"}
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => openCreate("exercise")}
+              aria-pressed={creating === "exercise"}
+              className={createButtonClass(creating === "exercise")}
+            >
+              Create exercise
+            </button>
             <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
               {data.exercises.length === 0 ? <li className="text-sm text-slate-500">No exercises yet.</li> : null}
               {data.exercises.map((exercise) => (
@@ -454,7 +461,45 @@ export function ProgramsPanel({
           </section>
         </div>
 
-        {selectedExerciseId ? (
+        {creating === "exercise" ? (
+          <div className="space-y-4">
+            <ExerciseEditor
+              exercise={null}
+              creating
+              pending={pending}
+              onCreate={createExercise}
+              onCancelCreate={closeCreate}
+              onSave={async () => false}
+              onDelete={async () => false}
+            />
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+          </div>
+        ) : creating === "workout" ? (
+          <div className="space-y-4">
+            <WorkoutEditor
+              workouts={data.workouts}
+              exercises={data.exercises}
+              selectedWorkoutId={null}
+              creating
+              pending={pending}
+              onSelect={openWorkout}
+              onDuplicate={() => undefined}
+              onCreate={createWorkout}
+              onCancelCreate={closeCreate}
+              onSave={async () => false}
+              onDelete={async () => false}
+            />
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
+          </div>
+        ) : creating === "program" ? (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <NewProgramForm pending={pending === "create-program"} onCreate={createProgram} onCancel={closeCreate} />
+            {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+            {notice ? <p className="mt-4 text-sm text-emerald-700">{notice}</p> : null}
+          </section>
+        ) : selectedExerciseId ? (
           <div className="space-y-4">
             {selectedExercise ? (
               <ExerciseEditor
@@ -743,6 +788,76 @@ export function ProgramsPanel({
         )}
       </div>
     </div>
+  );
+}
+
+type CreationKind = "program" | "workout" | "exercise";
+
+function creationKind(value: string | null): CreationKind | null {
+  if (value === "program" || value === "workout" || value === "exercise") return value;
+  return null;
+}
+
+function createButtonClass(active: boolean) {
+  return `mt-4 w-full rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white ${active ? "ring-2 ring-slate-400 ring-offset-2" : ""}`;
+}
+
+function NewProgramForm({
+  pending,
+  onCreate,
+  onCancel,
+}: {
+  pending: boolean;
+  onCreate: (name: string, description: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (pending || trimmed.length === 0) return;
+    onCreate(trimmed, description);
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program</p>
+        <p className="mt-1 text-sm text-slate-500">Enter a name and an optional description. Phases and weeks can be added after it is created.</p>
+      </div>
+      <label className="grid gap-1 text-sm">
+        <span className="font-medium text-slate-600">Name</span>
+        <input autoFocus required maxLength={160} value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+      </label>
+      <label className="grid gap-1 text-sm">
+        <span className="font-medium text-slate-600">Description</span>
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          rows={2}
+          className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm"
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={pending}
+          className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={pending || name.trim().length === 0}
+          className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? "Creating..." : "Create program"}
+        </button>
+      </div>
+    </form>
   );
 }
 

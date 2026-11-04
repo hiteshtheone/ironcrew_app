@@ -74,6 +74,7 @@ export function TrainerShell({
       params.delete("program");
       params.delete("phase");
       params.delete("week");
+      params.delete("creating");
     } else {
       params.set("section", id);
       if (id !== "clients") params.delete("client");
@@ -81,6 +82,7 @@ export function TrainerShell({
         params.delete("program");
         params.delete("phase");
         params.delete("week");
+        params.delete("creating");
       }
     }
     const query = params.toString();

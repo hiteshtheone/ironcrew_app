@@ -27,44 +27,77 @@ type ExerciseSnapshot = {
   secondaryMuscleGroup: string;
 };
 
+const blankExercise: ExerciseOption = {
+  id: "new",
+  name: "",
+  isSystem: false,
+  trackingType: "weight_reps",
+  trackingParameters: ["weight", "reps"],
+  primaryMuscleGroup: null,
+  secondaryMuscleGroup: null,
+};
+
 export function ExerciseEditor({
   exercise,
   pending,
+  creating = false,
   onSave,
+  onCreate,
+  onCancelCreate,
   onDelete,
 }: {
-  exercise: ExerciseOption;
+  exercise: ExerciseOption | null;
   pending: string | null;
+  creating?: boolean;
   onSave: (exerciseId: string, body: Record<string, unknown>) => Promise<boolean>;
+  onCreate?: (body: Record<string, unknown>) => Promise<boolean>;
+  onCancelCreate?: () => void;
   onDelete: (exerciseId: string) => Promise<boolean>;
 }) {
-  const [snapshot, setSnapshot] = useState<ExerciseSnapshot>(() => exerciseSnapshot(exercise));
-  const [loadedId, setLoadedId] = useState(exercise.id);
-  const [baseline, setBaseline] = useState<ExerciseSnapshot>(() => exerciseSnapshot(exercise));
-  const { editing, startEditing, stopEditing } = useEditMode(exercise.id);
+  const source = creating || !exercise ? blankExercise : exercise;
+  const [snapshot, setSnapshot] = useState<ExerciseSnapshot>(() => exerciseSnapshot(source));
+  const [loadedId, setLoadedId] = useState(source.id);
+  const [baseline, setBaseline] = useState<ExerciseSnapshot>(() => exerciseSnapshot(source));
+  const { editing, startEditing, stopEditing } = useEditMode(source.id);
+  const editable = creating || (editing && !source.isSystem);
 
-  if (exercise.id !== loadedId) {
-    const next = exerciseSnapshot(exercise);
-    setLoadedId(exercise.id);
+  if (source.id !== loadedId) {
+    const next = exerciseSnapshot(source);
+    setLoadedId(source.id);
     setSnapshot(next);
     setBaseline(next);
   }
 
-  const fieldsLocked = !editing || exercise.isSystem;
+  const fieldsLocked = !editable;
   const muscleGroupsConflict = muscleGroupsMatch(snapshot.primaryMuscleGroup, snapshot.secondaryMuscleGroup);
   const missingPrimary = snapshot.primaryMuscleGroup.trim().length === 0;
   const missingCustomParameters = snapshot.trackingType === "custom" && snapshot.customParameters.length === 0;
-  const valid = snapshot.name.trim().length > 0 && !missingPrimary && !missingCustomParameters && !muscleGroupsConflict;
+  const valid = snapshot.name.trim().length > 0
+    && !missingCustomParameters
+    && !muscleGroupsConflict
+    && (creating || !missingPrimary);
   const dirty = !valuesEqual(persistedExercise(snapshot), persistedExercise(baseline));
 
   const cancelEdit = () => {
+    if (creating) {
+      onCancelCreate?.();
+      return;
+    }
     setSnapshot(baseline);
     stopEditing();
   };
 
+  const exerciseBody = (saved: ReturnType<typeof persistedExercise>) => ({
+    name: saved.name,
+    tracking_type: saved.trackingType,
+    tracking_parameters: saved.trackingParameters,
+    primary_muscle_group: saved.primaryMuscleGroup,
+    secondary_muscle_group: saved.secondaryMuscleGroup || null,
+  });
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!editing || !dirty || !valid || exercise.isSystem) return;
+    if (!editable || !dirty || !valid || source.isSystem) return;
     const saved = persistedExercise(snapshot);
     const savedSnapshot: ExerciseSnapshot = {
       ...snapshot,
@@ -72,13 +105,13 @@ export function ExerciseEditor({
       primaryMuscleGroup: saved.primaryMuscleGroup,
       secondaryMuscleGroup: saved.secondaryMuscleGroup,
     };
-    const didSave = await onSave(exercise.id, {
-      name: saved.name,
-      tracking_type: saved.trackingType,
-      tracking_parameters: saved.trackingParameters,
-      primary_muscle_group: saved.primaryMuscleGroup,
-      secondary_muscle_group: saved.secondaryMuscleGroup || null,
-    });
+    if (creating) {
+      if (!onCreate) return;
+      await onCreate(exerciseBody(saved));
+      return;
+    }
+    if (!exercise || exercise.id === "new") return;
+    const didSave = await onSave(exercise.id, exerciseBody(saved));
     if (!didSave) return;
     setSnapshot(savedSnapshot);
     setBaseline(savedSnapshot);
@@ -94,9 +127,11 @@ export function ExerciseEditor({
       <div>
         <h2 className="text-lg font-bold">Exercise</h2>
         <p className="mt-1 text-sm text-slate-500">
-          {exercise.isSystem
-            ? "This system exercise is available to everyone."
-            : "Edit the name, the fields a set records, and the muscle groups."}
+          {creating
+            ? "Enter a name here, along with what a set records and the muscle groups."
+            : source.isSystem
+              ? "This system exercise is available to everyone."
+              : "Edit the name, the fields a set records, and the muscle groups."}
         </p>
       </div>
 
@@ -105,6 +140,7 @@ export function ExerciseEditor({
           <span className="font-medium text-slate-600">Name</span>
           <input
             required
+            autoFocus={creating}
             maxLength={160}
             disabled={fieldsLocked}
             value={snapshot.name}
@@ -157,7 +193,7 @@ export function ExerciseEditor({
         {muscleGroupsConflict ? (
           <p className="text-sm text-red-600 sm:col-span-2">Secondary muscle group must be different from the primary muscle group.</p>
         ) : null}
-        {editing && missingPrimary ? (
+        {!creating && editing && missingPrimary ? (
           <p className="text-sm text-slate-500 sm:col-span-2">A primary muscle group is required.</p>
         ) : null}
         {snapshot.trackingType === "custom" ? (
@@ -185,16 +221,18 @@ export function ExerciseEditor({
         ) : null}
       </div>
 
-      {exercise.isSystem ? null : (
+      {source.isSystem ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <EditSaveActions
-            editing={editing}
+            editing={editable}
             dirty={dirty && valid}
-            pending={pending === "save-exercise"}
-            saveLabel="Save exercise"
+            pending={pending === (creating ? "create-exercise" : "save-exercise")}
+            saveLabel={creating ? "Create exercise" : "Save exercise"}
+            pendingLabel={creating ? "Creating..." : "Saving..."}
             onEdit={startEditing}
             onCancel={cancelEdit}
           />
+          {creating || !exercise || exercise.id === "new" ? null : (
           <DeleteControl
             key={exercise.id}
             itemLabel="exercise"
@@ -205,6 +243,7 @@ export function ExerciseEditor({
               void onDelete(exercise.id);
             }}
           />
+          )}
         </div>
       )}
     </form>

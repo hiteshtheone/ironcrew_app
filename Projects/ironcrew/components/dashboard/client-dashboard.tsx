@@ -116,6 +116,7 @@ function ClientShell({
     const params = stripWorkoutParams(new URLSearchParams(window.location.search));
     if (id === "dashboard") params.delete("section");
     else params.set("section", id);
+    if (id !== "programs") params.delete("creating");
     const query = params.toString();
     window.history.pushState(null, "", `${pathname}${query ? `?${query}` : ""}`);
   };
