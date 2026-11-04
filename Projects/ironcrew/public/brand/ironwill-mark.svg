@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ironwill Fitness">
+  <rect width="512" height="512" fill="#0A0A0A"/>
+  <g transform="translate(-48 -14)">
+  <g fill="none" stroke="#E10600" stroke-width="52" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M128 108 V332"/>
+    <path d="M200 108 L268 332 L340 188 L412 332 L480 108"/>
+  </g>
+  <g fill="#E10600">
+    <rect x="132" y="386" width="20" height="58" rx="4"/>
+    <rect x="158" y="370" width="28" height="90" rx="5"/>
+    <rect x="186" y="406" width="140" height="18" rx="4"/>
+    <rect x="326" y="370" width="28" height="90" rx="5"/>
+    <rect x="360" y="386" width="20" height="58" rx="4"/>
+  </g>
+  </g>
+</svg>
