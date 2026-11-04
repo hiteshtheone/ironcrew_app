@@ -5,7 +5,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "catalog": "tsx scripts/catalog.ts"
+    "catalog": "tsx scripts/catalog.ts",
+    "shell": "PYTHONPATH=devshell python -m devshell"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
