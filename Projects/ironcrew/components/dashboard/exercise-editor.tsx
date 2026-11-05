@@ -21,6 +21,8 @@ const fieldClass =
 
 type ExerciseSnapshot = {
   name: string;
+  description: string;
+  instructions: string;
   trackingType: ExerciseTrackingType;
   customParameters: TrackingParameter[];
   primaryMuscleGroup: string;
@@ -30,6 +32,8 @@ type ExerciseSnapshot = {
 const blankExercise: ExerciseOption = {
   id: "new",
   name: "",
+  description: null,
+  instructions: null,
   isSystem: false,
   trackingType: "weight_reps",
   trackingParameters: ["weight", "reps"],
@@ -89,6 +93,8 @@ export function ExerciseEditor({
 
   const exerciseBody = (saved: ReturnType<typeof persistedExercise>) => ({
     name: saved.name,
+    description: saved.description || null,
+    instructions: saved.instructions || null,
     tracking_type: saved.trackingType,
     tracking_parameters: saved.trackingParameters,
     primary_muscle_group: saved.primaryMuscleGroup,
@@ -102,6 +108,8 @@ export function ExerciseEditor({
     const savedSnapshot: ExerciseSnapshot = {
       ...snapshot,
       name: saved.name,
+      description: saved.description,
+      instructions: saved.instructions,
       primaryMuscleGroup: saved.primaryMuscleGroup,
       secondaryMuscleGroup: saved.secondaryMuscleGroup,
     };
@@ -128,10 +136,10 @@ export function ExerciseEditor({
         <h2 className="text-lg font-bold">Exercise</h2>
         <p className="mt-1 text-sm text-slate-500">
           {creating
-            ? "Enter a name here, along with what a set records and the muscle groups."
+            ? "Enter a name, what a set records, the muscle groups, and any description or instructions."
             : source.isSystem
               ? "This system exercise is available to everyone."
-              : "Edit the name, the fields a set records, and the muscle groups."}
+              : "Edit the name, the fields a set records, the muscle groups, and the description or instructions."}
         </p>
       </div>
 
@@ -188,6 +196,30 @@ export function ExerciseEditor({
             onChange={(event) => update({ secondaryMuscleGroup: event.target.value })}
             placeholder="Optional"
             className={fieldClass}
+          />
+        </label>
+        <label className="grid gap-1 text-sm sm:col-span-2">
+          <span className="font-medium text-slate-600">Description</span>
+          <textarea
+            maxLength={4000}
+            disabled={fieldsLocked}
+            value={snapshot.description}
+            onChange={(event) => update({ description: event.target.value })}
+            rows={2}
+            placeholder="Optional"
+            className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
+          />
+        </label>
+        <label className="grid gap-1 text-sm sm:col-span-2">
+          <span className="font-medium text-slate-600">Instructions</span>
+          <textarea
+            maxLength={4000}
+            disabled={fieldsLocked}
+            value={snapshot.instructions}
+            onChange={(event) => update({ instructions: event.target.value })}
+            rows={4}
+            placeholder="Optional"
+            className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </label>
         {muscleGroupsConflict ? (
@@ -253,6 +285,8 @@ export function ExerciseEditor({
 function exerciseSnapshot(exercise: ExerciseOption): ExerciseSnapshot {
   return {
     name: exercise.name,
+    description: exercise.description ?? "",
+    instructions: exercise.instructions ?? "",
     trackingType: exercise.trackingType,
     customParameters: exercise.trackingType === "custom" ? [...exercise.trackingParameters] : ["weight", "reps"],
     primaryMuscleGroup: exercise.primaryMuscleGroup ?? "",
@@ -263,6 +297,8 @@ function exerciseSnapshot(exercise: ExerciseOption): ExerciseSnapshot {
 function persistedExercise(snapshot: ExerciseSnapshot) {
   return {
     name: snapshot.name.trim(),
+    description: snapshot.description.trim(),
+    instructions: snapshot.instructions.trim(),
     trackingType: snapshot.trackingType,
     trackingParameters:
       snapshot.trackingType === "custom" ? snapshot.customParameters : parametersFor(snapshot.trackingType, null),

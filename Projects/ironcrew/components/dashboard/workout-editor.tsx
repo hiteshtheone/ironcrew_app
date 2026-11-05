@@ -50,7 +50,6 @@ export function WorkoutEditor({
   selectedWorkoutId,
   pending,
   creating = false,
-  onSelect,
   onDuplicate,
   onSave,
   onCreate,
@@ -62,7 +61,6 @@ export function WorkoutEditor({
   selectedWorkoutId: string | null;
   pending: string | null;
   creating?: boolean;
-  onSelect: (workoutId: string) => void;
   onDuplicate: (workoutId: string) => void;
   onSave: (workoutId: string, body: Record<string, unknown>) => Promise<boolean>;
   onCreate?: (body: Record<string, unknown>) => Promise<boolean>;
@@ -186,35 +184,9 @@ export function WorkoutEditor({
       {!creating && workouts.length === 0 ? (
         <p className="text-sm text-slate-500">Create a workout in the Workouts list, then write its blocks here.</p>
       ) : !creating && !selected ? (
-        <div className="space-y-3">
-          <p className="text-sm text-slate-500">Opening this workout...</p>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium text-slate-600">Library workout</span>
-            <select value="" onChange={(event) => onSelect(event.target.value)} className={fieldClass}>
-              <option value="">Select</option>
-              {workouts.map((workout) => (
-                <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <p className="text-sm text-slate-500">Opening this workout...</p>
       ) : (
         <>
-          {creating ? null : (
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium text-slate-600">Library workout</span>
-            <select
-              value={selected?.id ?? ""}
-              onChange={(event) => onSelect(event.target.value)}
-              className={fieldClass}
-            >
-              {workouts.map((workout) => (
-                <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>
-              ))}
-            </select>
-          </label>
-          )}
-
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-600">Name</span>

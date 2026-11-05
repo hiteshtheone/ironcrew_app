@@ -11,6 +11,8 @@ export type WorkoutOption = {
 export type ExerciseOption = {
   id: string;
   name: string;
+  description: string | null;
+  instructions: string | null;
   isSystem: boolean;
   trackingType: ExerciseTrackingType;
   trackingParameters: TrackingParameter[];
@@ -174,7 +176,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
         .or(visibleFilter),
       supabase
         .from("exercises")
-        .select("id, name, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group")
+        .select("id, name, description, instructions, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group")
         .or(visibleFilter),
     ]);
 
@@ -361,6 +363,8 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
   return {
     id,
     name,
+    description: stringField(record, "description"),
+    instructions: stringField(record, "instructions"),
     isSystem: isSystemRow(record),
     trackingType,
     trackingParameters: parametersFor(trackingType, record.tracking_parameters),

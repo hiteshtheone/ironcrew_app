@@ -82,7 +82,21 @@ async function AuthenticatedDashboard() {
       }}
       overview={<TrainerOverview data={dashboard} />}
       clients={<ClientListPanel data={clientList} programs={programs} workouts={workouts} />}
-      programs={<ProgramsPanel data={planning} />}
+      programs={
+        <ProgramsPanel
+          data={planning}
+          clients={
+            clientList.kind === "ready"
+              ? clientList.myClients.map((client) => ({
+                  id: client.id,
+                  name: client.name,
+                  activePrograms: client.activePrograms,
+                }))
+              : []
+          }
+          clientsError={clientList.kind === "error" ? clientList.message : null}
+        />
+      }
     />
   );
 }

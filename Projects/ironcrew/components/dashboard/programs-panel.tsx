@@ -10,6 +10,7 @@ import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/comp
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 import { TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
+import { GOAL_TYPE_LABELS, GOAL_TYPES, isGoalType, type GoalType } from "@/lib/plans/constants";
 
 const fieldClass =
   "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50";
@@ -22,16 +23,28 @@ function activeWeekId(data: TrainerProgramsData, searchParams: { get(name: strin
   return week?.id ?? null;
 }
 
+export type AssignableClient = {
+  id: string;
+  name: string;
+  activePrograms: ActiveProgramSummary[];
+};
+
 export function ProgramsPanel({
   data,
   mode = "trainer",
   activePrograms = [],
+  clients = [],
+  clientsError = null,
 }: {
   data: TrainerProgramsData;
   /** "client" lets a client build and run programs for themselves. */
   mode?: "trainer" | "client";
   /** Programs the signed-in client already has active (client mode only). */
   activePrograms?: ActiveProgramSummary[];
+  /** Trainer's clients, used to assign the selected program. */
+  clients?: AssignableClient[];
+  /** Set when the trainer's client list could not be loaded. */
+  clientsError?: string | null;
 }) {
   const isClient = mode === "client";
   const router = useRouter();
@@ -41,7 +54,7 @@ export function ProgramsPanel({
     : null;
   const [draftName, setDraftName] = useState(selectedProgram?.name ?? "");
   const [draftDescription, setDraftDescription] = useState(selectedProgram?.description ?? "");
-  const [phaseName, setPhaseName] = useState("");
+  const [addingPhase, setAddingPhase] = useState(false);
   const [weekStart, setWeekStart] = useState("");
   const [checkedClients, setCheckedClients] = useState<string[] | null>(null);
   const [dayOverrides, setDayOverrides] = useState<Record<number, string>>({});
@@ -50,6 +63,9 @@ export function ProgramsPanel({
   const [pending, setPending] = useState<string | null>(null);
   const [startsOn, setStartsOn] = useState("");
   const [goalTitle, setGoalTitle] = useState("");
+  const [showSystemPrograms, setShowSystemPrograms] = useState(true);
+  const [showSystemWorkouts, setShowSystemWorkouts] = useState(true);
+  const [showSystemExercises, setShowSystemExercises] = useState(true);
   // Set when the server reports an active program the page did not know about.
   const [conflict, setConflict] = useState<ActiveProgramSummary[] | null>(null);
   const selectedProgramId = selectedProgram?.id ?? null;
@@ -73,6 +89,7 @@ export function ProgramsPanel({
   useEffect(() => {
     setCheckedClients(null);
     setConflict(null);
+    setAddingPhase(false);
   }, [selectedProgramId]);
 
   const selectedWeekId = activeWeekId(data, searchParams);
@@ -93,6 +110,9 @@ export function ProgramsPanel({
   const selectedWorkoutId = searchParams.get("workout");
   const selectedExerciseId = searchParams.get("exercise");
   const creating = creationKind(searchParams.get("creating"));
+  const visiblePrograms = data.programs.filter((program) => showSystemPrograms || !program.isSystem);
+  const visibleWorkouts = data.workouts.filter((workout) => showSystemWorkouts || !workout.isSystem);
+  const visibleExercises = data.exercises.filter((exercise) => showSystemExercises || !exercise.isSystem);
   const selected = data.programs.find((program) => program.id === selectedId) ?? null;
   const selectedExercise = data.exercises.find((exercise) => exercise.id === selectedExerciseId) ?? null;
   const requestedPhase = selected?.phases.find((item) => item.id === searchParams.get("phase"));
@@ -263,13 +283,58 @@ export function ProgramsPanel({
       if (typeof payload.id === "string") openExercise(payload.id);
     });
 
-  const createPhase = (event: FormEvent) => {
-    event.preventDefault();
+  const createPhase = (name: string, description: string) => {
     if (!selected) return;
     void run("phase", async () => {
-      const payload = await postJson(`/api/programs/${selected.id}/phases`, { name: phaseName, description: null });
-      setPhaseName("");
+      const payload = await postJson(`/api/programs/${selected.id}/phases`, {
+        name,
+        description: description.trim() || null,
+      });
       if (typeof payload.id === "string") openProgram(selected.id, payload.id);
+    }).then((created) => {
+      if (created) setAddingPhase(false);
+    });
+  };
+
+  const assignProgram = (input: {
+    clientIds: string[];
+    startsOn: string;
+    goalTitle: string;
+    goalType: GoalType;
+    confirmOverlap: boolean;
+  }) => {
+    if (!selected) return Promise.resolve(false);
+    const title = input.goalTitle.trim() || selected.name;
+    return run("assign-program", async () => {
+      let assigned = 0;
+      try {
+        for (const clientId of input.clientIds) {
+          const response = await fetch(`/api/clients/${clientId}/plan`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title,
+              goal_type: input.goalType,
+              target_value: null,
+              target_unit: null,
+              target_date: null,
+              notes: null,
+              program_id: selected.id,
+              starts_on: input.startsOn,
+              confirmOverlap: input.confirmOverlap,
+            }),
+          });
+          const payload = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
+          if (!response.ok) throw new Error(payload?.error || "Unable to assign this program");
+          assigned += 1;
+        }
+      } catch (caught) {
+        if (assigned > 0) router.refresh();
+        throw caught;
+      }
+      setNotice(
+        `Assigned to ${input.clientIds.length} client${input.clientIds.length === 1 ? "" : "s"}.`,
+      );
     });
   };
 
@@ -381,9 +446,16 @@ export function ProgramsPanel({
             >
               Create program
             </button>
+            <ShowSystemToggle
+              checked={showSystemPrograms}
+              label="Show system programs"
+              onChange={setShowSystemPrograms}
+            />
             <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
-              {data.programs.length === 0 ? <li className="text-sm text-slate-500">No programs yet.</li> : null}
-              {data.programs.map((program) => (
+              {visiblePrograms.length === 0 ? (
+                <li className="text-sm text-slate-500">{data.programs.length === 0 ? "No programs yet." : "System programs are hidden."}</li>
+              ) : null}
+              {visiblePrograms.map((program) => (
                 <li key={program.id}>
                   <button
                     type="button"
@@ -411,9 +483,16 @@ export function ProgramsPanel({
             >
               Create workout
             </button>
+            <ShowSystemToggle
+              checked={showSystemWorkouts}
+              label="Show system workouts"
+              onChange={setShowSystemWorkouts}
+            />
             <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
-              {data.workouts.length === 0 ? <li className="text-sm text-slate-500">No workouts yet.</li> : null}
-              {data.workouts.map((workout) => (
+              {visibleWorkouts.length === 0 ? (
+                <li className="text-sm text-slate-500">{data.workouts.length === 0 ? "No workouts yet." : "System workouts are hidden."}</li>
+              ) : null}
+              {visibleWorkouts.map((workout) => (
                 <li key={workout.id}>
                   <button
                     type="button"
@@ -441,9 +520,16 @@ export function ProgramsPanel({
             >
               Create exercise
             </button>
+            <ShowSystemToggle
+              checked={showSystemExercises}
+              label="Show system exercises"
+              onChange={setShowSystemExercises}
+            />
             <ul className="mt-4 max-h-64 space-y-1 overflow-y-auto">
-              {data.exercises.length === 0 ? <li className="text-sm text-slate-500">No exercises yet.</li> : null}
-              {data.exercises.map((exercise) => (
+              {visibleExercises.length === 0 ? (
+                <li className="text-sm text-slate-500">{data.exercises.length === 0 ? "No exercises yet." : "System exercises are hidden."}</li>
+              ) : null}
+              {visibleExercises.map((exercise) => (
                 <li key={exercise.id}>
                   <button
                     type="button"
@@ -483,7 +569,6 @@ export function ProgramsPanel({
               selectedWorkoutId={null}
               creating
               pending={pending}
-              onSelect={openWorkout}
               onDuplicate={() => undefined}
               onCreate={createWorkout}
               onCancelCreate={closeCreate}
@@ -532,7 +617,6 @@ export function ProgramsPanel({
               exercises={data.exercises}
               selectedWorkoutId={selectedWorkoutId}
               pending={pending}
-              onSelect={openWorkout}
               onDuplicate={(workoutId) => {
                 void run("duplicate-workout", async () => {
                   const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
@@ -642,8 +726,27 @@ export function ProgramsPanel({
                 )
               ) : null}
 
+              {isClient ? null : (
+                <AssignProgramForm
+                  key={selected.id}
+                  programName={selected.name}
+                  clients={clients}
+                  clientsError={clientsError}
+                  assignedIds={selected.assignedClients.map((client) => client.id)}
+                  pending={pending === "assign-program"}
+                  onAssign={assignProgram}
+                />
+              )}
+
               <div>
-                <h3 className="text-sm font-semibold">Phase</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold">Phase</h3>
+                  {selected.isSystem || addingPhase ? null : (
+                    <button type="button" onClick={() => setAddingPhase(true)} className="text-sm font-semibold text-slate-700">
+                      Add phase
+                    </button>
+                  )}
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {selected.phases.map((item) => (
                     <button
@@ -656,21 +759,11 @@ export function ProgramsPanel({
                     </button>
                   ))}
                 </div>
-                {selected.isSystem ? null : (
-                <form onSubmit={createPhase} className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={phaseName}
-                    onChange={(event) => setPhaseName(event.target.value)}
-                    placeholder="Phase name"
-                    maxLength={160}
-                    required
-                    className={fieldClass}
-                  />
-                  <button type="submit" disabled={pending === "phase"} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-60">
-                    {pending === "phase" ? "Adding..." : "Add phase"}
-                  </button>
-                </form>
-                )}
+                {selected.isSystem ? null : addingPhase ? (
+                  <AddPhaseForm pending={pending === "phase"} onCreate={createPhase} onCancel={() => setAddingPhase(false)} />
+                ) : selected.phases.length === 0 ? (
+                  <p className="mt-3 text-sm text-slate-500">Add a phase to plan its weeks.</p>
+                ) : null}
               </div>
 
               {phase ? (
@@ -746,7 +839,7 @@ export function ProgramsPanel({
                     <fieldset className="mt-3">
                       <legend className="text-sm font-medium text-slate-600">Clients</legend>
                       {selected.assignedClients.length === 0 ? (
-                        <p className="mt-1 text-sm text-slate-500">No clients are on this program yet. Assign it from a client first.</p>
+                        <p className="mt-1 text-sm text-slate-500">No clients are on this program yet. Assign it above before publishing.</p>
                       ) : (
                         <ul className="mt-2 space-y-1">
                           {selected.assignedClients.map((client) => (
@@ -796,6 +889,234 @@ type CreationKind = "program" | "workout" | "exercise";
 function creationKind(value: string | null): CreationKind | null {
   if (value === "program" || value === "workout" || value === "exercise") return value;
   return null;
+}
+
+function ShowSystemToggle({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      {label}
+    </label>
+  );
+}
+
+function AddPhaseForm({
+  pending,
+  onCreate,
+  onCancel,
+}: {
+  pending: boolean;
+  onCreate: (name: string, description: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (pending || trimmed.length === 0) return;
+    onCreate(trimmed, description);
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-3 space-y-3 rounded-xl bg-slate-50 p-4">
+      <label className="grid gap-1 text-sm">
+        <span className="font-medium text-slate-600">Name</span>
+        <input autoFocus required maxLength={160} value={name} onChange={(event) => setName(event.target.value)} className={fieldClass} />
+      </label>
+      <label className="grid gap-1 text-sm">
+        <span className="font-medium text-slate-600">Description</span>
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          rows={2}
+          placeholder="Optional"
+          className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm"
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={pending}
+          className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={pending || name.trim().length === 0}
+          className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? "Adding..." : "Add phase"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AssignProgramForm({
+  programName,
+  clients,
+  clientsError = null,
+  assignedIds,
+  pending,
+  onAssign,
+}: {
+  programName: string;
+  clients: AssignableClient[];
+  clientsError?: string | null;
+  assignedIds: string[];
+  pending: boolean;
+  onAssign: (input: {
+    clientIds: string[];
+    startsOn: string;
+    goalTitle: string;
+    goalType: GoalType;
+    confirmOverlap: boolean;
+  }) => Promise<boolean>;
+}) {
+  const assigned = new Set(assignedIds);
+  const available = clients.filter((client) => !assigned.has(client.id));
+  const [picked, setPicked] = useState<string[]>([]);
+  const [startsOn, setStartsOn] = useState("");
+  const [goalTitle, setGoalTitle] = useState("");
+  const [goalType, setGoalType] = useState<GoalType>("other");
+  const [confirming, setConfirming] = useState(false);
+  const pickedClients = available.filter((client) => picked.includes(client.id));
+  const overlapping = pickedClients.filter((client) => client.activePrograms.length > 0);
+
+  const toggle = (clientId: string, checked: boolean) => {
+    setConfirming(false);
+    setPicked((current) => (checked ? [...current, clientId] : current.filter((id) => id !== clientId)));
+  };
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (pending || picked.length === 0 || startsOn.trim().length === 0) return;
+    if (overlapping.length > 0 && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    void onAssign({
+      clientIds: picked,
+      startsOn,
+      goalTitle,
+      goalType,
+      confirmOverlap: overlapping.length > 0,
+    }).then((assignedOk) => {
+      if (!assignedOk) return;
+      setPicked([]);
+      setGoalTitle("");
+      setConfirming(false);
+    });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-xl bg-slate-50 p-4">
+      <div>
+        <h3 className="text-sm font-semibold">Assign to clients</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Assigns {programName} and saves a goal with it. Leave the goal title blank to use the program name.
+        </p>
+      </div>
+      {clientsError ? (
+        <p className="text-sm text-red-600">{clientsError}</p>
+      ) : clients.length === 0 ? (
+        <p className="text-sm text-slate-500">No clients yet. Add one from Clients.</p>
+      ) : (
+        <>
+          <fieldset>
+            <legend className="text-sm font-medium text-slate-600">Clients</legend>
+            <ul className="mt-2 space-y-1">
+              {clients.map((client) => {
+                const already = assigned.has(client.id);
+                return (
+                  <li key={client.id}>
+                    <label className={`flex items-center gap-2 text-sm ${already ? "text-slate-500" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={already || picked.includes(client.id)}
+                        disabled={already || pending}
+                        onChange={(event) => toggle(client.id, event.target.checked)}
+                      />
+                      <span>{client.name}</span>
+                      {already ? <span className="text-xs">Already assigned</span> : null}
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </fieldset>
+          {available.length === 0 ? (
+            <p className="text-sm text-slate-500">Every client is already on this program.</p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">Starts</span>
+                  <input type="date" required value={startsOn} onChange={(event) => setStartsOn(event.target.value)} className={fieldClass} />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">Goal type</span>
+                  <select
+                    value={goalType}
+                    onChange={(event) => {
+                      if (isGoalType(event.target.value)) setGoalType(event.target.value);
+                    }}
+                    className={fieldClass}
+                  >
+                    {GOAL_TYPES.map((type) => (
+                      <option key={type} value={type}>{GOAL_TYPE_LABELS[type]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm sm:col-span-2">
+                  <span className="font-medium text-slate-600">Goal title (optional)</span>
+                  <input
+                    maxLength={160}
+                    value={goalTitle}
+                    placeholder={programName}
+                    onChange={(event) => setGoalTitle(event.target.value)}
+                    className={fieldClass}
+                  />
+                </label>
+              </div>
+              {confirming && overlapping.length > 0 ? (
+                <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <p className="font-semibold">Active program warning</p>
+                  <ul className="mt-1 space-y-1">
+                    {overlapping.map((client) => (
+                      <li key={client.id}>
+                        {client.name} already has {client.activePrograms.map((program) => program.name).join(", ")}.
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1">Assign this program as well?</p>
+                </div>
+              ) : null}
+              <button
+                type="submit"
+                disabled={pending || picked.length === 0}
+                className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {pending ? "Assigning..." : confirming && overlapping.length > 0 ? "Assign anyway" : "Assign program"}
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </form>
+  );
 }
 
 function createButtonClass(active: boolean) {
