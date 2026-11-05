@@ -12,6 +12,8 @@ import {
 
 export type ExerciseWrite = {
   name: string;
+  description: string | null;
+  instructions: string | null;
   trackingType: ExerciseTrackingType;
   trackingParameters: TrackingParameter[];
   primaryMuscleGroup: string | null;
@@ -43,6 +45,12 @@ export function parseExerciseWrite(
   const secondaryMuscleGroup = parseMuscleGroup(body.secondary_muscle_group, "secondary_muscle_group", false);
   if ("error" in secondaryMuscleGroup) return secondaryMuscleGroup;
 
+  const description = parseOptionalText(body.description, "description");
+  if ("error" in description) return description;
+
+  const instructions = parseOptionalText(body.instructions, "instructions");
+  if ("error" in instructions) return instructions;
+
   if (
     primaryMuscleGroup.value &&
     secondaryMuscleGroup.value &&
@@ -54,6 +62,8 @@ export function parseExerciseWrite(
   return {
     value: {
       name,
+      description: description.value,
+      instructions: instructions.value,
       trackingType: trackingType.value,
       trackingParameters: tracking.parameters,
       primaryMuscleGroup: primaryMuscleGroup.value,
@@ -99,6 +109,19 @@ function trackingParametersFrom(
     if (!parameters.includes(item)) parameters.push(item);
   }
   return { parameters };
+}
+
+function parseOptionalText(
+  value: unknown,
+  field: "description" | "instructions",
+): { error: NextResponse } | { value: string | null } {
+  if (value === undefined) return { value: null };
+  const text = asTrimmedString(value);
+  if (text === undefined) return { error: jsonError(`${field} must be a string or null`, 400) };
+  if (text && text.length > 4000) {
+    return { error: jsonError(`${field} must be 4000 characters or fewer`, 400) };
+  }
+  return { value: text };
 }
 
 function parseMuscleGroup(

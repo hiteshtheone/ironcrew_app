@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     .insert({
       ...resolved.owner,
       name: exercise.name,
+      description: exercise.description,
+      instructions: exercise.instructions,
       tracking_type: exercise.trackingType,
       tracking_parameters: exercise.trackingParameters,
       primary_muscle_group: exercise.primaryMuscleGroup,
