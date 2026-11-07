@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Plus,
   Settings,
+  User,
   Users,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
 export type TrainerSection =
   | "dashboard"
+  | "training"
   | "clients"
   | "programs"
   | "calendar"
@@ -29,30 +31,33 @@ export type TrainerSection =
 
 const navigation: { id: TrainerSection; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { id: "dashboard", label: "Dashboard", icon: Activity },
+  { id: "training", label: "My training", icon: User },
   { id: "clients", label: "Clients", icon: Users },
   { id: "programs", label: "Programs", icon: Dumbbell },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "messages", label: "Messages", icon: MessageSquare },
 ];
 
-const sectionTitle: Record<Exclude<TrainerSection, "dashboard" | "clients" | "programs">, string> = {
+const sectionTitle: Record<Exclude<TrainerSection, "dashboard" | "clients" | "programs" | "training">, string> = {
   calendar: "Calendar",
   messages: "Messages",
   settings: "Settings",
 };
 
 function isTrainerSection(value: string | null): value is TrainerSection {
-  return value === "dashboard" || value === "clients" || value === "programs" || value === "calendar" || value === "messages" || value === "settings";
+  return value === "dashboard" || value === "training" || value === "clients" || value === "programs" || value === "calendar" || value === "messages" || value === "settings";
 }
 
 export function TrainerShell({
   profile,
   overview,
+  training,
   clients,
   programs,
 }: {
   profile: { fullName: string; initials: string; dateLabel: string };
   overview: ReactNode;
+  training: ReactNode;
   clients: ReactNode;
   programs: ReactNode;
 }) {
@@ -68,22 +73,17 @@ export function TrainerShell({
     const params = id === "clients"
       ? new URLSearchParams(searchParams.toString())
       : stripWorkoutParams(searchParams.toString());
-    if (id === "dashboard") {
-      params.delete("section");
-      params.delete("client");
+    if (id === "dashboard") params.delete("section");
+    else params.set("section", id);
+    if (id !== "clients") params.delete("client");
+    if (id !== section) {
       params.delete("program");
       params.delete("phase");
       params.delete("week");
+      params.delete("workout");
+      params.delete("exercise");
       params.delete("creating");
-    } else {
-      params.set("section", id);
-      if (id !== "clients") params.delete("client");
-      if (id !== "programs") {
-        params.delete("program");
-        params.delete("phase");
-        params.delete("week");
-        params.delete("creating");
-      }
+      params.delete("view");
     }
     const query = params.toString();
     router.replace(query ? `/dashboard?${query}` : "/dashboard");
@@ -159,10 +159,11 @@ export function TrainerShell({
         </header>
 
         {section === "dashboard" && overview}
+        {section === "training" && training}
         {section === "clients" && clients}
         {section === "programs" && programs}
         {section === "settings" && <MyInfoForm />}
-        {section !== "dashboard" && section !== "clients" && section !== "programs" && section !== "settings" && (
+        {section !== "dashboard" && section !== "training" && section !== "clients" && section !== "programs" && section !== "settings" && (
           <EmptySection title={sectionTitle[section]} />
         )}
       </section>

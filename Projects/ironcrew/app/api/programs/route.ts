@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { resolveOwner } from "@/lib/api/owner";
+import { forSelfRequested, resolveOwner } from "@/lib/api/owner";
 import {
   asTrimmedString,
   databaseErrorMessage,
@@ -27,7 +27,9 @@ export async function POST(request: Request) {
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
 
-  const resolved = await resolveOwner(auth.supabase, auth.user.id);
+  const resolved = await resolveOwner(auth.supabase, auth.user.id, {
+    forSelf: forSelfRequested(parsedBody.body),
+  });
   if ("error" in resolved) return resolved.error;
 
   const { data, error } = await auth.supabase

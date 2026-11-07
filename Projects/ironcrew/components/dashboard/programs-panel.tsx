@@ -32,21 +32,28 @@ export type AssignableClient = {
 export function ProgramsPanel({
   data,
   mode = "trainer",
+  sectionId = "programs",
   activePrograms = [],
   clients = [],
   clientsError = null,
+  selfClientId = null,
 }: {
   data: TrainerProgramsData;
   /** "client" lets a client build and run programs for themselves. */
   mode?: "trainer" | "client";
+  /** Query section this panel writes. My training uses "training". */
+  sectionId?: string;
   /** Programs the signed-in client already has active (client mode only). */
   activePrograms?: ActiveProgramSummary[];
   /** Trainer's clients, used to assign the selected program. */
   clients?: AssignableClient[];
   /** Set when the trainer's client list could not be loaded. */
   clientsError?: string | null;
+  /** Trainer's private client row, used to assign a program and goal to themselves. */
+  selfClientId?: string | null;
 }) {
   const isClient = mode === "client";
+  const selfBody = isClient ? { for_self: true } : {};
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedProgram = data.kind === "ready"
@@ -123,7 +130,8 @@ export function ProgramsPanel({
 
   const openProgram = (programId: string, phaseId?: string, weekId?: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("section", "programs");
+    params.set("section", sectionId);
+    if (sectionId === "training") params.set("view", "programs");
     params.set("program", programId);
     if (phaseId) params.set("phase", phaseId);
     else params.delete("phase");
@@ -137,7 +145,8 @@ export function ProgramsPanel({
 
   const openWorkout = (workoutId: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("section", "programs");
+    params.set("section", sectionId);
+    if (sectionId === "training") params.set("view", "programs");
     params.set("workout", workoutId);
     params.delete("program");
     params.delete("phase");
@@ -149,7 +158,8 @@ export function ProgramsPanel({
 
   const openExercise = (exerciseId: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("section", "programs");
+    params.set("section", sectionId);
+    if (sectionId === "training") params.set("view", "programs");
     params.set("exercise", exerciseId);
     params.delete("program");
     params.delete("phase");
@@ -161,7 +171,8 @@ export function ProgramsPanel({
 
   const openCreate = (kind: CreationKind) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("section", "programs");
+    params.set("section", sectionId);
+    if (sectionId === "training") params.set("view", "programs");
     params.set("creating", kind);
     params.delete("program");
     params.delete("phase");
@@ -244,7 +255,7 @@ export function ProgramsPanel({
   const duplicateProgram = () => {
     if (!selected) return;
     void run("duplicate-program", async () => {
-      const payload = await postJson(`/api/programs/${selected.id}/duplicate`, {});
+      const payload = await postJson(`/api/programs/${selected.id}/duplicate`, selfBody);
       if (typeof payload.id === "string") openProgram(payload.id);
       setNotice("Program duplicated. This copy can be edited on its own.");
     });
@@ -252,14 +263,14 @@ export function ProgramsPanel({
 
   const createProgram = (name: string, description: string) => {
     void run("create-program", async () => {
-      const payload = await postJson("/api/programs", { name, description: description.trim() || null });
+      const payload = await postJson("/api/programs", { name, description: description.trim() || null, ...selfBody });
       if (typeof payload.id === "string") openProgram(payload.id);
     });
   };
 
   const createWorkout = (body: Record<string, unknown>) =>
     run("create-workout", async () => {
-      const payload = await postJson("/api/workouts", { name: body.name });
+      const payload = await postJson("/api/workouts", { name: body.name, ...selfBody });
       if (typeof payload.id !== "string") throw new Error("Unable to create this workout");
       const hasDetails =
         (typeof body.description === "string" && body.description.length > 0)
@@ -279,7 +290,7 @@ export function ProgramsPanel({
 
   const createExercise = (body: Record<string, unknown>) =>
     run("create-exercise", async () => {
-      const payload = await postJson("/api/exercises", body);
+      const payload = await postJson("/api/exercises", { ...body, ...selfBody });
       if (typeof payload.id === "string") openExercise(payload.id);
     });
 
@@ -335,6 +346,31 @@ export function ProgramsPanel({
       setNotice(
         `Assigned to ${input.clientIds.length} client${input.clientIds.length === 1 ? "" : "s"}.`,
       );
+    });
+  };
+
+  const assignToSelf = (input: {
+    startsOn: string;
+    goalTitle: string;
+    goalType: GoalType;
+    confirmOverlap: boolean;
+  }) => {
+    if (!selected) return Promise.resolve(false);
+    const title = input.goalTitle.trim() || selected.name;
+    return run("assign-self", async () => {
+      const response = await fetch(`/api/me/programs/${selected.id}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          starts_on: input.startsOn,
+          goal_title: title,
+          goal_type: input.goalType,
+          confirmOverlap: input.confirmOverlap,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to assign this program to you");
+      setNotice("Assigned to you, with a goal. Publish a week to put its workouts on your calendar.");
     });
   };
 
@@ -464,7 +500,7 @@ export function ProgramsPanel({
                   >
                     <span className="block truncate">{libraryItemLabel(program.name, program.isSystem)}</span>
                     <span className={`block truncate text-xs ${program.id === selected?.id ? "text-slate-300" : "text-slate-500"}`}>
-                      {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}
+                      {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : trainerProgramStatus(program.assignedClients, selfClientId)}
                     </span>
                   </button>
                 </li>
@@ -619,7 +655,7 @@ export function ProgramsPanel({
               pending={pending}
               onDuplicate={(workoutId) => {
                 void run("duplicate-workout", async () => {
-                  const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
+                  const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, selfBody);
                   if (typeof payload.id === "string") openWorkout(payload.id);
                   setNotice("Workout duplicated. This copy can be edited on its own.");
                 });
@@ -727,15 +763,26 @@ export function ProgramsPanel({
               ) : null}
 
               {isClient ? null : (
-                <AssignProgramForm
-                  key={selected.id}
-                  programName={selected.name}
-                  clients={clients}
-                  clientsError={clientsError}
-                  assignedIds={selected.assignedClients.map((client) => client.id)}
-                  pending={pending === "assign-program"}
-                  onAssign={assignProgram}
-                />
+                <>
+                  <AssignToSelfForm
+                    key={`${selected.id}-self`}
+                    programName={selected.name}
+                    alreadyAssigned={selfClientId != null && selected.assignedClients.some((client) => client.id === selfClientId)}
+                    activePrograms={activePrograms}
+                    pending={pending === "assign-self"}
+                    unavailable={selfClientId == null}
+                    onAssign={assignToSelf}
+                  />
+                  <AssignProgramForm
+                    key={selected.id}
+                    programName={selected.name}
+                    clients={clients}
+                    clientsError={clientsError}
+                    assignedIds={selected.assignedClients.map((client) => client.id)}
+                    pending={pending === "assign-program"}
+                    onAssign={assignProgram}
+                  />
+                </>
               )}
 
               <div>
@@ -855,7 +902,7 @@ export function ProgramsPanel({
                                     setCheckedClients(next);
                                   }}
                                 />
-                                {client.name}
+                                {client.id === selfClientId ? "You" : client.name}
                               </label>
                             </li>
                           ))}
@@ -960,6 +1007,118 @@ function AddPhaseForm({
           {pending ? "Adding..." : "Add phase"}
         </button>
       </div>
+    </form>
+  );
+}
+
+function trainerProgramStatus(assignedClients: { id: string }[], selfClientId: string | null) {
+  const others = assignedClients.filter((client) => client.id !== selfClientId).length;
+  const self = selfClientId != null && assignedClients.some((client) => client.id === selfClientId);
+  if (self && others === 0) return "You";
+  const clients = `${others} client${others === 1 ? "" : "s"}`;
+  return self ? `${clients} · You` : clients;
+}
+
+function AssignToSelfForm({
+  programName,
+  alreadyAssigned,
+  activePrograms,
+  pending,
+  unavailable,
+  onAssign,
+}: {
+  programName: string;
+  alreadyAssigned: boolean;
+  activePrograms: ActiveProgramSummary[];
+  pending: boolean;
+  unavailable: boolean;
+  onAssign: (input: {
+    startsOn: string;
+    goalTitle: string;
+    goalType: GoalType;
+    confirmOverlap: boolean;
+  }) => Promise<boolean>;
+}) {
+  const [startsOn, setStartsOn] = useState("");
+  const [goalTitle, setGoalTitle] = useState("");
+  const [goalType, setGoalType] = useState<GoalType>("other");
+  const [confirming, setConfirming] = useState(false);
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (pending || unavailable || startsOn.trim().length === 0) return;
+    if (activePrograms.length > 0 && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    void onAssign({
+      startsOn,
+      goalTitle,
+      goalType,
+      confirmOverlap: activePrograms.length > 0,
+    }).then((assignedOk) => {
+      if (!assignedOk) return;
+      setGoalTitle("");
+      setConfirming(false);
+    });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-xl bg-slate-50 p-4">
+      <div>
+        <h3 className="text-sm font-semibold">Assign to yourself</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Assigns {programName} to you and saves a goal with it. Leave the goal title blank to use the program name.
+        </p>
+      </div>
+      {unavailable ? (
+        <p className="text-sm text-slate-500">Your training profile is not ready yet, so this program cannot be assigned to you.</p>
+      ) : alreadyAssigned ? (
+        <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active for you.</p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Starts</span>
+              <input type="date" required value={startsOn} onChange={(event) => { setStartsOn(event.target.value); setConfirming(false); }} className={fieldClass} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">Goal type</span>
+              <select
+                value={goalType}
+                onChange={(event) => {
+                  if (isGoalType(event.target.value)) setGoalType(event.target.value);
+                }}
+                className={fieldClass}
+              >
+                {GOAL_TYPES.map((type) => (
+                  <option key={type} value={type}>{GOAL_TYPE_LABELS[type]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm sm:col-span-2">
+              <span className="font-medium text-slate-600">Goal title (optional)</span>
+              <input
+                maxLength={160}
+                value={goalTitle}
+                placeholder={programName}
+                onChange={(event) => setGoalTitle(event.target.value)}
+                className={fieldClass}
+              />
+            </label>
+          </div>
+          {confirming && activePrograms.length > 0 ? (
+            <ActiveProgramWarning programs={activePrograms} audience="client" />
+          ) : null}
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {pending ? "Assigning..." : confirming && activePrograms.length > 0 ? "Assign anyway" : "Assign to yourself"}
+          </button>
+        </>
+      )}
     </form>
   );
 }

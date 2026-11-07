@@ -209,7 +209,7 @@ function ClientShell({
   );
 }
 
-function ClientWeek({
+export function ClientWeek({
   data,
   workouts,
 }: {

@@ -5,6 +5,7 @@ import { ClientDashboard } from "@/components/dashboard/client-dashboard";
 import { ClientListPanel } from "@/components/dashboard/client-list";
 import { LogoutButton } from "@/components/logout-button";
 import { ProgramsPanel } from "@/components/dashboard/programs-panel";
+import { TrainerTraining } from "@/components/dashboard/trainer-training";
 import { DashboardSkeleton, TrainerLoadError, TrainerOverview } from "@/components/dashboard/trainer-dashboard";
 import { TrainerShell } from "@/components/dashboard/trainer-shell";
 import { loadClientDashboard } from "@/lib/dashboard/load-client-dashboard";
@@ -58,10 +59,24 @@ async function AuthenticatedDashboard() {
     fullName: profile.full_name,
     timezone: profile.timezone,
   };
-  const [dashboard, clientList, planning] = await Promise.all([
-    loadTrainerDashboard(supabase, profileInput),
-    loadClientList(supabase, profileInput),
-    loadTrainerPrograms(supabase, userId),
+  const dashboardPromise = loadTrainerDashboard(supabase, profileInput);
+  const clientListPromise = loadClientList(supabase, profileInput);
+  const planningPromise = loadTrainerPrograms(supabase, userId);
+  const ensured = await supabase.rpc("ensure_trainer_self_client");
+  const trainingDashboard = ensured.error
+    ? { kind: "error" as const, message: ensured.error.message }
+    : await loadClientDashboard(supabase, profileInput);
+  const personalProgramsPromise = trainingDashboard.kind === "ready"
+    ? loadClientPrograms(supabase, trainingDashboard.clientId)
+    : Promise.resolve({
+        kind: "error" as const,
+        message: trainingDashboard.kind === "error" ? trainingDashboard.message : "Personal programs are not available yet.",
+      });
+  const [dashboard, clientList, planning, personalPrograms] = await Promise.all([
+    dashboardPromise,
+    clientListPromise,
+    planningPromise,
+    personalProgramsPromise,
   ]);
 
   if (dashboard.kind === "error") {
@@ -81,6 +96,7 @@ async function AuthenticatedDashboard() {
         dateLabel: dashboard.dateLabel,
       }}
       overview={<TrainerOverview data={dashboard} />}
+      training={<TrainerTraining data={trainingDashboard} programs={personalPrograms} />}
       clients={<ClientListPanel data={clientList} programs={programs} workouts={workouts} />}
       programs={
         <ProgramsPanel
@@ -95,6 +111,8 @@ async function AuthenticatedDashboard() {
               : []
           }
           clientsError={clientList.kind === "error" ? clientList.message : null}
+          selfClientId={trainingDashboard.kind === "ready" ? trainingDashboard.clientId : null}
+          activePrograms={trainingDashboard.kind === "ready" ? trainingDashboard.activePrograms : []}
         />
       }
     />

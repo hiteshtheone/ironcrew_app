@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { resolveOwner } from "@/lib/api/owner";
-import { readJson, requireUser } from "@/lib/api/route-utils";
+import { forSelfRequested, resolveOwner } from "@/lib/api/owner";
+import { isRecord, readJson, requireUser } from "@/lib/api/route-utils";
 import { exerciseWriteError, parseExerciseWrite } from "@/lib/exercises/input";
 
 export async function POST(request: Request) {
@@ -14,7 +14,9 @@ export async function POST(request: Request) {
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
 
-  const resolved = await resolveOwner(auth.supabase, auth.user.id);
+  const resolved = await resolveOwner(auth.supabase, auth.user.id, {
+    forSelf: isRecord(parsedBody.body) && forSelfRequested(parsedBody.body),
+  });
   if ("error" in resolved) return resolved.error;
 
   const exercise = parsed.value;

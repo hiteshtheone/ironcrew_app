@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { databaseErrorMessage, jsonError } from "@/lib/api/route-utils";
+import { databaseErrorMessage, jsonError, rpcStatus } from "@/lib/api/route-utils";
 import { resolveTimeZone } from "@/lib/dashboard/client-week";
 
 export async function requireClientAccount(supabase: SupabaseClient, userId: string) {
@@ -11,7 +11,16 @@ export async function requireClientAccount(supabase: SupabaseClient, userId: str
     .maybeSingle();
 
   if (profileError) return { error: jsonError(databaseErrorMessage(profileError), 500) };
-  if (!profile || profile.role !== "client") return { error: jsonError("This account is not a client", 403) };
+  if (!profile || (profile.role !== "client" && profile.role !== "trainer")) {
+    return { error: jsonError("This account is not a client", 403) };
+  }
+
+  if (profile.role === "trainer") {
+    const { error: ensureError } = await supabase.rpc("ensure_trainer_self_client");
+    if (ensureError) {
+      return { error: jsonError(databaseErrorMessage(ensureError), rpcStatus(ensureError.message)) };
+    }
+  }
 
   const { data: client, error: clientError } = await supabase
     .from("clients")

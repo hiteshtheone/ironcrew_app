@@ -3,7 +3,13 @@
 import { WorkoutsBrowser } from "@/components/dashboard/workouts/workouts-browser";
 import type { ClientDashboardData } from "@/lib/dashboard/client-week";
 
-export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
+export function ClientWorkouts({
+  data,
+  emptyMessage = "Workouts you schedule, or that your trainer assigns, show up here.",
+}: {
+  data: Exclude<ClientDashboardData, { kind: "error" }>;
+  emptyMessage?: string;
+}) {
   const ready = data.kind === "ready";
 
   return (
@@ -19,7 +25,7 @@ export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { 
         <div className="mt-6">
           <WorkoutsBrowser
             endpoint="/api/me/workouts"
-            emptyMessage="Workouts you schedule, or that your trainer assigns, show up here."
+            emptyMessage={emptyMessage}
           />
         </div>
       )}
