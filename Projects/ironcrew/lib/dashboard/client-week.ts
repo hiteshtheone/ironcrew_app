@@ -36,12 +36,22 @@ export type ClientExercise = {
   name: string;
   detail: string | null;
   prescribedSets: number | null;
+  /** Coach rep range. A single target is stored in both, or in whichever side was set. */
+  repsMin: number | null;
+  repsMax: number | null;
+  load: number | null;
   loadUnit: string | null;
+  durationSeconds: number | null;
+  distanceMeters: number | null;
+  heightCm: number | null;
   /** Fields this block records. Blocks without an exercise keep the original set. */
   trackingParameters: TrackingParameter[];
   primaryMuscleGroup: string | null;
   secondaryMuscleGroup: string | null;
+  /** Sets already saved on this assignment. */
   sets: ClientLoggedSet[];
+  /** Latest earlier log for this block, or the same exercise when the block is new. */
+  previousSets: ClientLoggedSet[];
 };
 
 export type ClientWorkout = {

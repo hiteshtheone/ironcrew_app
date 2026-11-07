@@ -5,17 +5,17 @@ import { useRouter } from "next/navigation";
 
 import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
+import {
+  draftSets,
+  fieldsFromCoach,
+  fieldsFromLog,
+  MAX_PREFILL_SETS,
+  type SetDraft,
+  type SetFields,
+} from "@/lib/dashboard/workout-prefill";
 import { tracks, type TrackingParameter } from "@/lib/exercises/tracking";
 
-type DraftSet = {
-  repetitions: string;
-  load: string;
-  loadUnit: "kg" | "lb";
-  durationSeconds: string;
-  distanceKm: string;
-  heightCm: string;
-  notes: string;
-};
+type DraftSet = SetDraft;
 
 type DraftBlock = {
   id: string;
@@ -23,10 +23,13 @@ type DraftBlock = {
   detail: string | null;
   muscleGroups: string | null;
   parameters: TrackingParameter[];
+  trainer: SetFields;
+  fallbackUnit: string | null;
+  previousSets: ClientLoggedSet[];
   sets: DraftSet[];
 };
 
-const MAX_SETS = 20;
+const MAX_SETS = MAX_PREFILL_SETS;
 
 export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
   const router = useRouter();
@@ -170,94 +173,27 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                     }}
                   >
                     {block.sets.map((set, index) => (
-                      <div key={`${block.id}-${index}`} className="flex flex-wrap items-end gap-2">
-                        {tracks(block.parameters, "weight") ? (
-                          <>
-                            <Field label={index === 0 ? "Weight" : `Weight, set ${index + 1}`} className="w-24">
-                              <input
-                                inputMode="decimal"
-                                disabled={!blockEditing}
-                                value={set.load}
-                                onChange={(event) => updateSet(block.id, index, { load: event.target.value })}
-                                className={fieldClass}
-                              />
-                            </Field>
-                            <Field label={index === 0 ? "Unit" : `Unit, set ${index + 1}`} className="w-20">
-                              <select
-                                value={set.loadUnit}
-                                disabled={!blockEditing}
-                                onChange={(event) =>
-                                  updateSet(block.id, index, { loadUnit: event.target.value === "lb" ? "lb" : "kg" })
-                                }
-                                className={fieldClass}
-                              >
-                                <option value="kg">kg</option>
-                                <option value="lb">lb</option>
-                              </select>
-                            </Field>
-                          </>
-                        ) : null}
-                        {tracks(block.parameters, "reps") ? (
-                          <Field label={index === 0 ? "Reps" : `Reps, set ${index + 1}`} className="w-20">
-                            <input
-                              inputMode="numeric"
-                              disabled={!blockEditing}
-                              value={set.repetitions}
-                              onChange={(event) => updateSet(block.id, index, { repetitions: event.target.value })}
-                              className={fieldClass}
-                            />
-                          </Field>
-                        ) : null}
-                        {tracks(block.parameters, "time") ? (
-                          <Field label={index === 0 ? "Time (sec)" : `Time, set ${index + 1}`} className="w-24">
-                            <input
-                              inputMode="numeric"
-                              disabled={!blockEditing}
-                              value={set.durationSeconds}
-                              onChange={(event) => updateSet(block.id, index, { durationSeconds: event.target.value })}
-                              className={fieldClass}
-                            />
-                          </Field>
-                        ) : null}
-                        {tracks(block.parameters, "distance") ? (
-                          <Field label={index === 0 ? "Distance (km)" : `Distance, set ${index + 1}`} className="w-28">
-                            <input
-                              inputMode="decimal"
-                              disabled={!blockEditing}
-                              value={set.distanceKm}
-                              onChange={(event) => updateSet(block.id, index, { distanceKm: event.target.value })}
-                              className={fieldClass}
-                            />
-                          </Field>
-                        ) : null}
-                        {tracks(block.parameters, "height") ? (
-                          <Field label={index === 0 ? "Height (cm)" : `Height, set ${index + 1}`} className="w-24">
-                            <input
-                              inputMode="decimal"
-                              disabled={!blockEditing}
-                              value={set.heightCm}
-                              onChange={(event) => updateSet(block.id, index, { heightCm: event.target.value })}
-                              className={fieldClass}
-                            />
-                          </Field>
-                        ) : null}
-                        <Field label={index === 0 ? "Note" : `Note, set ${index + 1}`} className="min-w-40 flex-1">
-                          <input
-                            value={set.notes}
-                            maxLength={1000}
-                            disabled={!blockEditing}
-                            onChange={(event) => updateSet(block.id, index, { notes: event.target.value })}
-                            className={fieldClass}
-                          />
-                        </Field>
-                        <button
-                          type="button"
-                          disabled={!blockEditing || block.sets.length === 1}
-                          onClick={() => removeSet(block.id, index)}
-                          className="self-end rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 hover:bg-white disabled:opacity-40"
-                        >
-                          Remove
-                        </button>
+                      <div key={`${block.id}-${index}`} className="space-y-2 rounded-lg bg-white p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-slate-600">Set {index + 1}</p>
+                          <button
+                            type="button"
+                            disabled={!blockEditing || block.sets.length === 1}
+                            onClick={() => removeSet(block.id, index)}
+                            className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <ValueRow title="Trainer" values={set.trainer} parameters={block.parameters} disabled />
+                        <ValueRow title="Previous" values={set.previous} parameters={block.parameters} disabled />
+                        <ValueRow
+                          title="This workout"
+                          values={set.current}
+                          parameters={block.parameters}
+                          disabled={!blockEditing}
+                          onChange={(patch) => updateSet(block.id, index, patch)}
+                        />
                       </div>
                     ))}
                     <div className="flex flex-wrap items-center gap-3">
@@ -301,13 +237,15 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
     </div>
   );
 
-  function updateSet(blockId: string, index: number, patch: Partial<DraftSet>) {
+  function updateSet(blockId: string, index: number, patch: Partial<SetFields>) {
     setBlocks((current) =>
       current.map((block) =>
         block.id === blockId
           ? {
               ...block,
-              sets: block.sets.map((set, setIndex) => (setIndex === index ? { ...set, ...patch } : set)),
+              sets: block.sets.map((set, setIndex) =>
+                setIndex === index ? { ...set, current: { ...set.current, ...patch } } : set,
+              ),
             }
           : block,
       ),
@@ -318,8 +256,19 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
     setBlocks((current) =>
       current.map((block) => {
         if (block.id !== blockId || block.sets.length >= MAX_SETS) return block;
-        const unit = block.sets[0]?.loadUnit ?? "kg";
-        return { ...block, sets: [...block.sets, emptySet(unit)] };
+        const setNumber = block.sets.length + 1;
+        const previous = block.previousSets.find((set) => set.setNumber === setNumber);
+        return {
+          ...block,
+          sets: [
+            ...block.sets,
+            {
+              trainer: block.trainer,
+              previous: fieldsFromLog(previous, block.fallbackUnit),
+              current: fieldsFromLog(undefined, block.fallbackUnit),
+            },
+          ],
+        };
       }),
     );
   }
@@ -343,49 +292,17 @@ function blockHasSavedSets(workout: ClientWorkout, blockId: string) {
 }
 
 function draftBlock(exercise: ClientExercise): DraftBlock {
-  const unit = loadUnitOrDefault(exercise.loadUnit);
-  const saved = new Map(exercise.sets.map((set) => [set.setNumber, set]));
-  const count = Math.min(
-    MAX_SETS,
-    Math.max(exercise.prescribedSets ?? 1, ...exercise.sets.map((set) => set.setNumber), 1),
-  );
-
   return {
     id: exercise.id,
     name: exercise.name,
     detail: exercise.detail,
     muscleGroups: muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroup),
     parameters: exercise.trackingParameters,
-    sets: Array.from({ length: count }, (_, index) => draftSet(saved.get(index + 1), unit)),
+    trainer: fieldsFromCoach(exercise),
+    fallbackUnit: exercise.loadUnit,
+    previousSets: exercise.previousSets,
+    sets: draftSets(exercise),
   };
-}
-
-function draftSet(set: ClientLoggedSet | undefined, unit: "kg" | "lb"): DraftSet {
-  if (!set) return emptySet(unit);
-  return {
-    repetitions: set.repetitions == null ? "" : String(set.repetitions),
-    load: set.load == null ? "" : String(set.load),
-    loadUnit: loadUnitOrDefault(set.loadUnit ?? unit),
-    durationSeconds: set.durationSeconds == null ? "" : String(set.durationSeconds),
-    distanceKm: metersToKm(set.distanceMeters),
-    heightCm: set.heightCm == null ? "" : String(set.heightCm),
-    notes: set.notes ?? "",
-  };
-}
-
-function emptySet(loadUnit: "kg" | "lb"): DraftSet {
-  return { repetitions: "", load: "", loadUnit, durationSeconds: "", distanceKm: "", heightCm: "", notes: "" };
-}
-
-function metersToKm(meters: number | null) {
-  if (meters == null) return "";
-  return String(Math.round((meters / 1000) * 1000) / 1000);
-}
-
-function loadUnitOrDefault(unit: string | null): "kg" | "lb" {
-  const normalized = unit?.trim().toLowerCase();
-  if (normalized === "lb" || normalized === "lbs") return "lb";
-  return "kg";
 }
 
 function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
@@ -408,11 +325,12 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
   for (const block of blocks) {
     const sets = [];
     for (const [index, set] of block.sets.entries()) {
-      const repetitions = parseWholeNumber(set.repetitions);
-      const durationSeconds = parseWholeNumber(set.durationSeconds);
-      const load = parseLoad(set.load);
-      const distanceKm = parseLoad(set.distanceKm);
-      const heightCm = parseLoad(set.heightCm);
+      const current = set.current;
+      const repetitions = parseWholeNumber(current.repetitions);
+      const durationSeconds = parseWholeNumber(current.durationSeconds);
+      const load = parseLoad(current.load);
+      const distanceKm = parseLoad(current.distanceKm);
+      const heightCm = parseLoad(current.heightCm);
       if (
         repetitions === undefined ||
         durationSeconds === undefined ||
@@ -426,11 +344,11 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
         set_number: index + 1,
         repetitions,
         load,
-        load_unit: set.loadUnit,
+        load_unit: current.loadUnit,
         duration_seconds: durationSeconds,
         distance_meters: distanceKm == null ? null : Math.round(distanceKm * 1000 * 100) / 100,
         height_cm: heightCm,
-        notes: set.notes.trim() || null,
+        notes: null,
       });
     }
     parsedBlocks.push({ block_id: block.id, sets });
@@ -451,6 +369,104 @@ function parseLoad(value: string) {
   if (!trimmed) return null;
   if (!/^\d+(\.\d+)?$/.test(trimmed)) return undefined;
   return Number(trimmed);
+}
+
+function ValueRow({
+  title,
+  values,
+  parameters,
+  disabled,
+  onChange,
+}: {
+  title: string;
+  values: SetFields;
+  parameters: TrackingParameter[];
+  disabled: boolean;
+  onChange?: (patch: Partial<SetFields>) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <span className="w-28 shrink-0 self-end pb-2 text-[11px] font-semibold whitespace-nowrap text-slate-500">{title}</span>
+      {tracks(parameters, "weight") ? (
+        <>
+          <Field label="Weight" className="w-24">
+            <input
+              type="text"
+              inputMode="decimal"
+              disabled={disabled}
+              readOnly={disabled}
+              value={values.load}
+              onChange={(event) => onChange?.({ load: event.target.value })}
+              className={fieldClass}
+            />
+          </Field>
+          <Field label="Unit" className="w-20">
+            <select
+              disabled={disabled}
+              value={values.loadUnit}
+              onChange={(event) => onChange?.({ loadUnit: event.target.value === "lb" ? "lb" : "kg" })}
+              className={fieldClass}
+            >
+              <option value="kg">kg</option>
+              <option value="lb">lb</option>
+            </select>
+          </Field>
+        </>
+      ) : null}
+      {tracks(parameters, "reps") ? (
+        <Field label="Reps" className="w-20">
+          <input
+            type="text"
+            inputMode="numeric"
+            disabled={disabled}
+            readOnly={disabled}
+            value={values.repetitions}
+            onChange={(event) => onChange?.({ repetitions: event.target.value })}
+            className={fieldClass}
+          />
+        </Field>
+      ) : null}
+      {tracks(parameters, "time") ? (
+        <Field label="Time (sec)" className="w-24">
+          <input
+            type="text"
+            inputMode="numeric"
+            disabled={disabled}
+            readOnly={disabled}
+            value={values.durationSeconds}
+            onChange={(event) => onChange?.({ durationSeconds: event.target.value })}
+            className={fieldClass}
+          />
+        </Field>
+      ) : null}
+      {tracks(parameters, "distance") ? (
+        <Field label="Distance (km)" className="w-28">
+          <input
+            type="text"
+            inputMode="decimal"
+            disabled={disabled}
+            readOnly={disabled}
+            value={values.distanceKm}
+            onChange={(event) => onChange?.({ distanceKm: event.target.value })}
+            className={fieldClass}
+          />
+        </Field>
+      ) : null}
+      {tracks(parameters, "height") ? (
+        <Field label="Height (cm)" className="w-24">
+          <input
+            type="text"
+            inputMode="decimal"
+            disabled={disabled}
+            readOnly={disabled}
+            value={values.heightCm}
+            onChange={(event) => onChange?.({ heightCm: event.target.value })}
+            className={fieldClass}
+          />
+        </Field>
+      ) : null}
+    </div>
+  );
 }
 
 function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
