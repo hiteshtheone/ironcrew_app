@@ -39,7 +39,6 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
   const { editing: editingNote, startEditing: startNoteEdit, stopEditing: stopNoteEdit } = useEditMode(workout.id);
   const [blocks, setBlocks] = useState<DraftBlock[]>(() => workout.exercises.map(draftBlock));
   const [setBaselines, setSetBaselines] = useState<Record<string, DraftSet[]>>(() => baselineSetsFrom(workout.exercises.map(draftBlock)));
-  const [editingBlocks, setEditingBlocks] = useState<Record<string, boolean>>({});
   const [loadedWorkoutId, setLoadedWorkoutId] = useState(workout.id);
   const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
   const [errorByBlock, setErrorByBlock] = useState<Record<string, string>>({});
@@ -51,7 +50,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
     setNoteBaseline(workout.sessionNote ?? "");
     setBlocks(nextBlocks);
     setSetBaselines(baselineSetsFrom(nextBlocks));
-    setEditingBlocks({});
+    setOpenBlockId(null);
   }
 
   const save = (blockId: string) => {
@@ -59,7 +58,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
     const blockDirty = block ? !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets) : false;
     if (blockId === "note") {
       if (!editingNote || note === noteBaseline) return;
-    } else if (!editingBlocks[blockId] || !blockDirty) {
+    } else if (!blockDirty) {
       return;
     }
     const payload = buildPayload(note, blocks);
@@ -85,7 +84,6 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
         setNoteBaseline(note);
         setSetBaselines(baselineSetsFrom(blocks));
         stopNoteEdit();
-        setEditingBlocks({});
         router.refresh();
       })
       .catch((caught: unknown) => {
@@ -140,7 +138,6 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
             const open = openBlockId === block.id;
             const saved = blockHasSavedSets(workout, block.id);
             const pending = pendingBlockId === block.id;
-            const blockEditing = Boolean(editingBlocks[block.id]);
             const blockDirty = !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets);
             return (
               <li key={block.id} className="py-3 first:pt-0 last:pb-0">
@@ -178,7 +175,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                           <p className="text-xs font-semibold text-slate-600">Set {index + 1}</p>
                           <button
                             type="button"
-                            disabled={!blockEditing || block.sets.length === 1}
+                            disabled={block.sets.length === 1}
                             onClick={() => removeSet(block.id, index)}
                             className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-40"
                           >
@@ -191,7 +188,7 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                           title="This workout"
                           values={set.current}
                           parameters={block.parameters}
-                          disabled={!blockEditing}
+                          disabled={false}
                           onChange={(patch) => updateSet(block.id, index, patch)}
                         />
                       </div>
@@ -199,22 +196,16 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                     <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        disabled={!blockEditing || block.sets.length >= MAX_SETS}
+                        disabled={block.sets.length >= MAX_SETS}
                         onClick={() => addSet(block.id)}
                         className="text-xs font-semibold text-slate-600 hover:text-slate-950 disabled:opacity-40"
                       >
                         Add set
                       </button>
-                      <EditSaveActions
-                        editing={blockEditing}
-                        dirty={blockDirty}
-                        pending={pending}
-                        saveLabel="Save details"
-                        pendingLabel="Saving…"
-                        saveClassName="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                        editClassName="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                        onEdit={() => setEditingBlocks((current) => ({ ...current, [block.id]: true }))}
-                        onCancel={() => {
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
                           setBlocks((current) =>
                             current.map((item) =>
                               item.id === block.id
@@ -222,9 +213,18 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
                                 : item,
                             ),
                           );
-                          setEditingBlocks((current) => ({ ...current, [block.id]: false }));
                         }}
-                      />
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!blockDirty || pending}
+                        className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                      >
+                        {pending ? "Saving…" : "Save details"}
+                      </button>
                     </div>
                     {errorByBlock[block.id] && <p className="text-sm text-red-600">{errorByBlock[block.id]}</p>}
                   </form>
