@@ -43,10 +43,15 @@ async function AuthenticatedDashboard() {
   let activeProfile = profile;
   if (!activeProfile) {
     const { data: claimed, error: claimError } = await supabase.rpc("claim_invited_client");
-    if (claimError) {
+    // The hosted database may not have this function yet. A missing function is
+    // the same as "not an invited client": continue to onboarding.
+    const functionMissing =
+      claimError?.code === "PGRST202" ||
+      (claimError != null && /could not find the function/i.test(claimError.message));
+    if (claimError && !functionMissing) {
       return <DashboardNotice title="Couldn't finish signing you in" detail={claimError.message} />;
     }
-    if (!claimed) redirect("/onboarding");
+    if (!claimed || functionMissing) redirect("/onboarding");
 
     const reloaded = await supabase
       .from("profiles")
