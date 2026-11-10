@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import { databaseErrorMessage } from "@/lib/api/route-utils";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
 import {
@@ -26,6 +27,109 @@ type ProfileInput = {
   fullName: string;
   timezone: string | null;
 };
+
+/** Sessions, logged sets, and the prescribed blocks for one assignment. */
+const WORKOUT_EXECUTION_COLUMNS = `
+  workout_sessions (
+    client_feedback,
+    exercise_results (
+      workout_block_id,
+      set_number,
+      repetitions,
+      load,
+      load_unit,
+      duration_seconds,
+      distance_meters,
+      height_cm,
+      heart_rate_bpm,
+      notes
+    )
+  ),
+  workouts (
+    name,
+    estimated_duration_minutes,
+    workout_blocks (
+      id,
+      exercise_id,
+      position,
+      title,
+      block_type,
+      prescribed_sets,
+      prescribed_reps_min,
+      prescribed_reps_max,
+      prescribed_load,
+      load_unit,
+      prescribed_duration_seconds,
+      prescribed_distance_meters,
+      prescribed_height_cm,
+      prescribed_heart_rate_bpm,
+      exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
+    )
+  )
+`;
+
+const ASSIGNMENT_COLUMNS = `
+  id,
+  scheduled_for,
+  status,
+  ${WORKOUT_SOURCE_COLUMNS},
+  ${WORKOUT_EXECUTION_COLUMNS}
+`;
+
+export type AssignmentDetail = {
+  scheduledFor: string;
+  clientName: string;
+  workout: ClientWorkout;
+};
+
+export type AssignmentDetailError = {
+  message: string;
+  status: number;
+};
+
+/**
+ * One assignment with its program, who assigned it, the session note, and logged sets.
+ * Row level security hides assignments the caller cannot see.
+ */
+export async function loadAssignmentDetail(
+  supabase: SupabaseClient,
+  assignmentId: string,
+): Promise<{ detail: AssignmentDetail } | { error: AssignmentDetailError }> {
+  const { data, error } = await supabase
+    .from("workout_assignments")
+    .select(
+      `
+      id,
+      client_id,
+      scheduled_for,
+      status,
+      ${WORKOUT_SOURCE_COLUMNS},
+      clients!workout_assignments_client_id_fkey ( first_name, last_name ),
+      ${WORKOUT_EXECUTION_COLUMNS}
+    `,
+    )
+    .eq("id", assignmentId)
+    .maybeSingle();
+
+  if (error) {
+    const status = /row-level security/i.test(error.message) ? 403 : 500;
+    return { error: { message: databaseErrorMessage(error), status } };
+  }
+  if (!data) return { error: { message: "Workout assignment not found", status: 404 } };
+
+  const record = asRecord(data);
+  const clientId = stringField(record, "client_id");
+  const scheduledFor = stringField(record, "scheduled_for");
+  if (!clientId || !scheduledFor) return { error: { message: "Workout assignment not found", status: 404 } };
+
+  const previousByBlock = await loadPreviousSets(supabase, clientId, [data]);
+  if (!previousByBlock.ok) return { error: { message: previousByBlock.message, status: 500 } };
+
+  const workout = normalizeWorkout(data, previousByBlock.sets);
+  if (!workout) return { error: { message: "Workout assignment not found", status: 404 } };
+
+  return { detail: { scheduledFor, clientName: clientNameFrom(record), workout } };
+}
 
 export async function loadClientDashboard(
   supabase: SupabaseClient,
@@ -80,52 +184,7 @@ export async function loadClientDashboard(
 
   const [{ data: assignments, error: assignmentError }, { data: programAssignments, error: programError }] =
     await Promise.all([
-      supabase
-        .from("workout_assignments")
-        .select(
-          `
-          id,
-          scheduled_for,
-          status,
-          ${WORKOUT_SOURCE_COLUMNS},
-          workout_sessions (
-            client_feedback,
-            exercise_results (
-              workout_block_id,
-              set_number,
-              repetitions,
-              load,
-              load_unit,
-              duration_seconds,
-              distance_meters,
-              height_cm,
-              heart_rate_bpm,
-              notes
-            )
-          ),
-          workouts (
-            name,
-            estimated_duration_minutes,
-            workout_blocks (
-              id,
-              exercise_id,
-              position,
-              title,
-              block_type,
-              prescribed_sets,
-              prescribed_reps_min,
-              prescribed_reps_max,
-              prescribed_load,
-              load_unit,
-              prescribed_duration_seconds,
-              prescribed_distance_meters,
-              prescribed_height_cm,
-              prescribed_heart_rate_bpm,
-              exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
-            )
-          )
-        `,
-        )
+      supabase.from("workout_assignments").select(ASSIGNMENT_COLUMNS)
         .eq("client_id", client.id)
         .gte("scheduled_for", week.start)
         .lte("scheduled_for", week.end)
@@ -449,6 +508,12 @@ function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {
       const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
       return { name: stringField(program, "name") ?? "Program", source };
     });
+}
+
+function clientNameFrom(record: Record<string, unknown> | null) {
+  const client = asRecord(firstRelation(record?.clients));
+  const name = [stringField(client, "first_name"), stringField(client, "last_name")].filter(Boolean).join(" ");
+  return name || "Client";
 }
 
 function labelForBlock(blockType: string | null) {

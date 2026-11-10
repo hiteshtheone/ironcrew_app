@@ -22,11 +22,14 @@ const LOAD_ERROR = "Couldn't load workouts";
 export function WorkoutsBrowser({
   endpoint,
   emptyMessage,
+  mode,
 }: {
   /** Path without a query string, for example `/api/me/workouts`. */
   endpoint: string;
   /** Shown when there are no workouts and no filters are active. */
   emptyMessage: string;
+  /** Client can log sets. Trainer sees the same detail read-only. */
+  mode: "client" | "trainer";
 }) {
   const { filters, apiQuery, activeFilters, setFilter, setSort, setPage, clearFilter, clearAll } = useWorkoutFilters();
   const [result, setResult] = useState<FetchResult | null>(null);
@@ -114,7 +117,7 @@ export function WorkoutsBrowser({
             {payload.total === 0 ? (
               <WorkoutsEmptyState hasActiveFilters={hasActiveFilters} onClearAll={clearAll} emptyMessage={emptyMessage} />
             ) : (
-              <WorkoutList workouts={payload.workouts} />
+              <WorkoutList workouts={payload.workouts} mode={mode} />
             )}
           </div>
         )}

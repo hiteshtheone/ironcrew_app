@@ -7,6 +7,7 @@ import {
   Activity,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   ClipboardList,
   Dumbbell,
@@ -20,6 +21,7 @@ import { ClientWorkouts } from "@/components/dashboard/client-workouts";
 import { ProgramsPanel } from "@/components/dashboard/programs-panel";
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+import { AssignmentFacts } from "@/components/dashboard/workout-assignment-detail";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
 import {
   CLIENT_ASSIGNMENT_STATUSES,
@@ -223,6 +225,8 @@ function ClientWeek({
   const [statusById, setStatusById] = useState<Record<string, AssignmentStatus>>({});
   const [pendingIds, setPendingIds] = useState<Record<string, true>>({});
   const [errorById, setErrorById] = useState<Record<string, string>>({});
+  const [collapsedIds, setCollapsedIds] = useState<Record<string, true>>({});
+  const [collapsedForDate, setCollapsedForDate] = useState(today);
 
   const days =
     data.kind === "ready"
@@ -242,6 +246,11 @@ function ClientWeek({
   const scheduledCount = data.kind === "ready" ? active.length : 0;
   const completion = scheduledCount > 0 ? Math.round((completedCount / scheduledCount) * 100) : 0;
   const selectedDay = days.find((day) => day.date === selectedDate) ?? days.find((day) => day.isToday) ?? days[0];
+  const selectedDateKey = selectedDay?.date ?? "";
+  if (selectedDateKey !== collapsedForDate) {
+    setCollapsedForDate(selectedDateKey);
+    setCollapsedIds({});
+  }
   const selectedWorkouts = (selectedDay?.workouts ?? []).filter((workout) => workout.status !== "cancelled");
   const nextWorkout = days
     .filter((day) => day.date > today)
@@ -378,36 +387,57 @@ function ClientWeek({
               </div>
             ) : (
               <div className="mt-5 space-y-4">
-                {selectedWorkouts.map((workout) => (
-                  <article key={workout.id} className="rounded-xl border border-slate-100 p-4">
-                    <WorkoutCompletion workout={workout} />
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold">{workout.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {workoutSourceLabel(workout)}
-                          {workout.durationMinutes ? ` · ${workout.durationMinutes} min` : ""}
-                        </p>
+                {selectedWorkouts.map((workout) => {
+                  const expanded = !collapsedIds[workout.id];
+                  return (
+                    <article key={workout.id} className="rounded-xl border border-slate-100 p-4">
+                      <WorkoutCompletion workout={workout} />
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <button
+                          type="button"
+                          aria-expanded={expanded}
+                          onClick={() =>
+                            setCollapsedIds((current) => {
+                              const next = { ...current };
+                              if (next[workout.id]) delete next[workout.id];
+                              else next[workout.id] = true;
+                              return next;
+                            })
+                          }
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        >
+                          <ChevronRight className={`size-4 shrink-0 text-slate-400 transition ${expanded ? "rotate-90" : ""}`} />
+                          <span className="text-base font-semibold">{workout.name}</span>
+                        </button>
+                        <StatusControl
+                          workout={workout}
+                          pending={Boolean(pendingIds[workout.id])}
+                          onChange={(status) => updateStatus(workout, status)}
+                        />
                       </div>
-                      <StatusControl
-                        workout={workout}
-                        pending={Boolean(pendingIds[workout.id])}
-                        onChange={(status) => updateStatus(workout, status)}
-                      />
-                    </div>
-                    {errorById[workout.id] && (
-                      <p className="mt-3 text-sm text-red-600">{errorById[workout.id]}</p>
-                    )}
-                    <WorkoutLog
-                      workout={workout}
-                      onLogged={(status) => {
-                        if (status === "in_progress" && workout.status === "scheduled") {
-                          setStatusById((current) => ({ ...current, [workout.id]: "in_progress" }));
-                        }
-                      }}
-                    />
-                  </article>
-                ))}
+                      {expanded ? (
+                        <>
+                          <div className="mt-4 border-t border-slate-100 pt-4">
+                            <h3 className="text-sm font-semibold text-slate-900">Assignment</h3>
+                            <AssignmentFacts workout={workout} scheduledFor={selectedDay?.date} />
+                          </div>
+                          {errorById[workout.id] ? (
+                            <p className="mt-3 text-sm text-red-600">{errorById[workout.id]}</p>
+                          ) : null}
+                          <h3 className="mt-5 text-sm font-semibold text-slate-900">Execution</h3>
+                          <WorkoutLog
+                            workout={workout}
+                            onLogged={(status) => {
+                              if (status === "in_progress" && workout.status === "scheduled") {
+                                setStatusById((current) => ({ ...current, [workout.id]: "in_progress" }));
+                              }
+                            }}
+                          />
+                        </>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             )}
             {selectedDay ? (
