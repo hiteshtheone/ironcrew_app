@@ -253,6 +253,7 @@ export function ClientPlan({
             key={client.id}
             endpoint={`/api/clients/${client.id}/workouts`}
             emptyMessage="Workouts assigned to this client will show up here."
+            mode="trainer"
           />
         </div>
       </section>

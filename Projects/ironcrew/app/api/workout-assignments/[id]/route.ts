@@ -10,8 +10,21 @@ import {
   requireUser,
 } from "@/lib/api/route-utils";
 import { isClientAssignmentStatus } from "@/lib/dashboard/client-week";
+import { loadAssignmentDetail } from "@/lib/dashboard/load-client-dashboard";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  if (!isUuid(id)) return jsonError("Assignment id must be a UUID", 400);
+
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+
+  const result = await loadAssignmentDetail(auth.supabase, id);
+  if ("error" in result) return jsonError(result.error.message, result.error.status);
+  return NextResponse.json(result.detail);
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   const { id } = await context.params;
