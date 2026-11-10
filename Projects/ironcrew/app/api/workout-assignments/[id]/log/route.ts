@@ -59,6 +59,7 @@ export async function PUT(request: Request, context: RouteContext) {
       id,
       client_id,
       workout_id,
+      status,
       workouts (
         workout_blocks (
           id,
@@ -124,7 +125,10 @@ export async function PUT(request: Request, context: RouteContext) {
     }
   }
 
-  return NextResponse.json({ id: sessionId.id, note });
+  const status = await markInProgress(auth.supabase, id, stringValue(assignment.status), rows.length > 0);
+  if ("error" in status) return status.error;
+
+  return NextResponse.json({ id: sessionId.id, note, status: status.status });
 }
 
 function parseBlocks(
@@ -237,6 +241,31 @@ function isBlankSet(set: LoggedSet) {
     set.height_cm == null &&
     !set.notes
   );
+}
+
+async function markInProgress(
+  supabase: SupabaseClient,
+  assignmentId: string,
+  currentStatus: string | null,
+  hasLoggedSets: boolean,
+) {
+  if (!hasLoggedSets || currentStatus !== "scheduled") return { status: currentStatus };
+
+  const { data, error } = await supabase
+    .from("workout_assignments")
+    .update({ status: "in_progress" })
+    .eq("id", assignmentId)
+    .eq("status", "scheduled")
+    .select("status")
+    .maybeSingle();
+
+  if (error) {
+    const failure = /row-level security/i.test(error.message) ? 403 : 500;
+    return { error: jsonError(databaseErrorMessage(error), failure) };
+  }
+
+  const status = data && typeof data.status === "string" ? data.status : currentStatus;
+  return { status };
 }
 
 async function ensureSession(
