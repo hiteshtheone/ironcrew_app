@@ -19,6 +19,7 @@ export type SetFields = {
   durationSeconds: string;
   distanceKm: string;
   heightCm: string;
+  heartRateBpm: string;
 };
 
 /** Trainer and previous rows are display-only. Current is what this session saves. */
@@ -61,7 +62,7 @@ export function draftSets(exercise: ClientExercise): SetDraft[] {
 export function fieldsFromCoach(
   prescription: Pick<
     ClientExercise,
-    "repsMin" | "repsMax" | "load" | "loadUnit" | "durationSeconds" | "distanceMeters" | "heightCm"
+    "repsMin" | "repsMax" | "load" | "loadUnit" | "durationSeconds" | "distanceMeters" | "heightCm" | "heartRateBpm"
   >,
 ): SetFields {
   return {
@@ -71,6 +72,7 @@ export function fieldsFromCoach(
     durationSeconds: numberText(prescription.durationSeconds),
     distanceKm: metersToKm(prescription.distanceMeters),
     heightCm: numberText(prescription.heightCm),
+    heartRateBpm: numberText(prescription.heartRateBpm),
   };
 }
 
@@ -82,6 +84,7 @@ export function fieldsFromLog(set: ClientLoggedSet | undefined, fallbackUnit: st
     durationSeconds: numberText(set?.durationSeconds),
     distanceKm: metersToKm(set?.distanceMeters ?? null),
     heightCm: numberText(set?.heightCm),
+    heartRateBpm: numberText(set?.heartRateBpm),
   };
 }
 

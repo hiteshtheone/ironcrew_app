@@ -28,6 +28,7 @@ type LoggedSet = {
   duration_seconds: number | null;
   distance_meters: number | null;
   height_cm: number | null;
+  heart_rate_bpm: number | null;
   notes: string | null;
   exercise_id: string | null;
   workout_block_id: string;
@@ -114,6 +115,7 @@ export async function PUT(request: Request, context: RouteContext) {
       duration_seconds: set.duration_seconds,
       distance_meters: set.distance_meters,
       height_cm: set.height_cm,
+      heart_rate_bpm: set.heart_rate_bpm,
       notes: set.notes,
     }));
 
@@ -193,6 +195,10 @@ function parseSet(
   if (heightCm === undefined) {
     return { error: jsonError("height_cm must be a number that is zero or greater", 400) };
   }
+  const heartRateBpm = optionalWholeNumber(value.heart_rate_bpm);
+  if (heartRateBpm === undefined) {
+    return { error: jsonError("heart_rate_bpm must be a whole number that is zero or greater", 400) };
+  }
 
   const loadUnit = asTrimmedString(value.load_unit);
   if (loadUnit === undefined) return { error: jsonError("load_unit must be a string or null", 400) };
@@ -211,6 +217,7 @@ function parseSet(
       duration_seconds: durationSeconds,
       distance_meters: distanceMeters,
       height_cm: heightCm,
+      heart_rate_bpm: heartRateBpm,
       notes,
       exercise_id: exerciseId,
       workout_block_id: blockId,
@@ -239,6 +246,7 @@ function isBlankSet(set: LoggedSet) {
     set.duration_seconds == null &&
     set.distance_meters == null &&
     set.height_cm == null &&
+    set.heart_rate_bpm == null &&
     !set.notes
   );
 }
@@ -358,6 +366,7 @@ function restrictToParameters(set: LoggedSet, parameters: readonly TrackingParam
     duration_seconds: tracked.has("time") ? set.duration_seconds : null,
     distance_meters: tracked.has("distance") ? set.distance_meters : null,
     height_cm: tracked.has("height") ? set.height_cm : null,
+    heart_rate_bpm: tracked.has("heart_rate") ? set.heart_rate_bpm : null,
   };
 }
 

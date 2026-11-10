@@ -27,6 +27,7 @@ export type ClientLoggedSet = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
   notes: string | null;
 };
 
@@ -44,6 +45,7 @@ export type ClientExercise = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
   /** Fields this block records. Blocks without an exercise keep the original set. */
   trackingParameters: TrackingParameter[];
   primaryMuscleGroup: string | null;
@@ -241,6 +243,7 @@ export function prescriptionDetail(
     durationSeconds?: number | null;
     distanceMeters?: number | null;
     heightCm?: number | null;
+    heartRateBpm?: number | null;
   },
 ) {
   const reps =
@@ -261,7 +264,8 @@ export function prescriptionDetail(
   const duration = extras?.durationSeconds != null ? `${extras.durationSeconds} sec` : null;
   const distance = extras?.distanceMeters != null ? `${metersToKmLabel(extras.distanceMeters)} km` : null;
   const height = extras?.heightCm != null ? `${extras.heightCm} cm` : null;
-  return [setLabel, load, reps, duration, distance, height].filter(Boolean).join(" · ") || null;
+  const heartRate = extras?.heartRateBpm != null ? `${extras.heartRateBpm} bpm` : null;
+  return [setLabel, load, reps, duration, distance, height, heartRate].filter(Boolean).join(" · ") || null;
 }
 
 function metersToKmLabel(meters: number) {

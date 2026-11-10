@@ -10,9 +10,9 @@ const schema = `
 create type public.program_status as enum ('draft', 'active', 'archived');
 create type public.workout_block_type as enum ('warmup', 'exercise', 'superset', 'circuit', 'conditioning', 'cooldown', 'notes');
 create type public.exercise_tracking_type as enum (
-  'time', 'reps', 'weight', 'weight_reps', 'distance', 'distance_weight', 'distance_time', 'reps_height', 'custom'
+  'time', 'reps', 'weight', 'weight_reps', 'distance', 'distance_weight', 'distance_time', 'reps_height', 'heart_rate', 'custom'
 );
-create type public.exercise_tracking_parameter as enum ('time', 'reps', 'weight', 'distance', 'height');
+create type public.exercise_tracking_parameter as enum ('time', 'reps', 'weight', 'distance', 'height', 'heart_rate');
 
 create table public.exercises (
   id uuid primary key default gen_random_uuid(),
@@ -76,6 +76,7 @@ create table public.workout_blocks (
   prescribed_duration_seconds integer check (prescribed_duration_seconds is null or prescribed_duration_seconds >= 0),
   prescribed_distance_meters numeric(12,2) check (prescribed_distance_meters is null or prescribed_distance_meters >= 0),
   prescribed_height_cm numeric(8,2) check (prescribed_height_cm is null or prescribed_height_cm >= 0),
+  prescribed_heart_rate_bpm integer check (prescribed_heart_rate_bpm is null or prescribed_heart_rate_bpm >= 0),
   unique (workout_id, position),
   check (block_type <> 'exercise' or exercise_id is not null)
 );
@@ -377,6 +378,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
             prescribed_duration_seconds: 3,
             prescribed_distance_meters: 1.25,
             prescribed_height_cm: 40,
+            prescribed_heart_rate_bpm: 145,
           },
         ],
       },
@@ -417,6 +419,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
     duration_seconds: number;
     distance_meters: string;
     height_cm: string;
+    heart_rate_bpm: number;
     estimated_duration_weeks: number;
     phase_position: number;
     week_number: number;
@@ -438,6 +441,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
       b.prescribed_duration_seconds as duration_seconds,
       b.prescribed_distance_meters::text as distance_meters,
       b.prescribed_height_cm::text as height_cm,
+      b.prescribed_heart_rate_bpm as heart_rate_bpm,
       p.estimated_duration_weeks,
       pp.position as phase_position,
       pw.week_number,
@@ -467,6 +471,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
   assert.equal(row.duration_seconds, 3);
   assert.equal(row.distance_meters, "1.25");
   assert.equal(row.height_cm, "40.00");
+  assert.equal(row.heart_rate_bpm, 145);
   assert.equal(row.estimated_duration_weeks, 10);
   assert.equal(row.phase_position, 2);
   assert.equal(row.week_number, 3);

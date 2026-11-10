@@ -101,6 +101,7 @@ test("an empty field with no history stays blank", () => {
     assert.equal(row?.durationSeconds, "");
     assert.equal(row?.distanceKm, "");
     assert.equal(row?.heightCm, "");
+    assert.equal(row?.heartRateBpm, "");
   }
 });
 
@@ -168,6 +169,7 @@ function exercise(overrides: Partial<ClientExercise> = {}): ClientExercise {
     durationSeconds: null,
     distanceMeters: null,
     heightCm: null,
+    heartRateBpm: null,
     trackingParameters: ["weight", "reps"],
     primaryMuscleGroup: null,
     secondaryMuscleGroup: null,
@@ -185,6 +187,7 @@ function logged(overrides: Partial<ClientLoggedSet> & Pick<ClientLoggedSet, "set
     durationSeconds: null,
     distanceMeters: null,
     heightCm: null,
+    heartRateBpm: null,
     notes: null,
     ...overrides,
   };

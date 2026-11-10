@@ -158,8 +158,9 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
            workout_id, exercise_id, block_type, position, title,
            prescribed_sets, prescribed_reps_min, prescribed_reps_max,
            prescribed_load, load_unit, rest_seconds, tempo, rpe_target, instructions, configuration,
-           prescribed_duration_seconds, prescribed_distance_meters, prescribed_height_cm
-         ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17, $18)`,
+           prescribed_duration_seconds, prescribed_distance_meters, prescribed_height_cm,
+           prescribed_heart_rate_bpm
+         ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19)`,
         [
           workoutId,
           exerciseId,
@@ -179,6 +180,7 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
           block.durationSeconds,
           block.distanceMeters,
           block.heightCm,
+          block.heartRateBpm,
         ],
       );
     }

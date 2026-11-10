@@ -33,6 +33,7 @@ type BlockDraft = {
   durationSeconds: string;
   distanceKm: string;
   heightCm: string;
+  heartRateBpm: string;
 };
 
 const blankWorkout: LibraryWorkout = {
@@ -120,6 +121,7 @@ export function WorkoutEditor({
         prescribed_duration_seconds: includeParameter(parameters, "time") ? emptyNumber(block.durationSeconds) : null,
         prescribed_distance_meters: includeParameter(parameters, "distance") ? kilometersToMeters(block.distanceKm) : null,
         prescribed_height_cm: includeParameter(parameters, "height") ? emptyNumber(block.heightCm) : null,
+        prescribed_heart_rate_bpm: includeParameter(parameters, "heart_rate") ? emptyNumber(block.heartRateBpm) : null,
       };
     }),
   });
@@ -304,6 +306,9 @@ export function WorkoutEditor({
                   {showsParameter(block, exercises, "height") ? (
                     <NumberField label="Height (cm)" value={block.heightCm} disabled={!editable} onChange={(heightCm) => updateBlock(block.key, { heightCm })} step="any" />
                   ) : null}
+                  {showsParameter(block, exercises, "heart_rate") ? (
+                    <NumberField label="Heart rate (bpm)" value={block.heartRateBpm} disabled={!editable} onChange={(heartRateBpm) => updateBlock(block.key, { heartRateBpm })} />
+                  ) : null}
                   <NumberField label="Rest seconds" value={block.restSeconds} disabled={!editable} onChange={(restSeconds) => updateBlock(block.key, { restSeconds })} />
                 </div>
               </div>
@@ -394,6 +399,7 @@ function toDraft(block: LibraryWorkout["blocks"][number]): BlockDraft {
     durationSeconds: block.durationSeconds == null ? "" : String(block.durationSeconds),
     distanceKm: metersToKm(block.distanceMeters),
     heightCm: block.heightCm == null ? "" : String(block.heightCm),
+    heartRateBpm: block.heartRateBpm == null ? "" : String(block.heartRateBpm),
   };
 }
 
@@ -412,6 +418,7 @@ function emptyBlock(exerciseId: string): BlockDraft {
     durationSeconds: "",
     distanceKm: "",
     heightCm: "",
+    heartRateBpm: "",
   };
 }
 

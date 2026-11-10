@@ -40,6 +40,7 @@ export type WorkoutBlock = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
 };
 
 export type LibraryWorkout = WorkoutOption & {
@@ -169,6 +170,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
             prescribed_duration_seconds,
             prescribed_distance_meters,
             prescribed_height_cm,
+            prescribed_heart_rate_bpm,
             exercises ( name )
           )
         `,
@@ -350,6 +352,7 @@ function normalizeBlock(row: unknown): WorkoutBlock | null {
     durationSeconds: numberField(record, "prescribed_duration_seconds"),
     distanceMeters: numberField(record, "prescribed_distance_meters"),
     heightCm: numberField(record, "prescribed_height_cm"),
+    heartRateBpm: numberField(record, "prescribed_heart_rate_bpm"),
   };
 }
 

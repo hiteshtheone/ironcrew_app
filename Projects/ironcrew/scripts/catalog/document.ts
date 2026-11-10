@@ -55,6 +55,7 @@ const BLOCK_KEYS = new Set([
   "prescribed_duration_seconds",
   "prescribed_distance_meters",
   "prescribed_height_cm",
+  "prescribed_heart_rate_bpm",
 ]);
 const PROGRAM_KEYS = new Set(["name", "description", "status", "estimated_duration_weeks", "phases"]);
 const PHASE_KEYS = new Set(["name", "description", "position", "weeks"]);
@@ -69,6 +70,7 @@ const PRESET_TRACKING: Record<Exclude<ExerciseTrackingType, "custom">, readonly 
   distance_weight: ["distance", "weight"],
   distance_time: ["distance", "time"],
   reps_height: ["reps", "height"],
+  heart_rate: ["heart_rate"],
 };
 const PROGRAM_STATUSES = new Set(["draft", "active", "archived"]);
 
@@ -114,6 +116,7 @@ export type CatalogBlock = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
 };
 
 export type CatalogWorkout = {
@@ -350,6 +353,7 @@ function parseBlock(value: unknown, path: string, issues: string[]): (Omit<Catal
     durationSeconds: optionalInteger(record, "prescribed_duration_seconds", `${path}.prescribed_duration_seconds`, issues, { min: 0 }),
     distanceMeters: optionalNonnegativeNumber(record, "prescribed_distance_meters", path, issues),
     heightCm: optionalNonnegativeNumber(record, "prescribed_height_cm", path, issues),
+    heartRateBpm: optionalInteger(record, "prescribed_heart_rate_bpm", `${path}.prescribed_heart_rate_bpm`, issues, { min: 0 }),
   };
 }
 
@@ -662,13 +666,13 @@ function parseTracking(record: Record<string, unknown>, path: string, issues: st
 
 function parseTrackingList(value: unknown, path: string, issues: string[]) {
   if (!Array.isArray(value) || value.length === 0) {
-    issues.push(`${path}: tracking_parameters must list at least one of time, reps, weight, distance, height`);
+    issues.push(`${path}: tracking_parameters must list at least one of time, reps, weight, distance, height, heart rate`);
     return null;
   }
   const parameters: TrackingParameter[] = [];
   for (const item of value) {
     if (typeof item !== "string" || !isTrackingParameter(item)) {
-      issues.push(`${path}: tracking_parameters must list time, reps, weight, distance, or height`);
+      issues.push(`${path}: tracking_parameters must list time, reps, weight, distance, height, or heart rate`);
       return null;
     }
     parameters.push(item);

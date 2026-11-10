@@ -155,6 +155,7 @@ test("every content column can be set, including the database column names", () 
             prescribed_duration_seconds: 0,
             prescribed_distance_meters: 1.5,
             prescribed_height_cm: 40,
+            prescribed_heart_rate_bpm: 145,
           },
           { type: "notes", title: "Warm up" },
         ],
@@ -208,6 +209,7 @@ test("every content column can be set, including the database column names", () 
   assert.equal(block?.durationSeconds, 0);
   assert.equal(block?.distanceMeters, 1.5);
   assert.equal(block?.heightCm, 40);
+  assert.equal(block?.heartRateBpm, 145);
 
   const program = document.programs[0];
   assert.equal(program?.estimatedDurationWeeks, 10);

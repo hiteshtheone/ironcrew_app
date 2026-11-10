@@ -104,7 +104,7 @@ function trackingParametersFrom(
   const parameters: TrackingParameter[] = [];
   for (const item of value) {
     if (typeof item !== "string" || !isTrackingParameter(item)) {
-      return { error: jsonError("tracking_parameters must be time, reps, weight, distance, or height", 400) };
+      return { error: jsonError("tracking_parameters must be time, reps, weight, distance, height, or heart rate", 400) };
     }
     if (!parameters.includes(item)) parameters.push(item);
   }

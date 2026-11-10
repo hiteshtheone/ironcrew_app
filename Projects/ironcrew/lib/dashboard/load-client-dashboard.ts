@@ -99,6 +99,7 @@ export async function loadClientDashboard(
               duration_seconds,
               distance_meters,
               height_cm,
+              heart_rate_bpm,
               notes
             )
           ),
@@ -119,6 +120,7 @@ export async function loadClientDashboard(
               prescribed_duration_seconds,
               prescribed_distance_meters,
               prescribed_height_cm,
+              prescribed_heart_rate_bpm,
               exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
             )
           )
@@ -233,6 +235,7 @@ async function loadPreviousSets(
       duration_seconds,
       distance_meters,
       height_cm,
+      heart_rate_bpm,
       notes,
       created_at,
       workout_sessions!inner (
@@ -309,6 +312,7 @@ function priorResults(rows: unknown): PriorResult[] {
         durationSeconds: nonNegativeNumber(record.duration_seconds),
         distanceMeters: nonNegativeNumber(record.distance_meters),
         heightCm: nonNegativeNumber(record.height_cm),
+        heartRateBpm: nonNegativeNumber(record.heart_rate_bpm),
         notes: stringField(record, "notes"),
       },
     });
@@ -370,6 +374,7 @@ function loggedSetsByBlock(value: unknown) {
       durationSeconds: nonNegativeNumber(record.duration_seconds),
       distanceMeters: nonNegativeNumber(record.distance_meters),
       heightCm: nonNegativeNumber(record.height_cm),
+      heartRateBpm: nonNegativeNumber(record.heart_rate_bpm),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);
@@ -400,6 +405,7 @@ function normalizeExercise(
   const durationSeconds = parameters.includes("time") ? nonNegativeNumber(block.prescribed_duration_seconds) : null;
   const distanceMeters = parameters.includes("distance") ? nonNegativeNumber(block.prescribed_distance_meters) : null;
   const heightCm = parameters.includes("height") ? nonNegativeNumber(block.prescribed_height_cm) : null;
+  const heartRateBpm = parameters.includes("heart_rate") ? nonNegativeNumber(block.prescribed_heart_rate_bpm) : null;
   return {
     id,
     exerciseId: stringField(block, "exercise_id"),
@@ -410,6 +416,7 @@ function normalizeExercise(
       durationSeconds,
       distanceMeters,
       heightCm,
+      heartRateBpm,
     }),
     prescribedSets: positiveNumber(block.prescribed_sets),
     repsMin,
@@ -419,6 +426,7 @@ function normalizeExercise(
     durationSeconds,
     distanceMeters,
     heightCm,
+    heartRateBpm,
     trackingParameters: parameters,
     primaryMuscleGroup: stringField(exercise, "primary_muscle_group"),
     secondaryMuscleGroup: stringField(exercise, "secondary_muscle_group"),

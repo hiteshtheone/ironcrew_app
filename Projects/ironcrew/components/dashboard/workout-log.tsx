@@ -324,6 +324,7 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
       duration_seconds: number | null;
       distance_meters: number | null;
       height_cm: number | null;
+      heart_rate_bpm: number | null;
       notes: string | null;
     }[];
   }[];
@@ -338,14 +339,16 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
       const load = parseLoad(current.load);
       const distanceKm = parseLoad(current.distanceKm);
       const heightCm = parseLoad(current.heightCm);
+      const heartRateBpm = parseWholeNumber(current.heartRateBpm);
       if (
         repetitions === undefined ||
         durationSeconds === undefined ||
         load === undefined ||
         distanceKm === undefined ||
-        heightCm === undefined
+        heightCm === undefined ||
+        heartRateBpm === undefined
       ) {
-        return { error: "Use whole numbers for reps and time, and a weight, distance, or height that is zero or greater." };
+        return { error: "Use whole numbers for reps, time, and heart rate, and a weight, distance, or height that is zero or greater." };
       }
       sets.push({
         set_number: index + 1,
@@ -355,6 +358,7 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
         duration_seconds: durationSeconds,
         distance_meters: distanceKm == null ? null : Math.round(distanceKm * 1000 * 100) / 100,
         height_cm: heightCm,
+        heart_rate_bpm: heartRateBpm,
         notes: null,
       });
     }
@@ -468,6 +472,19 @@ function ValueRow({
             readOnly={disabled}
             value={values.heightCm}
             onChange={(event) => onChange?.({ heightCm: event.target.value })}
+            className={fieldClass}
+          />
+        </Field>
+      ) : null}
+      {tracks(parameters, "heart_rate") ? (
+        <Field label="Heart rate (bpm)" className="w-28">
+          <input
+            type="text"
+            inputMode="numeric"
+            disabled={disabled}
+            readOnly={disabled}
+            value={values.heartRateBpm}
+            onChange={(event) => onChange?.({ heartRateBpm: event.target.value })}
             className={fieldClass}
           />
         </Field>
