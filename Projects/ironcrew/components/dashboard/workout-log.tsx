@@ -31,7 +31,13 @@ type DraftBlock = {
 
 const MAX_SETS = MAX_PREFILL_SETS;
 
-export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
+export function WorkoutLog({
+  workout,
+  onLogged,
+}: {
+  workout: ClientWorkout;
+  onLogged?: (status: string) => void;
+}) {
   const router = useRouter();
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
   const [note, setNote] = useState(workout.sessionNote ?? "");
@@ -79,11 +85,12 @@ export function WorkoutLog({ workout }: { workout: ClientWorkout }) {
       body: JSON.stringify(payload),
     })
       .then(async (response) => {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const body = (await response.json().catch(() => null)) as { error?: string; status?: string } | null;
         if (!response.ok) throw new Error(body?.error || "Couldn't save these details");
         setNoteBaseline(note);
         setSetBaselines(baselineSetsFrom(blocks));
         stopNoteEdit();
+        if (body?.status) onLogged?.(body.status);
         router.refresh();
       })
       .catch((caught: unknown) => {

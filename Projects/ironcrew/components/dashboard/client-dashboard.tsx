@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentType, type FormEvent, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -26,13 +26,14 @@ import {
   formatLongDate,
   isClientAssignmentStatus,
   statusLabel,
+  workoutCompletionPercent,
   type AssignmentStatus,
   type ClientDashboardData,
   type ClientDay,
   type ClientWorkout,
 } from "@/lib/dashboard/client-week";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import type { TrainerProgramsData, WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type TrainerProgramsData, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
@@ -379,6 +380,7 @@ function ClientWeek({
               <div className="mt-5 space-y-4">
                 {selectedWorkouts.map((workout) => (
                   <article key={workout.id} className="rounded-xl border border-slate-100 p-4">
+                    <WorkoutCompletion workout={workout} />
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-base font-semibold">{workout.name}</p>
@@ -396,7 +398,14 @@ function ClientWeek({
                     {errorById[workout.id] && (
                       <p className="mt-3 text-sm text-red-600">{errorById[workout.id]}</p>
                     )}
-                    <WorkoutLog workout={workout} />
+                    <WorkoutLog
+                      workout={workout}
+                      onLogged={(status) => {
+                        if (status === "in_progress" && workout.status === "scheduled") {
+                          setStatusById((current) => ({ ...current, [workout.id]: "in_progress" }));
+                        }
+                      }}
+                    />
                   </article>
                 ))}
               </div>
@@ -411,79 +420,94 @@ function ClientWeek({
   );
 }
 
-const scheduleFieldClass =
-  "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400";
-
 function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOption[] }) {
   const router = useRouter();
-  const [workoutId, setWorkoutId] = useState("");
-  const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const selectedId = workouts.some((workout) => workout.id === workoutId) ? workoutId : (workouts[0]?.id ?? "");
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedId || pending) return;
-    setPending(true);
+  const add = (workoutId: string) => {
+    if (pendingId) return;
+    setPendingId(workoutId);
     setError(null);
     void fetch("/api/me/workouts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workout_id: selectedId, scheduled_for: date }),
+      body: JSON.stringify({ workout_id: workoutId, scheduled_for: date }),
     })
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         if (!response.ok) throw new Error(payload?.error || "Couldn't add this workout");
+        setOpen(false);
         router.refresh();
       })
       .catch((caught: unknown) => {
         setError(caught instanceof Error ? caught.message : "Couldn't add this workout");
       })
       .finally(() => {
-        setPending(false);
+        setPendingId(null);
       });
   };
 
   return (
-    <form onSubmit={submit} className="mt-6 space-y-3 border-t border-slate-100 pt-5">
-      <div>
-        <h3 className="text-sm font-semibold">Add a workout</h3>
-        <p className="mt-1 text-sm text-slate-500">Schedules a library workout for this day. It does not start a program.</p>
-      </div>
-      {workouts.length === 0 ? (
-        <p className="text-sm text-slate-500">
-          No workouts in your library yet.{" "}
-          <Link href="/dashboard?section=programs" className="font-semibold text-slate-800 underline">
-            Add one under My programs
-          </Link>{" "}
-          first.
+    <div className="mt-6 border-t border-slate-100 pt-5">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
+      >
+        Add workout
+      </button>
+      {open ? (
+        workouts.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            No workouts in your library yet.{" "}
+            <Link href="/dashboard?section=programs" className="font-semibold text-slate-800 underline">
+              Add one under My programs
+            </Link>{" "}
+            first.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
+            {workouts.map((workout) => (
+              <li key={workout.id}>
+                <button
+                  type="button"
+                  disabled={pendingId !== null}
+                  onClick={() => add(workout.id)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <span>{libraryItemLabel(workout.name, workout.isSystem)}</span>
+                  {pendingId === workout.id ? <span className="shrink-0 text-xs text-slate-500">Adding...</span> : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
+function WorkoutCompletion({ workout }: { workout: ClientWorkout }) {
+  const total = workout.exercises.length;
+  const logged = workout.exercises.filter((exercise) => exercise.sets.length > 0).length;
+  const percent = workoutCompletionPercent(workout);
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-slate-500">
+          {logged} of {total} exercises
         </p>
-      ) : (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label className="grid flex-1 gap-1 text-sm">
-            <span className="font-medium text-slate-600">Workout</span>
-            <select
-              required
-              value={selectedId}
-              onChange={(event) => setWorkoutId(event.target.value)}
-              className={scheduleFieldClass}
-            >
-              {workouts.map((workout) => (
-                <option key={workout.id} value={workout.id}>{workout.name}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold disabled:opacity-60"
-          >
-            {pending ? "Adding..." : "Add to this day"}
-          </button>
-        </div>
-      )}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-    </form>
+        <p className="text-sm font-semibold">{percent}%</p>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} />
+      </div>
+    </div>
   );
 }
 

@@ -202,6 +202,13 @@ export function isClientAssignmentStatus(value: string): value is ClientAssignme
   return (CLIENT_ASSIGNMENT_STATUSES as readonly string[]).includes(value);
 }
 
+export function workoutCompletionPercent(workout: { exercises: { sets: readonly unknown[] }[] }) {
+  const total = workout.exercises.length;
+  if (total === 0) return 0;
+  const logged = workout.exercises.filter((exercise) => exercise.sets.length > 0).length;
+  return Math.round((logged / total) * 100);
+}
+
 export function statusLabel(status: AssignmentStatus) {
   switch (status) {
     case "in_progress":
