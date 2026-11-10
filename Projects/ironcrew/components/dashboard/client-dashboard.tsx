@@ -18,6 +18,7 @@ import {
 
 import { ClientProgress } from "@/components/dashboard/client-progress";
 import { ClientWorkouts } from "@/components/dashboard/client-workouts";
+import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProgramsPanel } from "@/components/dashboard/programs-panel";
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
@@ -204,6 +205,8 @@ function ClientShell({
           )
         ) : section === "progress" ? (
           <ClientProgress data={data} />
+        ) : section === "calendar" ? (
+          <MonthCalendar today={data.today} endpoint="/api/me/calendar" enabled={data.kind === "ready"} />
         ) : (
           <EmptySection title={sectionTitle[section]} />
         )}

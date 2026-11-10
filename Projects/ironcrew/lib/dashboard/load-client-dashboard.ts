@@ -143,6 +143,7 @@ export async function loadClientDashboard(
     greeting,
     firstName: fallbackName,
     dateLabel: formatLongDate(week.today),
+    today: week.today,
     initials: initialsFrom(profile.fullName),
   };
 
@@ -248,6 +249,7 @@ export async function loadClientDashboard(
     greeting,
     firstName,
     dateLabel: formatLongDate(week.today),
+    today: week.today,
     initials: shell.initials,
     clientId: client.id,
     activePrograms: activeProgramSummaries(programAssignments),

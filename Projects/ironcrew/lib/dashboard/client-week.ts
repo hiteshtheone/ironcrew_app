@@ -83,6 +83,8 @@ export type ClientDashboardReady = {
   greeting: string;
   firstName: string;
   dateLabel: string;
+  /** Profile-timezone date, YYYY-MM-DD. The calendar opens on this month. */
+  today: string;
   initials: string;
   clientId: string;
   /** Every active program: assigned by a trainer or built by the client. */
@@ -97,7 +99,7 @@ export type ClientDashboardReady = {
 
 export type ClientDashboardData =
   | ClientDashboardReady
-  | { kind: "unlinked"; greeting: string; firstName: string; dateLabel: string; initials: string }
+  | { kind: "unlinked"; greeting: string; firstName: string; dateLabel: string; today: string; initials: string }
   | { kind: "error"; message: string };
 
 const WEEKDAY_INDEX: Record<string, number> = {

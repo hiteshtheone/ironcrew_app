@@ -43,7 +43,9 @@ export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
               <h2 className="text-lg font-bold">Today&apos;s workouts</h2>
               <p className="mt-1 text-sm text-slate-500">{sessionCountLabel(data.todaySessions.length)}</p>
             </div>
-            <span className="flex items-center gap-1 text-sm font-semibold text-slate-700">View calendar <ChevronRight className="size-4" /></span>
+            <Link href="/dashboard?section=calendar" className="flex items-center gap-1 text-sm font-semibold text-slate-700 hover:text-slate-950">
+              View calendar <ChevronRight className="size-4" />
+            </Link>
           </div>
           <TodayWorkouts sessions={data.todaySessions} />
         </section>
