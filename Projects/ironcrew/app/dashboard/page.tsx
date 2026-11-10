@@ -105,6 +105,7 @@ async function AuthenticatedDashboard() {
         initials: dashboard.initials,
         dateLabel: dashboard.dateLabel,
       }}
+      today={dashboard.today}
       overview={<TrainerOverview data={dashboard} />}
       clients={<ClientListPanel data={clientList} programs={programs} workouts={workouts} />}
       programs={
