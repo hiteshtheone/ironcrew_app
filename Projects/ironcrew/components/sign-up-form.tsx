@@ -41,7 +41,7 @@ export function SignUpForm({
     }
 
     try {
-      const { error: errorSignUp } = await supabase.auth.signUp({
+      const { data, error: errorSignUp } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -50,8 +50,14 @@ export function SignUpForm({
       });
       if (errorSignUp) throw errorSignUp;
 
-      // The profile and trainer/client rows are created on first login,
-      // once the user chooses their role on /onboarding.
+      // A session means the account is already signed in. Email confirmation
+      // still returns no session, and that link lands on /dashboard.
+      if (data.session) {
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
+
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
