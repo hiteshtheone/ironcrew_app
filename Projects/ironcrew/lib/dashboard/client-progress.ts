@@ -3,6 +3,10 @@ import { muscleLabel } from "@/lib/exercises/muscle-group";
 
 const LB_IN_KG = 0.45359237;
 const TREND_WEEKS = 12;
+/** Share of a set's used weight credited to the primary muscle when secondaries are set. */
+const PRIMARY_WEIGHT_SHARE = 0.6;
+/** The rest is split evenly across secondary muscles. */
+const SECONDARY_WEIGHT_SHARE = 1 - PRIMARY_WEIGHT_SHARE;
 
 export type ProgressAssignment = {
   scheduledFor: string;
@@ -18,6 +22,7 @@ export type ProgressSet = {
   exerciseName: string | null;
   equipment: string | null;
   muscleGroup: string | null;
+  secondaryMuscleGroups: string[];
 };
 
 export type ProgressWeek = {
@@ -83,7 +88,7 @@ export function buildClientProgress(
     reps: 0,
   }));
   const weekByStart = new Map(weeks.map((week) => [week.start, week]));
-  const bodyParts = new Map<string, ProgressBodyPart>();
+  const bodyParts = new Map<string, ProgressBodyPart & { weightedLoad: number; weightReps: number }>();
 
   for (const set of sets) {
     const start = weekStartFor(set.scheduledFor);
@@ -98,16 +103,18 @@ export function buildClientProgress(
     week.reps += set.repetitions != null && set.repetitions > 0 ? set.repetitions : 0;
 
     if (start !== weekStart) continue;
-    const weightKg = setWeightKg(set);
+    const loadPerRep = loadInKg(set.load, set.loadUnit);
     const reps = set.repetitions != null && set.repetitions > 0 ? set.repetitions : 0;
-    const maxWeightKg = loadInKg(set.load, set.loadUnit);
-    if (weightKg === 0 && reps === 0 && maxWeightKg === 0) continue;
-    const name = muscleLabel(set.muscleGroup) ?? "Not set";
-    const existing = bodyParts.get(name) ?? { name, weightKg: 0, reps: 0, maxWeightKg: 0 };
-    existing.weightKg += weightKg;
-    existing.reps += reps;
-    existing.maxWeightKg = Math.max(existing.maxWeightKg, maxWeightKg);
-    bodyParts.set(name, existing);
+    const weightReps = reps > 0 ? reps : loadPerRep > 0 ? 1 : 0;
+    if (loadPerRep === 0 && reps === 0) continue;
+    for (const share of muscleWeightShares(set)) {
+      const existing = bodyParts.get(share.name) ?? { name: share.name, weightKg: 0, reps: 0, maxWeightKg: 0, weightedLoad: 0, weightReps: 0 };
+      existing.weightedLoad += loadPerRep * share.weightShare * weightReps;
+      existing.weightReps += weightReps;
+      existing.reps += reps;
+      existing.maxWeightKg = Math.max(existing.maxWeightKg, loadPerRep);
+      bodyParts.set(share.name, existing);
+    }
   }
 
   for (const week of weeks) {
@@ -129,9 +136,34 @@ export function buildClientProgress(
     completion: { completed, notCompleted, cancelled, percent },
     weeks,
     bodyParts: [...bodyParts.values()]
-      .map((part) => ({ ...part, weightKg: round2(part.weightKg), maxWeightKg: round2(part.maxWeightKg) }))
+      .map((part) => ({
+        name: part.name,
+        weightKg: round2(part.weightReps > 0 ? part.weightedLoad / part.weightReps : 0),
+        reps: part.reps,
+        maxWeightKg: round2(part.maxWeightKg),
+      }))
       .sort((left, right) => right.weightKg - left.weightKg || right.maxWeightKg - left.maxWeightKg || left.name.localeCompare(right.name)),
   };
+}
+
+function muscleWeightShares(set: Pick<ProgressSet, "muscleGroup" | "secondaryMuscleGroups">) {
+  const primary = muscleLabel(set.muscleGroup);
+  const secondary: string[] = [];
+  for (const muscle of set.secondaryMuscleGroups) {
+    const name = muscleLabel(muscle);
+    if (name == null || name === primary || secondary.includes(name)) continue;
+    secondary.push(name);
+  }
+  if (primary && secondary.length > 0) {
+    const each = SECONDARY_WEIGHT_SHARE / secondary.length;
+    return [{ name: primary, weightShare: PRIMARY_WEIGHT_SHARE }, ...secondary.map((name) => ({ name, weightShare: each }))];
+  }
+  if (primary) return [{ name: primary, weightShare: 1 }];
+  if (secondary.length > 0) {
+    const each = 1 / secondary.length;
+    return secondary.map((name) => ({ name, weightShare: each }));
+  }
+  return [{ name: "Not set", weightShare: 1 }];
 }
 
 function weekStartFor(ymd: string) {
