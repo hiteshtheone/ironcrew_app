@@ -303,7 +303,7 @@ function draftBlock(exercise: ClientExercise): DraftBlock {
     id: exercise.id,
     name: exercise.name,
     detail: exercise.detail,
-    muscleGroups: muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroup),
+    muscleGroups: muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroups, exercise.bodyParts),
     parameters: exercise.trackingParameters,
     trainer: fieldsFromCoach(exercise),
     fallbackUnit: exercise.loadUnit,

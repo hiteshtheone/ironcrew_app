@@ -4,6 +4,12 @@ import { basename, resolve } from "node:path";
 import { parse } from "yaml";
 
 import {
+  bodyPartFromText,
+  muscleFromText,
+  type BodyPart,
+  type Muscle,
+} from "../../lib/exercises/muscle-group";
+import {
   isTrackingParameter,
   isTrackingType,
   type ExerciseTrackingType,
@@ -22,7 +28,8 @@ const EXERCISE_KEYS = new Set([
   "name",
   "muscle",
   "primary_muscle_group",
-  "secondary_muscle_group",
+  "secondary_muscle_groups",
+  "body_parts",
   "equipment",
   "description",
   "instructions",
@@ -89,8 +96,9 @@ export type CatalogExercise = {
   name: string;
   description: string | null;
   instructions: string | null;
-  muscle: string | null;
-  secondaryMuscleGroup: string | null;
+  muscle: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
   equipment: string | null;
   videoUrl: string | null;
   trackingType: ExerciseTrackingType | null;
@@ -262,10 +270,30 @@ function parseExercise(value: unknown, path: string, issues: string[]): CatalogE
   rejectUnknown(record, EXERCISE_KEYS, path, issues);
   const name = requireName(record.name, `${path}.name`, issues);
   const id = optionalUuid(record, "id", path, issues);
-  const muscle = exclusiveText(record, "muscle", "primary_muscle_group", path, issues);
-  const secondaryMuscleGroup = optionalBoundedText(record, "secondary_muscle_group", path, issues, 80);
-  if (muscle && secondaryMuscleGroup && muscle.toLowerCase() === secondaryMuscleGroup.toLowerCase()) {
-    issues.push(`${path}.secondary_muscle_group: secondary muscle group must differ from the primary one`);
+  const muscleKey = hasField(record, "primary_muscle_group") ? "primary_muscle_group" : "muscle";
+  const muscleText = exclusiveText(record, "muscle", "primary_muscle_group", path, issues);
+  const muscle = muscleText == null ? null : muscleFromText(muscleText);
+  if (muscleText && !muscle) issues.push(`${path}.${muscleKey}: muscle must be a known muscle`);
+  const secondaryMuscleGroups = parseCatalogEnumList(
+    record.secondary_muscle_groups,
+    `${path}.secondary_muscle_groups`,
+    "secondary_muscle_groups",
+    hasField(record, "secondary_muscle_groups"),
+    muscleFromText,
+    "muscles",
+    issues,
+  );
+  const bodyParts = parseCatalogEnumList(
+    record.body_parts,
+    `${path}.body_parts`,
+    "body_parts",
+    hasField(record, "body_parts"),
+    bodyPartFromText,
+    "body parts",
+    issues,
+  );
+  if (muscle && secondaryMuscleGroups.includes(muscle)) {
+    issues.push(`${path}.secondary_muscle_groups: secondary muscle group must differ from the primary one`);
   }
   const tracking = parseTracking(record, path, issues);
   if (!name) return null;
@@ -275,7 +303,8 @@ function parseExercise(value: unknown, path: string, issues: string[]): CatalogE
     description: optionalText(record, "description", path, issues),
     instructions: optionalText(record, "instructions", path, issues),
     muscle,
-    secondaryMuscleGroup,
+    secondaryMuscleGroups,
+    bodyParts,
     equipment: optionalText(record, "equipment", path, issues),
     videoUrl: optionalText(record, "video_url", path, issues),
     trackingType: tracking.type,
@@ -662,6 +691,36 @@ function parseTracking(record: Record<string, unknown>, path: string, issues: st
   }
   const parameters = parseTrackingList(record.tracking_parameters, `${path}.tracking_parameters`, issues);
   return parameters ? { type, parameters } : { type: null, parameters: null };
+}
+
+function parseCatalogEnumList<T extends string>(
+  value: unknown,
+  path: string,
+  field: string,
+  present: boolean,
+  parse: (item: string) => T | null,
+  noun: string,
+  issues: string[],
+): T[] {
+  if (!present) return [];
+  if (!Array.isArray(value)) {
+    issues.push(`${path}: ${field} must be a list of ${noun}`);
+    return [];
+  }
+  const parsed: T[] = [];
+  for (const item of value) {
+    const next = typeof item === "string" ? parse(item) : null;
+    if (!next) {
+      issues.push(`${path}: ${field} must list known ${noun}`);
+      return [];
+    }
+    if (parsed.includes(next)) {
+      issues.push(`${path}: ${field} cannot repeat a value`);
+      return [];
+    }
+    parsed.push(next);
+  }
+  return parsed;
 }
 
 function parseTrackingList(value: unknown, path: string, issues: string[]) {

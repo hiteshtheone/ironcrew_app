@@ -1,4 +1,5 @@
 import { addDays, formatShortDate, type AssignmentStatus } from "@/lib/dashboard/client-week";
+import { muscleLabel } from "@/lib/exercises/muscle-group";
 
 const LB_IN_KG = 0.45359237;
 const TREND_WEEKS = 12;
@@ -101,7 +102,7 @@ export function buildClientProgress(
     const reps = set.repetitions != null && set.repetitions > 0 ? set.repetitions : 0;
     const maxWeightKg = loadInKg(set.load, set.loadUnit);
     if (weightKg === 0 && reps === 0 && maxWeightKg === 0) continue;
-    const name = set.muscleGroup?.trim() || "Not set";
+    const name = muscleLabel(set.muscleGroup) ?? "Not set";
     const existing = bodyParts.get(name) ?? { name, weightKg: 0, reps: 0, maxWeightKg: 0 };
     existing.weightKg += weightKg;
     existing.reps += reps;

@@ -129,7 +129,7 @@ function ReadOnlyExecution({ workout }: { workout: ClientWorkout }) {
       ) : (
         <ol className="divide-y divide-slate-100">
           {workout.exercises.map((exercise, index) => {
-            const muscles = muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroup);
+            const muscles = muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroups, exercise.bodyParts);
             return (
               <li key={exercise.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start gap-3">

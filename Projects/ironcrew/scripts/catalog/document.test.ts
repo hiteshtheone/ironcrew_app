@@ -129,7 +129,8 @@ test("every content column can be set, including the database column names", () 
       {
         name: "Bench Press",
         primary_muscle_group: "chest",
-        secondary_muscle_group: "triceps",
+        secondary_muscle_groups: ["triceps", "Shoulders"],
+        body_parts: ["Upper Body"],
         tracking_type: "weight_reps",
       },
     ],
@@ -185,7 +186,8 @@ test("every content column can be set, including the database column names", () 
 
   const exercise = document.exercises[0];
   assert.equal(exercise?.muscle, "chest");
-  assert.equal(exercise?.secondaryMuscleGroup, "triceps");
+  assert.deepEqual(exercise?.secondaryMuscleGroups, ["triceps", "shoulders"]);
+  assert.deepEqual(exercise?.bodyParts, ["upper_body"]);
   assert.equal(exercise?.trackingType, "weight_reps");
   assert.deepEqual(exercise?.trackingParameters, ["weight", "reps"]);
 
@@ -224,7 +226,7 @@ test("every content column can be set, including the database column names", () 
 
 test("tracking and muscle rules reject incomplete values", () => {
   assert.throws(
-    () => parseCatalog({ exercises: [{ name: "Bench Press", muscle: "chest", secondary_muscle_group: "Chest" }] }),
+    () => parseCatalog({ exercises: [{ name: "Bench Press", muscle: "chest", secondary_muscle_groups: ["Chest"] }] }),
     /secondary muscle group must differ/,
   );
   assert.throws(
