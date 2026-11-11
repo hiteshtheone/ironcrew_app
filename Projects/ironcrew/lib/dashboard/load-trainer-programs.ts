@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  bodyPartsFromList,
+  muscleFromField,
+  musclesFromList,
+  type BodyPart,
+  type Muscle,
+} from "@/lib/exercises/muscle-group";
 import { isTrackingType, parametersFor, type ExerciseTrackingType, type TrackingParameter } from "@/lib/exercises/tracking";
 
 export type WorkoutOption = {
@@ -11,11 +18,14 @@ export type WorkoutOption = {
 export type ExerciseOption = {
   id: string;
   name: string;
+  description: string | null;
+  instructions: string | null;
   isSystem: boolean;
   trackingType: ExerciseTrackingType;
   trackingParameters: TrackingParameter[];
-  primaryMuscleGroup: string | null;
-  secondaryMuscleGroup: string | null;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
 };
 
 export function libraryItemLabel(name: string, isSystem: boolean) {
@@ -38,6 +48,7 @@ export type WorkoutBlock = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
 };
 
 export type LibraryWorkout = WorkoutOption & {
@@ -167,6 +178,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
             prescribed_duration_seconds,
             prescribed_distance_meters,
             prescribed_height_cm,
+            prescribed_heart_rate_bpm,
             exercises ( name )
           )
         `,
@@ -174,7 +186,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
         .or(visibleFilter),
       supabase
         .from("exercises")
-        .select("id, name, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group")
+        .select("id, name, description, instructions, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts")
         .or(visibleFilter),
     ]);
 
@@ -348,6 +360,7 @@ function normalizeBlock(row: unknown): WorkoutBlock | null {
     durationSeconds: numberField(record, "prescribed_duration_seconds"),
     distanceMeters: numberField(record, "prescribed_distance_meters"),
     heightCm: numberField(record, "prescribed_height_cm"),
+    heartRateBpm: numberField(record, "prescribed_heart_rate_bpm"),
   };
 }
 
@@ -361,11 +374,14 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
   return {
     id,
     name,
+    description: stringField(record, "description"),
+    instructions: stringField(record, "instructions"),
     isSystem: isSystemRow(record),
     trackingType,
     trackingParameters: parametersFor(trackingType, record.tracking_parameters),
-    primaryMuscleGroup: stringField(record, "primary_muscle_group"),
-    secondaryMuscleGroup: stringField(record, "secondary_muscle_group"),
+    primaryMuscleGroup: muscleFromField(record.primary_muscle_group),
+    secondaryMuscleGroups: musclesFromList(record.secondary_muscle_groups),
+    bodyParts: bodyPartsFromList(record.body_parts),
   };
 }
 

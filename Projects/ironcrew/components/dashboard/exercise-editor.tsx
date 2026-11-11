@@ -4,7 +4,14 @@ import { FormEvent, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
-import { muscleGroupsMatch } from "@/lib/exercises/muscle-group";
+import {
+  BODY_PART_LABELS,
+  BODY_PARTS,
+  MUSCLE_LABELS,
+  MUSCLES,
+  type BodyPart,
+  type Muscle,
+} from "@/lib/exercises/muscle-group";
 import {
   isTrackingType,
   parametersFor,
@@ -21,64 +28,108 @@ const fieldClass =
 
 type ExerciseSnapshot = {
   name: string;
+  description: string;
+  instructions: string;
   trackingType: ExerciseTrackingType;
   customParameters: TrackingParameter[];
-  primaryMuscleGroup: string;
-  secondaryMuscleGroup: string;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
+};
+
+const blankExercise: ExerciseOption = {
+  id: "new",
+  name: "",
+  description: null,
+  instructions: null,
+  isSystem: false,
+  trackingType: "weight_reps",
+  trackingParameters: ["weight", "reps"],
+  primaryMuscleGroup: null,
+  secondaryMuscleGroups: [],
+  bodyParts: [],
 };
 
 export function ExerciseEditor({
   exercise,
   pending,
+  creating = false,
   onSave,
+  onCreate,
+  onCancelCreate,
   onDelete,
 }: {
-  exercise: ExerciseOption;
+  exercise: ExerciseOption | null;
   pending: string | null;
+  creating?: boolean;
   onSave: (exerciseId: string, body: Record<string, unknown>) => Promise<boolean>;
+  onCreate?: (body: Record<string, unknown>) => Promise<boolean>;
+  onCancelCreate?: () => void;
   onDelete: (exerciseId: string) => Promise<boolean>;
 }) {
-  const [snapshot, setSnapshot] = useState<ExerciseSnapshot>(() => exerciseSnapshot(exercise));
-  const [loadedId, setLoadedId] = useState(exercise.id);
-  const [baseline, setBaseline] = useState<ExerciseSnapshot>(() => exerciseSnapshot(exercise));
-  const { editing, startEditing, stopEditing } = useEditMode(exercise.id);
+  const source = creating || !exercise ? blankExercise : exercise;
+  const [snapshot, setSnapshot] = useState<ExerciseSnapshot>(() => exerciseSnapshot(source));
+  const [loadedId, setLoadedId] = useState(source.id);
+  const [baseline, setBaseline] = useState<ExerciseSnapshot>(() => exerciseSnapshot(source));
+  const { editing, startEditing, stopEditing } = useEditMode(source.id);
+  const editable = creating || (editing && !source.isSystem);
 
-  if (exercise.id !== loadedId) {
-    const next = exerciseSnapshot(exercise);
-    setLoadedId(exercise.id);
+  if (source.id !== loadedId) {
+    const next = exerciseSnapshot(source);
+    setLoadedId(source.id);
     setSnapshot(next);
     setBaseline(next);
   }
 
-  const fieldsLocked = !editing || exercise.isSystem;
-  const muscleGroupsConflict = muscleGroupsMatch(snapshot.primaryMuscleGroup, snapshot.secondaryMuscleGroup);
-  const missingPrimary = snapshot.primaryMuscleGroup.trim().length === 0;
+  const fieldsLocked = !editable;
+  const secondaryMuscleGroups = snapshot.secondaryMuscleGroups.filter((muscle) => muscle !== snapshot.primaryMuscleGroup);
+  const missingPrimary = snapshot.primaryMuscleGroup == null;
   const missingCustomParameters = snapshot.trackingType === "custom" && snapshot.customParameters.length === 0;
-  const valid = snapshot.name.trim().length > 0 && !missingPrimary && !missingCustomParameters && !muscleGroupsConflict;
+  const valid = snapshot.name.trim().length > 0
+    && !missingCustomParameters
+    && (creating || !missingPrimary);
   const dirty = !valuesEqual(persistedExercise(snapshot), persistedExercise(baseline));
 
   const cancelEdit = () => {
+    if (creating) {
+      onCancelCreate?.();
+      return;
+    }
     setSnapshot(baseline);
     stopEditing();
   };
 
+  const exerciseBody = (saved: ReturnType<typeof persistedExercise>) => ({
+    name: saved.name,
+    description: saved.description || null,
+    instructions: saved.instructions || null,
+    tracking_type: saved.trackingType,
+    tracking_parameters: saved.trackingParameters,
+    primary_muscle_group: saved.primaryMuscleGroup,
+    secondary_muscle_groups: saved.secondaryMuscleGroups,
+    body_parts: saved.bodyParts,
+  });
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!editing || !dirty || !valid || exercise.isSystem) return;
+    if (!editable || !dirty || !valid || source.isSystem) return;
     const saved = persistedExercise(snapshot);
     const savedSnapshot: ExerciseSnapshot = {
       ...snapshot,
       name: saved.name,
+      description: saved.description,
+      instructions: saved.instructions,
       primaryMuscleGroup: saved.primaryMuscleGroup,
-      secondaryMuscleGroup: saved.secondaryMuscleGroup,
+      secondaryMuscleGroups: saved.secondaryMuscleGroups,
+      bodyParts: saved.bodyParts,
     };
-    const didSave = await onSave(exercise.id, {
-      name: saved.name,
-      tracking_type: saved.trackingType,
-      tracking_parameters: saved.trackingParameters,
-      primary_muscle_group: saved.primaryMuscleGroup,
-      secondary_muscle_group: saved.secondaryMuscleGroup || null,
-    });
+    if (creating) {
+      if (!onCreate) return;
+      await onCreate(exerciseBody(saved));
+      return;
+    }
+    if (!exercise || exercise.id === "new") return;
+    const didSave = await onSave(exercise.id, exerciseBody(saved));
     if (!didSave) return;
     setSnapshot(savedSnapshot);
     setBaseline(savedSnapshot);
@@ -94,9 +145,11 @@ export function ExerciseEditor({
       <div>
         <h2 className="text-lg font-bold">Exercise</h2>
         <p className="mt-1 text-sm text-slate-500">
-          {exercise.isSystem
-            ? "This system exercise is available to everyone."
-            : "Edit the name, the fields a set records, and the muscle groups."}
+          {creating
+            ? "Enter a name, what a set records, the muscle groups, and any description or instructions."
+            : source.isSystem
+              ? "This system exercise is available to everyone."
+              : "Edit the name, the fields a set records, the muscle groups, and the description or instructions."}
         </p>
       </div>
 
@@ -105,6 +158,7 @@ export function ExerciseEditor({
           <span className="font-medium text-slate-600">Name</span>
           <input
             required
+            autoFocus={creating}
             maxLength={160}
             disabled={fieldsLocked}
             value={snapshot.name}
@@ -132,32 +186,91 @@ export function ExerciseEditor({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm">
+        <label className="grid gap-1 text-sm sm:col-span-2">
           <span className="font-medium text-slate-600">Primary muscle group</span>
-          <input
-            maxLength={80}
+          <select
             disabled={fieldsLocked}
-            value={snapshot.primaryMuscleGroup}
-            onChange={(event) => update({ primaryMuscleGroup: event.target.value })}
-            placeholder="Chest"
+            value={snapshot.primaryMuscleGroup ?? ""}
+            onChange={(event) => {
+              const primaryMuscleGroup = MUSCLES.find((muscle) => muscle === event.target.value) ?? null;
+              update({
+                primaryMuscleGroup,
+                secondaryMuscleGroups: snapshot.secondaryMuscleGroups.filter((muscle) => muscle !== primaryMuscleGroup),
+              });
+            }}
             className={fieldClass}
-          />
+          >
+            <option value="">Select</option>
+            {MUSCLES.map((muscle) => (
+              <option key={muscle} value={muscle}>{MUSCLE_LABELS[muscle]}</option>
+            ))}
+          </select>
         </label>
-        <label className="grid gap-1 text-sm">
-          <span className="font-medium text-slate-600">Secondary muscle group</span>
-          <input
-            maxLength={80}
+        <fieldset className="sm:col-span-2" disabled={fieldsLocked}>
+          <legend className="text-sm font-medium text-slate-600">Secondary muscle groups</legend>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            {MUSCLES.filter((muscle) => muscle !== snapshot.primaryMuscleGroup).map((muscle) => (
+              <label key={muscle} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={secondaryMuscleGroups.includes(muscle)}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...secondaryMuscleGroups, muscle]
+                      : secondaryMuscleGroups.filter((item) => item !== muscle);
+                    update({ secondaryMuscleGroups: next });
+                  }}
+                />
+                {MUSCLE_LABELS[muscle]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="sm:col-span-2" disabled={fieldsLocked}>
+          <legend className="text-sm font-medium text-slate-600">Body parts</legend>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            {BODY_PARTS.map((part) => (
+              <label key={part} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={snapshot.bodyParts.includes(part)}
+                  onChange={(event) => {
+                    const bodyParts = event.target.checked
+                      ? [...snapshot.bodyParts, part]
+                      : snapshot.bodyParts.filter((item) => item !== part);
+                    update({ bodyParts });
+                  }}
+                />
+                {BODY_PART_LABELS[part]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="grid gap-1 text-sm sm:col-span-2">
+          <span className="font-medium text-slate-600">Description</span>
+          <textarea
+            maxLength={4000}
             disabled={fieldsLocked}
-            value={snapshot.secondaryMuscleGroup}
-            onChange={(event) => update({ secondaryMuscleGroup: event.target.value })}
+            value={snapshot.description}
+            onChange={(event) => update({ description: event.target.value })}
+            rows={2}
             placeholder="Optional"
-            className={fieldClass}
+            className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </label>
-        {muscleGroupsConflict ? (
-          <p className="text-sm text-red-600 sm:col-span-2">Secondary muscle group must be different from the primary muscle group.</p>
-        ) : null}
-        {editing && missingPrimary ? (
+        <label className="grid gap-1 text-sm sm:col-span-2">
+          <span className="font-medium text-slate-600">Instructions</span>
+          <textarea
+            maxLength={4000}
+            disabled={fieldsLocked}
+            value={snapshot.instructions}
+            onChange={(event) => update({ instructions: event.target.value })}
+            rows={4}
+            placeholder="Optional"
+            className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
+          />
+        </label>
+        {!creating && editing && missingPrimary ? (
           <p className="text-sm text-slate-500 sm:col-span-2">A primary muscle group is required.</p>
         ) : null}
         {snapshot.trackingType === "custom" ? (
@@ -185,16 +298,18 @@ export function ExerciseEditor({
         ) : null}
       </div>
 
-      {exercise.isSystem ? null : (
+      {source.isSystem ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <EditSaveActions
-            editing={editing}
+            editing={editable}
             dirty={dirty && valid}
-            pending={pending === "save-exercise"}
-            saveLabel="Save exercise"
+            pending={pending === (creating ? "create-exercise" : "save-exercise")}
+            saveLabel={creating ? "Create exercise" : "Save exercise"}
+            pendingLabel={creating ? "Creating..." : "Saving..."}
             onEdit={startEditing}
             onCancel={cancelEdit}
           />
+          {creating || !exercise || exercise.id === "new" ? null : (
           <DeleteControl
             key={exercise.id}
             itemLabel="exercise"
@@ -205,6 +320,7 @@ export function ExerciseEditor({
               void onDelete(exercise.id);
             }}
           />
+          )}
         </div>
       )}
     </form>
@@ -214,20 +330,26 @@ export function ExerciseEditor({
 function exerciseSnapshot(exercise: ExerciseOption): ExerciseSnapshot {
   return {
     name: exercise.name,
+    description: exercise.description ?? "",
+    instructions: exercise.instructions ?? "",
     trackingType: exercise.trackingType,
     customParameters: exercise.trackingType === "custom" ? [...exercise.trackingParameters] : ["weight", "reps"],
-    primaryMuscleGroup: exercise.primaryMuscleGroup ?? "",
-    secondaryMuscleGroup: exercise.secondaryMuscleGroup ?? "",
+    primaryMuscleGroup: exercise.primaryMuscleGroup,
+    secondaryMuscleGroups: exercise.secondaryMuscleGroups.filter((muscle) => muscle !== exercise.primaryMuscleGroup),
+    bodyParts: [...exercise.bodyParts],
   };
 }
 
 function persistedExercise(snapshot: ExerciseSnapshot) {
   return {
     name: snapshot.name.trim(),
+    description: snapshot.description.trim(),
+    instructions: snapshot.instructions.trim(),
     trackingType: snapshot.trackingType,
     trackingParameters:
       snapshot.trackingType === "custom" ? snapshot.customParameters : parametersFor(snapshot.trackingType, null),
-    primaryMuscleGroup: snapshot.primaryMuscleGroup.trim(),
-    secondaryMuscleGroup: snapshot.secondaryMuscleGroup.trim(),
+    primaryMuscleGroup: snapshot.primaryMuscleGroup,
+    secondaryMuscleGroups: snapshot.secondaryMuscleGroups.filter((muscle) => muscle !== snapshot.primaryMuscleGroup),
+    bodyParts: snapshot.bodyParts,
   };
 }

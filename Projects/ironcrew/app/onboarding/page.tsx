@@ -32,6 +32,13 @@ async function AuthenticatedOnboarding() {
 
   if (!error && profile) redirect("/dashboard");
 
+  // Invited clients already have a trainer-created row. Claim it here too so a
+  // direct visit to this page still lands on the dashboard.
+  if (!profile) {
+    const { data: claimed, error: claimError } = await supabase.rpc("claim_invited_client");
+    if (!claimError && claimed) redirect("/dashboard");
+  }
+
   const metadataName = user.user_metadata?.full_name;
   const suggestedName =
     (typeof metadataName === "string" && metadataName.trim()) ||

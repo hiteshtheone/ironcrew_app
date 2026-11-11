@@ -64,6 +64,8 @@ export type TrainerDashboardReady = {
   firstName: string;
   fullName: string;
   dateLabel: string;
+  /** Profile-timezone date, YYYY-MM-DD. The calendar opens on this month. */
+  today: string;
   initials: string;
   activeClients: number;
   newClientsLabel: string;
@@ -105,6 +107,7 @@ export async function loadTrainerDashboard(
     firstName: firstNameFrom(profile.fullName),
     fullName: profile.fullName.trim() || "Trainer",
     dateLabel: formatLongDate(week.today),
+    today: week.today,
     initials: initialsFrom(profile.fullName),
   };
 

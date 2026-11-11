@@ -4,6 +4,12 @@ import { basename, resolve } from "node:path";
 import { parse } from "yaml";
 
 import {
+  bodyPartFromText,
+  muscleFromText,
+  type BodyPart,
+  type Muscle,
+} from "../../lib/exercises/muscle-group";
+import {
   isTrackingParameter,
   isTrackingType,
   type ExerciseTrackingType,
@@ -22,7 +28,8 @@ const EXERCISE_KEYS = new Set([
   "name",
   "muscle",
   "primary_muscle_group",
-  "secondary_muscle_group",
+  "secondary_muscle_groups",
+  "body_parts",
   "equipment",
   "description",
   "instructions",
@@ -55,6 +62,7 @@ const BLOCK_KEYS = new Set([
   "prescribed_duration_seconds",
   "prescribed_distance_meters",
   "prescribed_height_cm",
+  "prescribed_heart_rate_bpm",
 ]);
 const PROGRAM_KEYS = new Set(["name", "description", "status", "estimated_duration_weeks", "phases"]);
 const PHASE_KEYS = new Set(["name", "description", "position", "weeks"]);
@@ -69,6 +77,7 @@ const PRESET_TRACKING: Record<Exclude<ExerciseTrackingType, "custom">, readonly 
   distance_weight: ["distance", "weight"],
   distance_time: ["distance", "time"],
   reps_height: ["reps", "height"],
+  heart_rate: ["heart_rate"],
 };
 const PROGRAM_STATUSES = new Set(["draft", "active", "archived"]);
 
@@ -87,8 +96,9 @@ export type CatalogExercise = {
   name: string;
   description: string | null;
   instructions: string | null;
-  muscle: string | null;
-  secondaryMuscleGroup: string | null;
+  muscle: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
   equipment: string | null;
   videoUrl: string | null;
   trackingType: ExerciseTrackingType | null;
@@ -114,6 +124,7 @@ export type CatalogBlock = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
 };
 
 export type CatalogWorkout = {
@@ -259,10 +270,30 @@ function parseExercise(value: unknown, path: string, issues: string[]): CatalogE
   rejectUnknown(record, EXERCISE_KEYS, path, issues);
   const name = requireName(record.name, `${path}.name`, issues);
   const id = optionalUuid(record, "id", path, issues);
-  const muscle = exclusiveText(record, "muscle", "primary_muscle_group", path, issues);
-  const secondaryMuscleGroup = optionalBoundedText(record, "secondary_muscle_group", path, issues, 80);
-  if (muscle && secondaryMuscleGroup && muscle.toLowerCase() === secondaryMuscleGroup.toLowerCase()) {
-    issues.push(`${path}.secondary_muscle_group: secondary muscle group must differ from the primary one`);
+  const muscleKey = hasField(record, "primary_muscle_group") ? "primary_muscle_group" : "muscle";
+  const muscleText = exclusiveText(record, "muscle", "primary_muscle_group", path, issues);
+  const muscle = muscleText == null ? null : muscleFromText(muscleText);
+  if (muscleText && !muscle) issues.push(`${path}.${muscleKey}: muscle must be a known muscle`);
+  const secondaryMuscleGroups = parseCatalogEnumList(
+    record.secondary_muscle_groups,
+    `${path}.secondary_muscle_groups`,
+    "secondary_muscle_groups",
+    hasField(record, "secondary_muscle_groups"),
+    muscleFromText,
+    "muscles",
+    issues,
+  );
+  const bodyParts = parseCatalogEnumList(
+    record.body_parts,
+    `${path}.body_parts`,
+    "body_parts",
+    hasField(record, "body_parts"),
+    bodyPartFromText,
+    "body parts",
+    issues,
+  );
+  if (muscle && secondaryMuscleGroups.includes(muscle)) {
+    issues.push(`${path}.secondary_muscle_groups: secondary muscle group must differ from the primary one`);
   }
   const tracking = parseTracking(record, path, issues);
   if (!name) return null;
@@ -272,7 +303,8 @@ function parseExercise(value: unknown, path: string, issues: string[]): CatalogE
     description: optionalText(record, "description", path, issues),
     instructions: optionalText(record, "instructions", path, issues),
     muscle,
-    secondaryMuscleGroup,
+    secondaryMuscleGroups,
+    bodyParts,
     equipment: optionalText(record, "equipment", path, issues),
     videoUrl: optionalText(record, "video_url", path, issues),
     trackingType: tracking.type,
@@ -350,6 +382,7 @@ function parseBlock(value: unknown, path: string, issues: string[]): (Omit<Catal
     durationSeconds: optionalInteger(record, "prescribed_duration_seconds", `${path}.prescribed_duration_seconds`, issues, { min: 0 }),
     distanceMeters: optionalNonnegativeNumber(record, "prescribed_distance_meters", path, issues),
     heightCm: optionalNonnegativeNumber(record, "prescribed_height_cm", path, issues),
+    heartRateBpm: optionalInteger(record, "prescribed_heart_rate_bpm", `${path}.prescribed_heart_rate_bpm`, issues, { min: 0 }),
   };
 }
 
@@ -660,15 +693,45 @@ function parseTracking(record: Record<string, unknown>, path: string, issues: st
   return parameters ? { type, parameters } : { type: null, parameters: null };
 }
 
+function parseCatalogEnumList<T extends string>(
+  value: unknown,
+  path: string,
+  field: string,
+  present: boolean,
+  parse: (item: string) => T | null,
+  noun: string,
+  issues: string[],
+): T[] {
+  if (!present) return [];
+  if (!Array.isArray(value)) {
+    issues.push(`${path}: ${field} must be a list of ${noun}`);
+    return [];
+  }
+  const parsed: T[] = [];
+  for (const item of value) {
+    const next = typeof item === "string" ? parse(item) : null;
+    if (!next) {
+      issues.push(`${path}: ${field} must list known ${noun}`);
+      return [];
+    }
+    if (parsed.includes(next)) {
+      issues.push(`${path}: ${field} cannot repeat a value`);
+      return [];
+    }
+    parsed.push(next);
+  }
+  return parsed;
+}
+
 function parseTrackingList(value: unknown, path: string, issues: string[]) {
   if (!Array.isArray(value) || value.length === 0) {
-    issues.push(`${path}: tracking_parameters must list at least one of time, reps, weight, distance, height`);
+    issues.push(`${path}: tracking_parameters must list at least one of time, reps, weight, distance, height, heart rate`);
     return null;
   }
   const parameters: TrackingParameter[] = [];
   for (const item of value) {
     if (typeof item !== "string" || !isTrackingParameter(item)) {
-      issues.push(`${path}: tracking_parameters must list time, reps, weight, distance, or height`);
+      issues.push(`${path}: tracking_parameters must list time, reps, weight, distance, height, or heart rate`);
       return null;
     }
     parameters.push(item);

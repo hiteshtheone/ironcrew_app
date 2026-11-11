@@ -7,12 +7,13 @@ export const TRACKING_TYPES = [
   "distance_weight",
   "distance_time",
   "reps_height",
+  "heart_rate",
   "custom",
 ] as const;
 
 export type ExerciseTrackingType = (typeof TRACKING_TYPES)[number];
 
-export const TRACKING_PARAMETERS = ["time", "reps", "weight", "distance", "height"] as const;
+export const TRACKING_PARAMETERS = ["time", "reps", "weight", "distance", "height", "heart_rate"] as const;
 
 export type TrackingParameter = (typeof TRACKING_PARAMETERS)[number];
 
@@ -25,6 +26,7 @@ export const TRACKING_TYPE_LABELS: Record<ExerciseTrackingType, string> = {
   distance_weight: "Distance and Weight",
   distance_time: "Distance and Time",
   reps_height: "Reps and height",
+  heart_rate: "Heart rate only",
   custom: "Custom",
 };
 
@@ -34,6 +36,7 @@ export const TRACKING_PARAMETER_LABELS: Record<TrackingParameter, string> = {
   weight: "Weight",
   distance: "Distance",
   height: "Height",
+  heart_rate: "Heart rate",
 };
 
 const PRESET_PARAMETERS: Record<Exclude<ExerciseTrackingType, "custom">, readonly TrackingParameter[]> = {
@@ -45,6 +48,7 @@ const PRESET_PARAMETERS: Record<Exclude<ExerciseTrackingType, "custom">, readonl
   distance_weight: ["distance", "weight"],
   distance_time: ["distance", "time"],
   reps_height: ["reps", "height"],
+  heart_rate: ["heart_rate"],
 };
 
 /** Fields the log form showed before exercises had a tracking type. */

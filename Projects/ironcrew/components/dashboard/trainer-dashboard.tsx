@@ -9,8 +9,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { TodayWorkouts } from "@/components/dashboard/today-workouts";
 import { LogoutButton } from "@/components/logout-button";
-import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import type { TrainerDashboardReady } from "@/lib/dashboard/load-trainer-dashboard";
 
 export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
@@ -43,26 +43,11 @@ export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
               <h2 className="text-lg font-bold">Today&apos;s workouts</h2>
               <p className="mt-1 text-sm text-slate-500">{sessionCountLabel(data.todaySessions.length)}</p>
             </div>
-            <span className="flex items-center gap-1 text-sm font-semibold text-slate-700">View calendar <ChevronRight className="size-4" /></span>
+            <Link href="/dashboard?section=calendar" className="flex items-center gap-1 text-sm font-semibold text-slate-700 hover:text-slate-950">
+              View calendar <ChevronRight className="size-4" />
+            </Link>
           </div>
-          {data.todaySessions.length === 0 ? (
-            <p className="mt-8 text-sm text-slate-500">No workouts scheduled today</p>
-          ) : (
-            <div className="mt-5 divide-y divide-slate-100">
-              {data.todaySessions.map((session) => (
-                <div key={session.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-full text-xs font-bold ${session.tone}`}>{session.initials}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{session.clientName}</p>
-                    <p className="truncate text-xs text-slate-500">{session.workoutName}</p>
-                    <p className="truncate text-xs text-slate-400">{workoutSourceLabel(session)}</p>
-                  </div>
-                  <p className="text-xs font-medium text-slate-500 sm:text-sm">{session.statusLabel}</p>
-                  <ChevronRight className="size-5 text-slate-300" />
-                </div>
-              ))}
-            </div>
-          )}
+          <TodayWorkouts sessions={data.todaySessions} />
         </section>
 
         <section className="rounded-2xl bg-slate-950 p-5 text-white shadow-sm sm:p-6">

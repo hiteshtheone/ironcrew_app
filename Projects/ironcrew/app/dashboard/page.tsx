@@ -38,14 +38,39 @@ async function AuthenticatedDashboard() {
     return <DashboardNotice title="Couldn't load your profile" detail={error.message} />;
   }
 
-  // First login: no profile yet, so ask whether they are a trainer or a user.
-  if (!profile) redirect("/onboarding");
+  // A trainer may have already created this person as a client. Link that row
+  // and skip the role form. Everyone else still chooses a role on /onboarding.
+  let activeProfile = profile;
+  if (!activeProfile) {
+    const { data: claimed, error: claimError } = await supabase.rpc("claim_invited_client");
+    // The hosted database may not have this function yet. A missing function is
+    // the same as "not an invited client": continue to onboarding.
+    const functionMissing =
+      claimError?.code === "PGRST202" ||
+      (claimError != null && /could not find the function/i.test(claimError.message));
+    if (claimError && !functionMissing) {
+      return <DashboardNotice title="Couldn't finish signing you in" detail={claimError.message} />;
+    }
+    if (!claimed || functionMissing) redirect("/onboarding");
 
-  if (profile.role === "client") {
+    const reloaded = await supabase
+      .from("profiles")
+      .select("role, full_name, timezone")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (reloaded.error) {
+      return <DashboardNotice title="Couldn't load your profile" detail={reloaded.error.message} />;
+    }
+    if (!reloaded.data) redirect("/onboarding");
+    activeProfile = reloaded.data;
+  }
+
+  if (activeProfile.role === "client") {
     const dashboard = await loadClientDashboard(supabase, {
       userId,
-      fullName: profile.full_name,
-      timezone: profile.timezone,
+      fullName: activeProfile.full_name,
+      timezone: activeProfile.timezone,
     });
     // Clients build their own programs; trainer-assigned ones are not loaded here.
     const programs =
@@ -55,8 +80,8 @@ async function AuthenticatedDashboard() {
 
   const profileInput = {
     userId,
-    fullName: profile.full_name,
-    timezone: profile.timezone,
+    fullName: activeProfile.full_name,
+    timezone: activeProfile.timezone,
   };
   const [dashboard, clientList, planning] = await Promise.all([
     loadTrainerDashboard(supabase, profileInput),
@@ -80,9 +105,24 @@ async function AuthenticatedDashboard() {
         initials: dashboard.initials,
         dateLabel: dashboard.dateLabel,
       }}
+      today={dashboard.today}
       overview={<TrainerOverview data={dashboard} />}
       clients={<ClientListPanel data={clientList} programs={programs} workouts={workouts} />}
-      programs={<ProgramsPanel data={planning} />}
+      programs={
+        <ProgramsPanel
+          data={planning}
+          clients={
+            clientList.kind === "ready"
+              ? clientList.myClients.map((client) => ({
+                  id: client.id,
+                  name: client.name,
+                  activePrograms: client.activePrograms,
+                }))
+              : []
+          }
+          clientsError={clientList.kind === "error" ? clientList.message : null}
+        />
+      }
     />
   );
 }

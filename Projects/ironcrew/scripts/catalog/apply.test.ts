@@ -10,9 +10,16 @@ const schema = `
 create type public.program_status as enum ('draft', 'active', 'archived');
 create type public.workout_block_type as enum ('warmup', 'exercise', 'superset', 'circuit', 'conditioning', 'cooldown', 'notes');
 create type public.exercise_tracking_type as enum (
-  'time', 'reps', 'weight', 'weight_reps', 'distance', 'distance_weight', 'distance_time', 'reps_height', 'custom'
+  'time', 'reps', 'weight', 'weight_reps', 'distance', 'distance_weight', 'distance_time', 'reps_height', 'heart_rate', 'custom'
 );
-create type public.exercise_tracking_parameter as enum ('time', 'reps', 'weight', 'distance', 'height');
+create type public.exercise_tracking_parameter as enum ('time', 'reps', 'weight', 'distance', 'height', 'heart_rate');
+
+create type public.muscle as enum (
+  'abdominals', 'biceps', 'chest', 'forearms', 'lats', 'lower_back', 'neck', 'shoulders',
+  'traps', 'triceps', 'upper_back', 'abductors', 'adductors', 'calves', 'glutes',
+  'hamstrings', 'quadriceps', 'cardio', 'full_body', 'other'
+);
+create type public.body_part as enum ('upper_body', 'lower_body', 'full_body', 'core_and_midsections');
 
 create table public.exercises (
   id uuid primary key default gen_random_uuid(),
@@ -21,10 +28,11 @@ create table public.exercises (
   name text not null check (char_length(trim(name)) between 1 and 160),
   description text,
   instructions text,
-  primary_muscle_group text,
+  primary_muscle_group public.muscle,
   equipment text,
   video_url text,
-  secondary_muscle_group text,
+  secondary_muscle_groups public.muscle[] not null default '{}',
+  body_parts public.body_part[] not null default '{}',
   tracking_type public.exercise_tracking_type not null default 'custom',
   tracking_parameters public.exercise_tracking_parameter[] not null
     default array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[],
@@ -76,6 +84,7 @@ create table public.workout_blocks (
   prescribed_duration_seconds integer check (prescribed_duration_seconds is null or prescribed_duration_seconds >= 0),
   prescribed_distance_meters numeric(12,2) check (prescribed_distance_meters is null or prescribed_distance_meters >= 0),
   prescribed_height_cm numeric(8,2) check (prescribed_height_cm is null or prescribed_height_cm >= 0),
+  prescribed_heart_rate_bpm integer check (prescribed_heart_rate_bpm is null or prescribed_heart_rate_bpm >= 0),
   unique (workout_id, position),
   check (block_type <> 'exercise' or exercise_id is not null)
 );
@@ -351,7 +360,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
       {
         name: "Bench Press",
         primary_muscle_group: "chest",
-        secondary_muscle_group: "triceps",
+        secondary_muscle_groups: ["triceps", "Shoulders"],
+        body_parts: ["Upper Body", "core_and_midsections"],
         tracking_type: "weight_reps",
         instructions: "Brace",
       },
@@ -377,6 +387,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
             prescribed_duration_seconds: 3,
             prescribed_distance_meters: 1.25,
             prescribed_height_cm: 40,
+            prescribed_heart_rate_bpm: 145,
           },
         ],
       },
@@ -406,7 +417,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
   await applyInTransaction(db, full, "full.yaml");
 
   const stored = await db.query<{
-    secondary_muscle_group: string;
+    secondary_muscle_groups: string[];
+    body_parts: string[];
     tracking_type: string;
     tracking_parameters: string[];
     is_template: boolean;
@@ -417,6 +429,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
     duration_seconds: number;
     distance_meters: string;
     height_cm: string;
+    heart_rate_bpm: number;
     estimated_duration_weeks: number;
     phase_position: number;
     week_number: number;
@@ -427,7 +440,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
     slot_notes: string;
   }>(`
     select
-      e.secondary_muscle_group,
+      e.secondary_muscle_groups::text[] as secondary_muscle_groups,
+      e.body_parts::text[] as body_parts,
       e.tracking_type::text as tracking_type,
       e.tracking_parameters::text[] as tracking_parameters,
       w.is_template,
@@ -438,6 +452,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
       b.prescribed_duration_seconds as duration_seconds,
       b.prescribed_distance_meters::text as distance_meters,
       b.prescribed_height_cm::text as height_cm,
+      b.prescribed_heart_rate_bpm as heart_rate_bpm,
       p.estimated_duration_weeks,
       pp.position as phase_position,
       pw.week_number,
@@ -456,7 +471,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
   `);
   const row = stored.rows[0];
   assert.ok(row);
-  assert.equal(row.secondary_muscle_group, "triceps");
+  assert.deepEqual(row.secondary_muscle_groups, ["triceps", "shoulders"]);
+  assert.deepEqual(row.body_parts, ["upper_body", "core_and_midsections"]);
   assert.equal(row.tracking_type, "weight_reps");
   assert.deepEqual(row.tracking_parameters, ["weight", "reps"]);
   assert.equal(row.is_template, false);
@@ -467,6 +483,7 @@ test("apply stores every content column and keeps omitted tracking on update", a
   assert.equal(row.duration_seconds, 3);
   assert.equal(row.distance_meters, "1.25");
   assert.equal(row.height_cm, "40.00");
+  assert.equal(row.heart_rate_bpm, 145);
   assert.equal(row.estimated_duration_weeks, 10);
   assert.equal(row.phase_position, 2);
   assert.equal(row.week_number, 3);
@@ -481,11 +498,11 @@ test("apply stores every content column and keeps omitted tracking on update", a
     parseCatalog({ exercises: [{ name: "Bench Press", muscle: "chest", equipment: "dumbbell" }] }),
     "keep-tracking.yaml",
   );
-  const kept = await db.query<{ tracking_type: string; secondary_muscle_group: string | null }>(
-    `select tracking_type::text as tracking_type, secondary_muscle_group from public.exercises where name = 'Bench Press'`,
+  const kept = await db.query<{ tracking_type: string; secondary_muscle_groups: string[] }>(
+    `select tracking_type::text as tracking_type, secondary_muscle_groups::text[] as secondary_muscle_groups from public.exercises where name = 'Bench Press'`,
   );
   assert.equal(kept.rows[0]?.tracking_type, "weight_reps");
-  assert.equal(kept.rows[0]?.secondary_muscle_group, null);
+  assert.deepEqual(kept.rows[0]?.secondary_muscle_groups, []);
 });
 
 test("a private workout id cannot be placed on a catalog program", async () => {

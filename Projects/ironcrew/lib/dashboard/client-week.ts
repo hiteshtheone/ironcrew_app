@@ -1,4 +1,5 @@
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import { BODY_PART_LABELS, MUSCLE_LABELS, type BodyPart, type Muscle } from "@/lib/exercises/muscle-group";
 import type { TrackingParameter } from "@/lib/exercises/tracking";
 
 export const ASSIGNMENT_STATUSES = [
@@ -27,6 +28,7 @@ export type ClientLoggedSet = {
   durationSeconds: number | null;
   distanceMeters: number | null;
   heightCm: number | null;
+  heartRateBpm: number | null;
   notes: string | null;
 };
 
@@ -36,12 +38,24 @@ export type ClientExercise = {
   name: string;
   detail: string | null;
   prescribedSets: number | null;
+  /** Coach rep range. A single target is stored in both, or in whichever side was set. */
+  repsMin: number | null;
+  repsMax: number | null;
+  load: number | null;
   loadUnit: string | null;
+  durationSeconds: number | null;
+  distanceMeters: number | null;
+  heightCm: number | null;
+  heartRateBpm: number | null;
   /** Fields this block records. Blocks without an exercise keep the original set. */
   trackingParameters: TrackingParameter[];
-  primaryMuscleGroup: string | null;
-  secondaryMuscleGroup: string | null;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
+  /** Sets already saved on this assignment. */
   sets: ClientLoggedSet[];
+  /** Latest earlier log for this block, or the same exercise when the block is new. */
+  previousSets: ClientLoggedSet[];
 };
 
 export type ClientWorkout = {
@@ -71,6 +85,8 @@ export type ClientDashboardReady = {
   greeting: string;
   firstName: string;
   dateLabel: string;
+  /** Profile-timezone date, YYYY-MM-DD. The calendar opens on this month. */
+  today: string;
   initials: string;
   clientId: string;
   /** Every active program: assigned by a trainer or built by the client. */
@@ -85,7 +101,7 @@ export type ClientDashboardReady = {
 
 export type ClientDashboardData =
   | ClientDashboardReady
-  | { kind: "unlinked"; greeting: string; firstName: string; dateLabel: string; initials: string }
+  | { kind: "unlinked"; greeting: string; firstName: string; dateLabel: string; today: string; initials: string }
   | { kind: "error"; message: string };
 
 const WEEKDAY_INDEX: Record<string, number> = {
@@ -192,6 +208,13 @@ export function isClientAssignmentStatus(value: string): value is ClientAssignme
   return (CLIENT_ASSIGNMENT_STATUSES as readonly string[]).includes(value);
 }
 
+export function workoutCompletionPercent(workout: { exercises: { sets: readonly unknown[] }[] }) {
+  const total = workout.exercises.length;
+  if (total === 0) return 0;
+  const logged = workout.exercises.filter((exercise) => exercise.sets.length > 0).length;
+  return Math.round((logged / total) * 100);
+}
+
 export function statusLabel(status: AssignmentStatus) {
   switch (status) {
     case "in_progress":
@@ -207,11 +230,22 @@ export function statusLabel(status: AssignmentStatus) {
   }
 }
 
-export function muscleGroupLabel(primary: string | null, secondary: string | null) {
-  if (primary && secondary) return `Primary: ${primary} · Secondary: ${secondary}`;
-  if (primary) return `Primary: ${primary}`;
-  if (secondary) return `Secondary: ${secondary}`;
-  return null;
+export function muscleGroupLabel(
+  primary: Muscle | null,
+  secondary: readonly Muscle[],
+  bodyParts: readonly BodyPart[] = [],
+) {
+  const secondaryLabel = secondary.map((muscle) => MUSCLE_LABELS[muscle]).join(", ");
+  const muscles = primary && secondaryLabel
+    ? `Primary: ${MUSCLE_LABELS[primary]} · Secondary: ${secondaryLabel}`
+    : primary
+      ? `Primary: ${MUSCLE_LABELS[primary]}`
+      : secondaryLabel
+        ? `Secondary: ${secondaryLabel}`
+        : null;
+  const parts = bodyParts.map((part) => BODY_PART_LABELS[part]).join(", ");
+  if (parts && muscles) return `${parts} · ${muscles}`;
+  return parts || muscles;
 }
 
 export function prescriptionDetail(
@@ -224,6 +258,7 @@ export function prescriptionDetail(
     durationSeconds?: number | null;
     distanceMeters?: number | null;
     heightCm?: number | null;
+    heartRateBpm?: number | null;
   },
 ) {
   const reps =
@@ -244,7 +279,8 @@ export function prescriptionDetail(
   const duration = extras?.durationSeconds != null ? `${extras.durationSeconds} sec` : null;
   const distance = extras?.distanceMeters != null ? `${metersToKmLabel(extras.distanceMeters)} km` : null;
   const height = extras?.heightCm != null ? `${extras.heightCm} cm` : null;
-  return [setLabel, load, reps, duration, distance, height].filter(Boolean).join(" · ") || null;
+  const heartRate = extras?.heartRateBpm != null ? `${extras.heartRateBpm} bpm` : null;
+  return [setLabel, load, reps, duration, distance, height, heartRate].filter(Boolean).join(" · ") || null;
 }
 
 function metersToKmLabel(meters: number) {

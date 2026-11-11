@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
+import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { HeaderLogoutButton, SidebarLogoutButton } from "@/components/logout-button";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
@@ -50,11 +51,14 @@ export function TrainerShell({
   overview,
   clients,
   programs,
+  today,
 }: {
   profile: { fullName: string; initials: string; dateLabel: string };
   overview: ReactNode;
   clients: ReactNode;
   programs: ReactNode;
+  /** Profile-timezone date, YYYY-MM-DD. */
+  today: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -74,6 +78,7 @@ export function TrainerShell({
       params.delete("program");
       params.delete("phase");
       params.delete("week");
+      params.delete("creating");
     } else {
       params.set("section", id);
       if (id !== "clients") params.delete("client");
@@ -81,6 +86,7 @@ export function TrainerShell({
         params.delete("program");
         params.delete("phase");
         params.delete("week");
+        params.delete("creating");
       }
     }
     const query = params.toString();
@@ -160,9 +166,8 @@ export function TrainerShell({
         {section === "clients" && clients}
         {section === "programs" && programs}
         {section === "settings" && <MyInfoForm />}
-        {section !== "dashboard" && section !== "clients" && section !== "programs" && section !== "settings" && (
-          <EmptySection title={sectionTitle[section]} />
-        )}
+        {section === "calendar" && <MonthCalendar today={today} endpoint="/api/calendar" showClientName />}
+        {section === "messages" && <EmptySection title={sectionTitle.messages} />}
       </section>
     </main>
   );

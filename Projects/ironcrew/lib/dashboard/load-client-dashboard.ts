@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import { databaseErrorMessage } from "@/lib/api/route-utils";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
+import { bodyPartsFromList, muscleFromField, musclesFromList } from "@/lib/exercises/muscle-group";
 import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
 import {
   type ClientDashboardData,
@@ -19,12 +21,116 @@ import {
   prescriptionDetail,
   resolveTimeZone,
 } from "@/lib/dashboard/client-week";
+import { previousSetsForBlock, type PriorResult } from "@/lib/dashboard/workout-prefill";
 
 type ProfileInput = {
   userId: string;
   fullName: string;
   timezone: string | null;
 };
+
+/** Sessions, logged sets, and the prescribed blocks for one assignment. */
+const WORKOUT_EXECUTION_COLUMNS = `
+  workout_sessions (
+    client_feedback,
+    exercise_results (
+      workout_block_id,
+      set_number,
+      repetitions,
+      load,
+      load_unit,
+      duration_seconds,
+      distance_meters,
+      height_cm,
+      heart_rate_bpm,
+      notes
+    )
+  ),
+  workouts (
+    name,
+    estimated_duration_minutes,
+    workout_blocks (
+      id,
+      exercise_id,
+      position,
+      title,
+      block_type,
+      prescribed_sets,
+      prescribed_reps_min,
+      prescribed_reps_max,
+      prescribed_load,
+      load_unit,
+      prescribed_duration_seconds,
+      prescribed_distance_meters,
+      prescribed_height_cm,
+      prescribed_heart_rate_bpm,
+      exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts )
+    )
+  )
+`;
+
+const ASSIGNMENT_COLUMNS = `
+  id,
+  scheduled_for,
+  status,
+  ${WORKOUT_SOURCE_COLUMNS},
+  ${WORKOUT_EXECUTION_COLUMNS}
+`;
+
+export type AssignmentDetail = {
+  scheduledFor: string;
+  clientName: string;
+  workout: ClientWorkout;
+};
+
+export type AssignmentDetailError = {
+  message: string;
+  status: number;
+};
+
+/**
+ * One assignment with its program, who assigned it, the session note, and logged sets.
+ * Row level security hides assignments the caller cannot see.
+ */
+export async function loadAssignmentDetail(
+  supabase: SupabaseClient,
+  assignmentId: string,
+): Promise<{ detail: AssignmentDetail } | { error: AssignmentDetailError }> {
+  const { data, error } = await supabase
+    .from("workout_assignments")
+    .select(
+      `
+      id,
+      client_id,
+      scheduled_for,
+      status,
+      ${WORKOUT_SOURCE_COLUMNS},
+      clients!workout_assignments_client_id_fkey ( first_name, last_name ),
+      ${WORKOUT_EXECUTION_COLUMNS}
+    `,
+    )
+    .eq("id", assignmentId)
+    .maybeSingle();
+
+  if (error) {
+    const status = /row-level security/i.test(error.message) ? 403 : 500;
+    return { error: { message: databaseErrorMessage(error), status } };
+  }
+  if (!data) return { error: { message: "Workout assignment not found", status: 404 } };
+
+  const record = asRecord(data);
+  const clientId = stringField(record, "client_id");
+  const scheduledFor = stringField(record, "scheduled_for");
+  if (!clientId || !scheduledFor) return { error: { message: "Workout assignment not found", status: 404 } };
+
+  const previousByBlock = await loadPreviousSets(supabase, clientId, [data]);
+  if (!previousByBlock.ok) return { error: { message: previousByBlock.message, status: 500 } };
+
+  const workout = normalizeWorkout(data, previousByBlock.sets);
+  if (!workout) return { error: { message: "Workout assignment not found", status: 404 } };
+
+  return { detail: { scheduledFor, clientName: clientNameFrom(record), workout } };
+}
 
 export async function loadClientDashboard(
   supabase: SupabaseClient,
@@ -38,6 +144,7 @@ export async function loadClientDashboard(
     greeting,
     firstName: fallbackName,
     dateLabel: formatLongDate(week.today),
+    today: week.today,
     initials: initialsFrom(profile.fullName),
   };
 
@@ -79,50 +186,7 @@ export async function loadClientDashboard(
 
   const [{ data: assignments, error: assignmentError }, { data: programAssignments, error: programError }] =
     await Promise.all([
-      supabase
-        .from("workout_assignments")
-        .select(
-          `
-          id,
-          scheduled_for,
-          status,
-          ${WORKOUT_SOURCE_COLUMNS},
-          workout_sessions (
-            client_feedback,
-            exercise_results (
-              workout_block_id,
-              set_number,
-              repetitions,
-              load,
-              load_unit,
-              duration_seconds,
-              distance_meters,
-              height_cm,
-              notes
-            )
-          ),
-          workouts (
-            name,
-            estimated_duration_minutes,
-            workout_blocks (
-              id,
-              exercise_id,
-              position,
-              title,
-              block_type,
-              prescribed_sets,
-              prescribed_reps_min,
-              prescribed_reps_max,
-              prescribed_load,
-              load_unit,
-              prescribed_duration_seconds,
-              prescribed_distance_meters,
-              prescribed_height_cm,
-              exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
-            )
-          )
-        `,
-        )
+      supabase.from("workout_assignments").select(ASSIGNMENT_COLUMNS)
         .eq("client_id", client.id)
         .gte("scheduled_for", week.start)
         .lte("scheduled_for", week.end)
@@ -138,9 +202,12 @@ export async function loadClientDashboard(
   if (assignmentError) return { kind: "error", message: assignmentError.message };
   if (programError) return { kind: "error", message: programError.message };
 
+  const previousByBlock = await loadPreviousSets(supabase, client.id, assignments ?? []);
+  if (!previousByBlock.ok) return { kind: "error", message: previousByBlock.message };
+
   const workoutsByDate = new Map<string, ClientWorkout[]>();
   for (const row of assignments ?? []) {
-    const workout = normalizeWorkout(row);
+    const workout = normalizeWorkout(row, previousByBlock.sets);
     if (!workout) continue;
     const date = stringField(row, "scheduled_for");
     if (!date) continue;
@@ -183,6 +250,7 @@ export async function loadClientDashboard(
     greeting,
     firstName,
     dateLabel: formatLongDate(week.today),
+    today: week.today,
     initials: shell.initials,
     clientId: client.id,
     activePrograms: activeProgramSummaries(programAssignments),
@@ -195,7 +263,126 @@ export async function loadClientDashboard(
   };
 }
 
-function normalizeWorkout(row: unknown): ClientWorkout | null {
+async function loadPreviousSets(
+  supabase: SupabaseClient,
+  clientId: string,
+  rows: unknown[],
+): Promise<{ ok: true; sets: Map<string, ClientLoggedSet[]> } | { ok: false; message: string }> {
+  const targets = assignmentTargets(rows);
+  if (targets.length === 0) return { ok: true, sets: new Map<string, ClientLoggedSet[]>() };
+
+  const blockIds = [...new Set(targets.map((target) => target.blockId))];
+  const exerciseIds = [...new Set(targets.flatMap((target) => (target.exerciseId ? [target.exerciseId] : [])))];
+  const latestDate = targets.reduce(
+    (latest, target) => (target.scheduledFor > latest ? target.scheduledFor : latest),
+    targets[0].scheduledFor,
+  );
+  const filter = [
+    blockIds.length > 0 ? `workout_block_id.in.(${blockIds.join(",")})` : null,
+    exerciseIds.length > 0 ? `exercise_id.in.(${exerciseIds.join(",")})` : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(",");
+
+  const { data, error } = await supabase
+    .from("exercise_results")
+    .select(
+      `
+      workout_block_id,
+      exercise_id,
+      set_number,
+      repetitions,
+      load,
+      load_unit,
+      duration_seconds,
+      distance_meters,
+      height_cm,
+      heart_rate_bpm,
+      notes,
+      created_at,
+      workout_sessions!inner (
+        started_at,
+        client_id,
+        workout_assignment_id,
+        workout_assignments!inner (
+          scheduled_for
+        )
+      )
+    `,
+    )
+    .eq("workout_sessions.client_id", clientId)
+    .lte("workout_sessions.workout_assignments.scheduled_for", latestDate)
+    .or(filter)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  if (error) return { ok: false, message: error.message || "Couldn't load previous workout logs" };
+
+  const results = priorResults(data);
+  const sets = new Map<string, ClientLoggedSet[]>();
+  for (const target of targets) {
+    sets.set(`${target.assignmentId}:${target.blockId}`, previousSetsForBlock(results, target));
+  }
+  return { ok: true, sets };
+}
+
+function assignmentTargets(rows: unknown[]) {
+  const targets: { assignmentId: string; scheduledFor: string; blockId: string; exerciseId: string | null }[] = [];
+  for (const row of rows) {
+    const record = asRecord(row);
+    const assignmentId = stringField(record, "id");
+    const scheduledFor = stringField(record, "scheduled_for");
+    if (!record || !assignmentId || !scheduledFor) continue;
+    const workout = asRecord(firstRelation(record.workouts));
+    for (const block of relationList(workout?.workout_blocks)) {
+      const blockRecord = asRecord(block);
+      const blockId = stringField(blockRecord, "id");
+      if (!blockRecord || !blockId) continue;
+      targets.push({
+        assignmentId,
+        scheduledFor,
+        blockId,
+        exerciseId: stringField(blockRecord, "exercise_id"),
+      });
+    }
+  }
+  return targets;
+}
+
+function priorResults(rows: unknown): PriorResult[] {
+  const results: PriorResult[] = [];
+  for (const row of relationList(rows)) {
+    const record = asRecord(row);
+    const session = asRecord(firstRelation(record?.workout_sessions));
+    const assignment = asRecord(firstRelation(session?.workout_assignments));
+    const assignmentId = stringField(session, "workout_assignment_id");
+    const scheduledFor = stringField(assignment, "scheduled_for");
+    const setNumber = positiveNumber(record?.set_number);
+    if (!record || !assignmentId || !scheduledFor || setNumber == null) continue;
+    results.push({
+      assignmentId,
+      scheduledFor,
+      startedAt: stringField(session, "started_at") ?? "",
+      createdAt: stringField(record, "created_at") ?? "",
+      blockId: stringField(record, "workout_block_id"),
+      exerciseId: stringField(record, "exercise_id"),
+      set: {
+        setNumber,
+        repetitions: nonNegativeNumber(record.repetitions),
+        load: nonNegativeNumber(record.load),
+        loadUnit: stringField(record, "load_unit"),
+        durationSeconds: nonNegativeNumber(record.duration_seconds),
+        distanceMeters: nonNegativeNumber(record.distance_meters),
+        heightCm: nonNegativeNumber(record.height_cm),
+        heartRateBpm: nonNegativeNumber(record.heart_rate_bpm),
+        notes: stringField(record, "notes"),
+      },
+    });
+  }
+  return results;
+}
+
+function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLoggedSet[]>): ClientWorkout | null {
   const record = asRecord(row);
   if (!record) return null;
 
@@ -221,7 +408,14 @@ function normalizeWorkout(row: unknown): ClientWorkout | null {
     status,
     sessionNote: stringField(session, "client_feedback"),
     exercises: blocks
-      .map((block) => normalizeExercise(block, setsByBlock.get(stringField(block, "id") ?? "") ?? []))
+      .map((block) => {
+        const blockId = stringField(block, "id") ?? "";
+        return normalizeExercise(
+          block,
+          setsByBlock.get(blockId) ?? [],
+          previousByBlock.get(`${id}:${blockId}`) ?? [],
+        );
+      })
       .filter((exercise): exercise is ClientExercise => exercise !== null),
   };
 }
@@ -242,6 +436,7 @@ function loggedSetsByBlock(value: unknown) {
       durationSeconds: nonNegativeNumber(record.duration_seconds),
       distanceMeters: nonNegativeNumber(record.distance_meters),
       heightCm: nonNegativeNumber(record.height_cm),
+      heartRateBpm: nonNegativeNumber(record.heart_rate_bpm),
       notes: stringField(record, "notes"),
     });
     setsByBlock.set(blockId, existing);
@@ -253,7 +448,11 @@ function loggedSetsByBlock(value: unknown) {
   return setsByBlock;
 }
 
-function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet[]): ClientExercise | null {
+function normalizeExercise(
+  block: Record<string, unknown>,
+  sets: ClientLoggedSet[],
+  previousSets: ClientLoggedSet[],
+): ClientExercise | null {
   const id = stringField(block, "id");
   if (!id) return null;
 
@@ -262,28 +461,40 @@ function normalizeExercise(block: Record<string, unknown>, sets: ClientLoggedSet
   if (!name) return null;
 
   const parameters = trackingParametersFor(exercise);
+  const repsMin = parameters.includes("reps") ? positiveNumber(block.prescribed_reps_min) : null;
+  const repsMax = parameters.includes("reps") ? positiveNumber(block.prescribed_reps_max) : null;
+  const load = parameters.includes("weight") ? nonNegativeNumber(block.prescribed_load) : null;
+  const durationSeconds = parameters.includes("time") ? nonNegativeNumber(block.prescribed_duration_seconds) : null;
+  const distanceMeters = parameters.includes("distance") ? nonNegativeNumber(block.prescribed_distance_meters) : null;
+  const heightCm = parameters.includes("height") ? nonNegativeNumber(block.prescribed_height_cm) : null;
+  const heartRateBpm = parameters.includes("heart_rate") ? nonNegativeNumber(block.prescribed_heart_rate_bpm) : null;
   return {
     id,
     exerciseId: stringField(block, "exercise_id"),
     name,
-    detail: prescriptionDetail(
-      positiveNumber(block.prescribed_sets),
-      parameters.includes("reps") ? positiveNumber(block.prescribed_reps_min) : null,
-      parameters.includes("reps") ? positiveNumber(block.prescribed_reps_max) : null,
-      {
-        load: parameters.includes("weight") ? nonNegativeNumber(block.prescribed_load) : null,
-        loadUnit: stringField(block, "load_unit"),
-        durationSeconds: parameters.includes("time") ? nonNegativeNumber(block.prescribed_duration_seconds) : null,
-        distanceMeters: parameters.includes("distance") ? nonNegativeNumber(block.prescribed_distance_meters) : null,
-        heightCm: parameters.includes("height") ? nonNegativeNumber(block.prescribed_height_cm) : null,
-      },
-    ),
+    detail: prescriptionDetail(positiveNumber(block.prescribed_sets), repsMin, repsMax, {
+      load,
+      loadUnit: stringField(block, "load_unit"),
+      durationSeconds,
+      distanceMeters,
+      heightCm,
+      heartRateBpm,
+    }),
     prescribedSets: positiveNumber(block.prescribed_sets),
+    repsMin,
+    repsMax,
+    load,
     loadUnit: stringField(block, "load_unit"),
+    durationSeconds,
+    distanceMeters,
+    heightCm,
+    heartRateBpm,
     trackingParameters: parameters,
-    primaryMuscleGroup: stringField(exercise, "primary_muscle_group"),
-    secondaryMuscleGroup: stringField(exercise, "secondary_muscle_group"),
+    primaryMuscleGroup: muscleFromField(exercise?.primary_muscle_group),
+    secondaryMuscleGroups: musclesFromList(exercise?.secondary_muscle_groups),
+    bodyParts: bodyPartsFromList(exercise?.body_parts),
     sets,
+    previousSets,
   };
 }
 
@@ -301,6 +512,12 @@ function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {
       const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
       return { name: stringField(program, "name") ?? "Program", source };
     });
+}
+
+function clientNameFrom(record: Record<string, unknown> | null) {
+  const client = asRecord(firstRelation(record?.clients));
+  const name = [stringField(client, "first_name"), stringField(client, "last_name")].filter(Boolean).join(" ");
+  return name || "Client";
 }
 
 function labelForBlock(blockType: string | null) {
