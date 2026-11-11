@@ -28,7 +28,8 @@ export async function POST(request: Request) {
       tracking_type: exercise.trackingType,
       tracking_parameters: exercise.trackingParameters,
       primary_muscle_group: exercise.primaryMuscleGroup,
-      secondary_muscle_group: exercise.secondaryMuscleGroup,
+      secondary_muscle_groups: exercise.secondaryMuscleGroups,
+      body_parts: exercise.bodyParts,
     })
     .select("id, name")
     .single();

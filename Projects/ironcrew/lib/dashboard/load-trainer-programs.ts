@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  bodyPartsFromList,
+  muscleFromField,
+  musclesFromList,
+  type BodyPart,
+  type Muscle,
+} from "@/lib/exercises/muscle-group";
 import { isTrackingType, parametersFor, type ExerciseTrackingType, type TrackingParameter } from "@/lib/exercises/tracking";
 
 export type WorkoutOption = {
@@ -16,8 +23,9 @@ export type ExerciseOption = {
   isSystem: boolean;
   trackingType: ExerciseTrackingType;
   trackingParameters: TrackingParameter[];
-  primaryMuscleGroup: string | null;
-  secondaryMuscleGroup: string | null;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
 };
 
 export function libraryItemLabel(name: string, isSystem: boolean) {
@@ -178,7 +186,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
         .or(visibleFilter),
       supabase
         .from("exercises")
-        .select("id, name, description, instructions, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group")
+        .select("id, name, description, instructions, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts")
         .or(visibleFilter),
     ]);
 
@@ -371,8 +379,9 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
     isSystem: isSystemRow(record),
     trackingType,
     trackingParameters: parametersFor(trackingType, record.tracking_parameters),
-    primaryMuscleGroup: stringField(record, "primary_muscle_group"),
-    secondaryMuscleGroup: stringField(record, "secondary_muscle_group"),
+    primaryMuscleGroup: muscleFromField(record.primary_muscle_group),
+    secondaryMuscleGroups: musclesFromList(record.secondary_muscle_groups),
+    bodyParts: bodyPartsFromList(record.body_parts),
   };
 }
 

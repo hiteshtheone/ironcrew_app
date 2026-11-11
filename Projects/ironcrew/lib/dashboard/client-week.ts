@@ -1,4 +1,5 @@
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
+import { BODY_PART_LABELS, MUSCLE_LABELS, type BodyPart, type Muscle } from "@/lib/exercises/muscle-group";
 import type { TrackingParameter } from "@/lib/exercises/tracking";
 
 export const ASSIGNMENT_STATUSES = [
@@ -48,8 +49,9 @@ export type ClientExercise = {
   heartRateBpm: number | null;
   /** Fields this block records. Blocks without an exercise keep the original set. */
   trackingParameters: TrackingParameter[];
-  primaryMuscleGroup: string | null;
-  secondaryMuscleGroup: string | null;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
   /** Sets already saved on this assignment. */
   sets: ClientLoggedSet[];
   /** Latest earlier log for this block, or the same exercise when the block is new. */
@@ -228,11 +230,22 @@ export function statusLabel(status: AssignmentStatus) {
   }
 }
 
-export function muscleGroupLabel(primary: string | null, secondary: string | null) {
-  if (primary && secondary) return `Primary: ${primary} · Secondary: ${secondary}`;
-  if (primary) return `Primary: ${primary}`;
-  if (secondary) return `Secondary: ${secondary}`;
-  return null;
+export function muscleGroupLabel(
+  primary: Muscle | null,
+  secondary: readonly Muscle[],
+  bodyParts: readonly BodyPart[] = [],
+) {
+  const secondaryLabel = secondary.map((muscle) => MUSCLE_LABELS[muscle]).join(", ");
+  const muscles = primary && secondaryLabel
+    ? `Primary: ${MUSCLE_LABELS[primary]} · Secondary: ${secondaryLabel}`
+    : primary
+      ? `Primary: ${MUSCLE_LABELS[primary]}`
+      : secondaryLabel
+        ? `Secondary: ${secondaryLabel}`
+        : null;
+  const parts = bodyParts.map((part) => BODY_PART_LABELS[part]).join(", ");
+  if (parts && muscles) return `${parts} · ${muscles}`;
+  return parts || muscles;
 }
 
 export function prescriptionDetail(

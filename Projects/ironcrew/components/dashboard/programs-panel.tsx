@@ -9,6 +9,7 @@ import { WorkoutEditor } from "@/components/dashboard/workout-editor";
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
+import { MUSCLE_LABELS } from "@/lib/exercises/muscle-group";
 import { TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
 import { GOAL_TYPE_LABELS, GOAL_TYPES, isGoalType, type GoalType } from "@/lib/plans/constants";
 
@@ -1184,7 +1185,7 @@ function NewProgramForm({
 
 function exerciseSummary(exercise: ExerciseOption) {
   const tracking = TRACKING_TYPE_LABELS[exercise.trackingType];
-  return exercise.primaryMuscleGroup ? `${tracking} · ${exercise.primaryMuscleGroup}` : tracking;
+  return exercise.primaryMuscleGroup ? `${tracking} · ${MUSCLE_LABELS[exercise.primaryMuscleGroup]}` : tracking;
 }
 
 async function postJson(url: string, body: unknown) {

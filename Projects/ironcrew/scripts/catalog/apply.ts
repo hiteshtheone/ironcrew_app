@@ -70,12 +70,13 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
          set name = $2,
              description = $3,
              instructions = $4,
-             primary_muscle_group = $5,
+             primary_muscle_group = $5::public.muscle,
              equipment = $6,
              video_url = $7,
-             secondary_muscle_group = $8,
-             tracking_type = coalesce($9::public.exercise_tracking_type, tracking_type),
-             tracking_parameters = coalesce($10::public.exercise_tracking_parameter[], tracking_parameters)
+             secondary_muscle_groups = $8::public.muscle[],
+             body_parts = $9::public.body_part[],
+             tracking_type = coalesce($10::public.exercise_tracking_type, tracking_type),
+             tracking_parameters = coalesce($11::public.exercise_tracking_parameter[], tracking_parameters)
          where id = $1`,
         [existing, ...exerciseValues(exercise)],
       );
@@ -86,20 +87,20 @@ export async function applyDocument(client: SqlClient, document: CatalogDocument
         exercise.id
           ? `insert into public.exercises (
                id, trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url,
-               secondary_muscle_group, tracking_type, tracking_parameters
+               secondary_muscle_groups, body_parts, tracking_type, tracking_parameters
              ) values (
-               $1, null, null, $2, $3, $4, $5, $6, $7, $8,
-               coalesce($9::public.exercise_tracking_type, 'custom'),
-               coalesce($10::public.exercise_tracking_parameter[], array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[])
+               $1, null, null, $2, $3, $4, $5::public.muscle, $6, $7, $8::public.muscle[], $9::public.body_part[],
+               coalesce($10::public.exercise_tracking_type, 'custom'),
+               coalesce($11::public.exercise_tracking_parameter[], array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[])
              )
              returning id`
           : `insert into public.exercises (
                trainer_id, owner_client_id, name, description, instructions, primary_muscle_group, equipment, video_url,
-               secondary_muscle_group, tracking_type, tracking_parameters
+               secondary_muscle_groups, body_parts, tracking_type, tracking_parameters
              ) values (
-               null, null, $1, $2, $3, $4, $5, $6, $7,
-               coalesce($8::public.exercise_tracking_type, 'custom'),
-               coalesce($9::public.exercise_tracking_parameter[], array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[])
+               null, null, $1, $2, $3, $4::public.muscle, $5, $6, $7::public.muscle[], $8::public.body_part[],
+               coalesce($9::public.exercise_tracking_type, 'custom'),
+               coalesce($10::public.exercise_tracking_parameter[], array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[])
              )
              returning id`,
         exercise.id ? [exercise.id, ...exerciseValues(exercise)] : exerciseValues(exercise),
@@ -328,10 +329,15 @@ function exerciseValues(exercise: CatalogExercise) {
     exercise.muscle,
     exercise.equipment,
     exercise.videoUrl,
-    exercise.secondaryMuscleGroup,
+    enumArray(exercise.secondaryMuscleGroups),
+    enumArray(exercise.bodyParts),
     exercise.trackingType,
     exercise.trackingParameters ? `{${exercise.trackingParameters.join(",")}}` : null,
   ];
+}
+
+function enumArray(values: readonly string[]) {
+  return `{${values.join(",")}}`;
 }
 
 function idOf(row: Record<string, unknown> | undefined) {

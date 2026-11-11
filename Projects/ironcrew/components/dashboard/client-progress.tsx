@@ -131,7 +131,7 @@ export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { 
                   empty="Nothing logged in these weeks."
                 />
               </ChartCard>
-              <ChartCard title="By body part" detail="Weight and reps logged in the selected week">
+              <ChartCard title="By body part" detail="60% of used weight is given to the primary muscle and 40% to the other secondary muscles combined. Weight is shown per rep.">
                 <BodyPartTotals parts={report.bodyParts} />
               </ChartCard>
               <ChartCard title="Max weight" detail="Heaviest single set for each body part this week">
@@ -272,7 +272,7 @@ function BodyPartTotals({ parts }: { parts: ProgressReport["bodyParts"] }) {
       {logged.map((part) => (
         <li key={part.name}>
           <p className="text-sm font-semibold">{part.name}</p>
-          <Meter className="mt-2" label="Weight" value={part.weightKg} max={maxWeight} color={WEIGHT} suffix="kg" />
+          <Meter className="mt-2" label="Weight per rep" value={part.weightKg} max={maxWeight} color={WEIGHT} suffix="kg" />
           <Meter className="mt-2" label="Reps" value={part.reps} max={maxReps} color={REPS} suffix="" />
         </li>
       ))}

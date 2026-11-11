@@ -14,6 +14,13 @@ create type public.exercise_tracking_type as enum (
 );
 create type public.exercise_tracking_parameter as enum ('time', 'reps', 'weight', 'distance', 'height', 'heart_rate');
 
+create type public.muscle as enum (
+  'abdominals', 'biceps', 'chest', 'forearms', 'lats', 'lower_back', 'neck', 'shoulders',
+  'traps', 'triceps', 'upper_back', 'abductors', 'adductors', 'calves', 'glutes',
+  'hamstrings', 'quadriceps', 'cardio', 'full_body', 'other'
+);
+create type public.body_part as enum ('upper_body', 'lower_body', 'full_body', 'core_and_midsections');
+
 create table public.exercises (
   id uuid primary key default gen_random_uuid(),
   trainer_id uuid,
@@ -21,10 +28,11 @@ create table public.exercises (
   name text not null check (char_length(trim(name)) between 1 and 160),
   description text,
   instructions text,
-  primary_muscle_group text,
+  primary_muscle_group public.muscle,
   equipment text,
   video_url text,
-  secondary_muscle_group text,
+  secondary_muscle_groups public.muscle[] not null default '{}',
+  body_parts public.body_part[] not null default '{}',
   tracking_type public.exercise_tracking_type not null default 'custom',
   tracking_parameters public.exercise_tracking_parameter[] not null
     default array['weight', 'reps', 'time', 'distance']::public.exercise_tracking_parameter[],
@@ -352,7 +360,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
       {
         name: "Bench Press",
         primary_muscle_group: "chest",
-        secondary_muscle_group: "triceps",
+        secondary_muscle_groups: ["triceps", "Shoulders"],
+        body_parts: ["Upper Body", "core_and_midsections"],
         tracking_type: "weight_reps",
         instructions: "Brace",
       },
@@ -408,7 +417,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
   await applyInTransaction(db, full, "full.yaml");
 
   const stored = await db.query<{
-    secondary_muscle_group: string;
+    secondary_muscle_groups: string[];
+    body_parts: string[];
     tracking_type: string;
     tracking_parameters: string[];
     is_template: boolean;
@@ -430,7 +440,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
     slot_notes: string;
   }>(`
     select
-      e.secondary_muscle_group,
+      e.secondary_muscle_groups::text[] as secondary_muscle_groups,
+      e.body_parts::text[] as body_parts,
       e.tracking_type::text as tracking_type,
       e.tracking_parameters::text[] as tracking_parameters,
       w.is_template,
@@ -460,7 +471,8 @@ test("apply stores every content column and keeps omitted tracking on update", a
   `);
   const row = stored.rows[0];
   assert.ok(row);
-  assert.equal(row.secondary_muscle_group, "triceps");
+  assert.deepEqual(row.secondary_muscle_groups, ["triceps", "shoulders"]);
+  assert.deepEqual(row.body_parts, ["upper_body", "core_and_midsections"]);
   assert.equal(row.tracking_type, "weight_reps");
   assert.deepEqual(row.tracking_parameters, ["weight", "reps"]);
   assert.equal(row.is_template, false);
@@ -486,11 +498,11 @@ test("apply stores every content column and keeps omitted tracking on update", a
     parseCatalog({ exercises: [{ name: "Bench Press", muscle: "chest", equipment: "dumbbell" }] }),
     "keep-tracking.yaml",
   );
-  const kept = await db.query<{ tracking_type: string; secondary_muscle_group: string | null }>(
-    `select tracking_type::text as tracking_type, secondary_muscle_group from public.exercises where name = 'Bench Press'`,
+  const kept = await db.query<{ tracking_type: string; secondary_muscle_groups: string[] }>(
+    `select tracking_type::text as tracking_type, secondary_muscle_groups::text[] as secondary_muscle_groups from public.exercises where name = 'Bench Press'`,
   );
   assert.equal(kept.rows[0]?.tracking_type, "weight_reps");
-  assert.equal(kept.rows[0]?.secondary_muscle_group, null);
+  assert.deepEqual(kept.rows[0]?.secondary_muscle_groups, []);
 });
 
 test("a private workout id cannot be placed on a catalog program", async () => {

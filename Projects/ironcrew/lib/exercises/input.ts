@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { asTrimmedString, databaseErrorMessage, isRecord, jsonError } from "@/lib/api/route-utils";
-import { muscleGroupsMatch } from "@/lib/exercises/muscle-group";
+import {
+  isBodyPart,
+  isMuscle,
+  type BodyPart,
+  type Muscle,
+} from "@/lib/exercises/muscle-group";
 import {
   isTrackingParameter,
   isTrackingType,
@@ -16,8 +21,9 @@ export type ExerciseWrite = {
   instructions: string | null;
   trackingType: ExerciseTrackingType;
   trackingParameters: TrackingParameter[];
-  primaryMuscleGroup: string | null;
-  secondaryMuscleGroup: string | null;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
 };
 
 /** Create accepts a name alone. Update requires the tracking type and a primary muscle group. */
@@ -39,11 +45,14 @@ export function parseExerciseWrite(
   const tracking = trackingParametersFrom(body.tracking_parameters, trackingType.value);
   if ("error" in tracking) return tracking;
 
-  const primaryMuscleGroup = parseMuscleGroup(body.primary_muscle_group, "primary_muscle_group", mode === "update");
+  const primaryMuscleGroup = parsePrimaryMuscle(body.primary_muscle_group, mode === "update");
   if ("error" in primaryMuscleGroup) return primaryMuscleGroup;
 
-  const secondaryMuscleGroup = parseMuscleGroup(body.secondary_muscle_group, "secondary_muscle_group", false);
-  if ("error" in secondaryMuscleGroup) return secondaryMuscleGroup;
+  const secondaryMuscleGroups = parseEnumList(body.secondary_muscle_groups, "secondary_muscle_groups", "muscles", isMuscle);
+  if ("error" in secondaryMuscleGroups) return secondaryMuscleGroups;
+
+  const bodyParts = parseEnumList(body.body_parts, "body_parts", "body parts", isBodyPart);
+  if ("error" in bodyParts) return bodyParts;
 
   const description = parseOptionalText(body.description, "description");
   if ("error" in description) return description;
@@ -51,11 +60,7 @@ export function parseExerciseWrite(
   const instructions = parseOptionalText(body.instructions, "instructions");
   if ("error" in instructions) return instructions;
 
-  if (
-    primaryMuscleGroup.value &&
-    secondaryMuscleGroup.value &&
-    muscleGroupsMatch(primaryMuscleGroup.value, secondaryMuscleGroup.value)
-  ) {
+  if (primaryMuscleGroup.value && secondaryMuscleGroups.value.includes(primaryMuscleGroup.value)) {
     return { error: jsonError("Secondary muscle group must be different from the primary muscle group", 400) };
   }
 
@@ -67,7 +72,8 @@ export function parseExerciseWrite(
       trackingType: trackingType.value,
       trackingParameters: tracking.parameters,
       primaryMuscleGroup: primaryMuscleGroup.value,
-      secondaryMuscleGroup: secondaryMuscleGroup.value,
+      secondaryMuscleGroups: secondaryMuscleGroups.value,
+      bodyParts: bodyParts.value,
     },
   };
 }
@@ -124,20 +130,35 @@ function parseOptionalText(
   return { value: text };
 }
 
-function parseMuscleGroup(
+function parsePrimaryMuscle(
   value: unknown,
-  field: "primary_muscle_group" | "secondary_muscle_group",
   required: boolean,
-): { error: NextResponse } | { value: string | null } {
-  if (value === undefined) {
+): { error: NextResponse } | { value: Muscle | null } {
+  if (value === undefined || value === null || value === "") {
     if (required) return { error: jsonError("A primary muscle group is required", 400) };
     return { value: null };
   }
-  const muscleGroup = asTrimmedString(value);
-  if (muscleGroup === undefined) return { error: jsonError(`${field} must be a string or null`, 400) };
-  if (required && muscleGroup == null) return { error: jsonError("A primary muscle group is required", 400) };
-  if (muscleGroup && muscleGroup.length > 80) {
-    return { error: jsonError(`${field} must be 80 characters or fewer`, 400) };
+  if (typeof value !== "string" || !isMuscle(value)) {
+    return { error: jsonError("primary_muscle_group must be a known muscle", 400) };
   }
-  return { value: muscleGroup };
+  return { value };
+}
+
+function parseEnumList<T extends string>(
+  value: unknown,
+  field: string,
+  noun: string,
+  isValue: (item: string) => item is T,
+): { error: NextResponse } | { value: T[] } {
+  if (value === undefined || value === null) return { value: [] };
+  if (!Array.isArray(value)) return { error: jsonError(`${field} must be a list of ${noun}`, 400) };
+  const parsed: T[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !isValue(item)) {
+      return { error: jsonError(`${field} must list known ${noun}`, 400) };
+    }
+    if (parsed.includes(item)) return { error: jsonError(`${field} cannot repeat a value`, 400) };
+    parsed.push(item);
+  }
+  return { value: parsed };
 }
