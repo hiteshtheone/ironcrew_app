@@ -33,6 +33,7 @@ class Exercise:
     muscle: str
     equipment: str
     tracking_type: str
+    parameter_list: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -264,11 +265,12 @@ def _exercises() -> tuple[Exercise, ...]:
     exercises = [
         Exercise(
             name="Easy Run",
-            description="Conversational run/walk used for the short runs in the beginner 10k plan.",
+            description="Conversational run/walk used for the short runs.",
             instructions="Keep a pace where you can speak in short sentences. Walk breaks are part of the session.",
             muscle="legs",
             equipment="none",
-            tracking_type="distance_time",
+            tracking_type="custom",
+            parameter_list=("distance", "time", "heart_rate"),
         ),
         Exercise(
             name="Long Run",
@@ -378,7 +380,7 @@ def _strength_workouts() -> tuple[Workout, ...]:
     }
     workouts = []
     for key, (name, minutes, blocks) in specs.items():
-        label = "Light leg and core session for taper week." if key.startswith("T") else "Short leg and core session for the beginner 10k plan."
+        label = "Light leg and core session for taper week." if key.startswith("T") else "Short leg and core session for the beginner running plan."
         workouts.append(
             Workout(
                 name=name,
@@ -533,7 +535,7 @@ def _strength_count(week: Week, workouts: dict[str, Workout]) -> int:
 
 def _upsert_exercise(connection: Connection, exercise: Exercise) -> str:
     existing = _shared_id(connection, "exercises", exercise.name, f"10k {exercise.name}")
-    parameters = _tracking_parameters(exercise.tracking_type)
+    parameters = _tracking_parameters(exercise.tracking_type, exercise.parameter_list)
     values = {
         "name": exercise.name,
         "description": exercise.description,
@@ -720,7 +722,11 @@ def _insert_returning(connection: Connection, statement: str, values: dict) -> s
     return str(row.id)
 
 
-def _tracking_parameters(tracking_type: str) -> str:
+def _tracking_parameters(tracking_type: str, parameter_list: tuple[str, ...] | None = None) -> str:
+    if parameter_list is not None:
+        if not parameter_list:
+            raise ValueError("tracking parameters must not be empty")
+        return "{" + ",".join(parameter_list) + "}"
     parameters = {
         "reps": "reps",
         "time": "time",
