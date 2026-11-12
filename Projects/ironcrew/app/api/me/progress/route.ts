@@ -9,6 +9,7 @@ import {
   type ProgressSet,
 } from "@/lib/dashboard/client-progress";
 import { addDays, currentWeek, formatWeekday, isAssignmentStatus } from "@/lib/dashboard/client-week";
+import { musclesFromList } from "@/lib/exercises/muscle-group";
 
 const PAGE_SIZE = 500;
 
@@ -58,7 +59,7 @@ async function loadAssignments(
             load,
             load_unit,
             distance_meters,
-            exercises ( name, equipment, primary_muscle_group )
+            exercises ( name, equipment, primary_muscle_group, secondary_muscle_groups )
           )
         )
       `,
@@ -100,6 +101,7 @@ function collectRow(row: unknown, assignments: ProgressAssignment[], sets: Progr
       exerciseName: stringField(exercise, "name"),
       equipment: stringField(exercise, "equipment"),
       muscleGroup: stringField(exercise, "primary_muscle_group"),
+      secondaryMuscleGroups: musclesFromList(exercise?.secondary_muscle_groups),
     });
   }
 }

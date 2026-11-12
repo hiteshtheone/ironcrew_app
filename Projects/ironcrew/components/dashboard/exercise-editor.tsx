@@ -4,7 +4,14 @@ import { FormEvent, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
-import { muscleGroupsMatch } from "@/lib/exercises/muscle-group";
+import {
+  BODY_PART_LABELS,
+  BODY_PARTS,
+  MUSCLE_LABELS,
+  MUSCLES,
+  type BodyPart,
+  type Muscle,
+} from "@/lib/exercises/muscle-group";
 import {
   isTrackingType,
   parametersFor,
@@ -25,8 +32,9 @@ type ExerciseSnapshot = {
   instructions: string;
   trackingType: ExerciseTrackingType;
   customParameters: TrackingParameter[];
-  primaryMuscleGroup: string;
-  secondaryMuscleGroup: string;
+  primaryMuscleGroup: Muscle | null;
+  secondaryMuscleGroups: Muscle[];
+  bodyParts: BodyPart[];
 };
 
 const blankExercise: ExerciseOption = {
@@ -38,7 +46,8 @@ const blankExercise: ExerciseOption = {
   trackingType: "weight_reps",
   trackingParameters: ["weight", "reps"],
   primaryMuscleGroup: null,
-  secondaryMuscleGroup: null,
+  secondaryMuscleGroups: [],
+  bodyParts: [],
 };
 
 export function ExerciseEditor({
@@ -73,12 +82,11 @@ export function ExerciseEditor({
   }
 
   const fieldsLocked = !editable;
-  const muscleGroupsConflict = muscleGroupsMatch(snapshot.primaryMuscleGroup, snapshot.secondaryMuscleGroup);
-  const missingPrimary = snapshot.primaryMuscleGroup.trim().length === 0;
+  const secondaryMuscleGroups = snapshot.secondaryMuscleGroups.filter((muscle) => muscle !== snapshot.primaryMuscleGroup);
+  const missingPrimary = snapshot.primaryMuscleGroup == null;
   const missingCustomParameters = snapshot.trackingType === "custom" && snapshot.customParameters.length === 0;
   const valid = snapshot.name.trim().length > 0
     && !missingCustomParameters
-    && !muscleGroupsConflict
     && (creating || !missingPrimary);
   const dirty = !valuesEqual(persistedExercise(snapshot), persistedExercise(baseline));
 
@@ -98,7 +106,8 @@ export function ExerciseEditor({
     tracking_type: saved.trackingType,
     tracking_parameters: saved.trackingParameters,
     primary_muscle_group: saved.primaryMuscleGroup,
-    secondary_muscle_group: saved.secondaryMuscleGroup || null,
+    secondary_muscle_groups: saved.secondaryMuscleGroups,
+    body_parts: saved.bodyParts,
   });
 
   const save = async (event: FormEvent) => {
@@ -111,7 +120,8 @@ export function ExerciseEditor({
       description: saved.description,
       instructions: saved.instructions,
       primaryMuscleGroup: saved.primaryMuscleGroup,
-      secondaryMuscleGroup: saved.secondaryMuscleGroup,
+      secondaryMuscleGroups: saved.secondaryMuscleGroups,
+      bodyParts: saved.bodyParts,
     };
     if (creating) {
       if (!onCreate) return;
@@ -176,28 +186,66 @@ export function ExerciseEditor({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm">
+        <label className="grid gap-1 text-sm sm:col-span-2">
           <span className="font-medium text-slate-600">Primary muscle group</span>
-          <input
-            maxLength={80}
+          <select
             disabled={fieldsLocked}
-            value={snapshot.primaryMuscleGroup}
-            onChange={(event) => update({ primaryMuscleGroup: event.target.value })}
-            placeholder="Chest"
+            value={snapshot.primaryMuscleGroup ?? ""}
+            onChange={(event) => {
+              const primaryMuscleGroup = MUSCLES.find((muscle) => muscle === event.target.value) ?? null;
+              update({
+                primaryMuscleGroup,
+                secondaryMuscleGroups: snapshot.secondaryMuscleGroups.filter((muscle) => muscle !== primaryMuscleGroup),
+              });
+            }}
             className={fieldClass}
-          />
+          >
+            <option value="">Select</option>
+            {MUSCLES.map((muscle) => (
+              <option key={muscle} value={muscle}>{MUSCLE_LABELS[muscle]}</option>
+            ))}
+          </select>
         </label>
-        <label className="grid gap-1 text-sm">
-          <span className="font-medium text-slate-600">Secondary muscle group</span>
-          <input
-            maxLength={80}
-            disabled={fieldsLocked}
-            value={snapshot.secondaryMuscleGroup}
-            onChange={(event) => update({ secondaryMuscleGroup: event.target.value })}
-            placeholder="Optional"
-            className={fieldClass}
-          />
-        </label>
+        <fieldset className="sm:col-span-2" disabled={fieldsLocked}>
+          <legend className="text-sm font-medium text-slate-600">Secondary muscle groups</legend>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            {MUSCLES.filter((muscle) => muscle !== snapshot.primaryMuscleGroup).map((muscle) => (
+              <label key={muscle} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={secondaryMuscleGroups.includes(muscle)}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...secondaryMuscleGroups, muscle]
+                      : secondaryMuscleGroups.filter((item) => item !== muscle);
+                    update({ secondaryMuscleGroups: next });
+                  }}
+                />
+                {MUSCLE_LABELS[muscle]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="sm:col-span-2" disabled={fieldsLocked}>
+          <legend className="text-sm font-medium text-slate-600">Body parts</legend>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            {BODY_PARTS.map((part) => (
+              <label key={part} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={snapshot.bodyParts.includes(part)}
+                  onChange={(event) => {
+                    const bodyParts = event.target.checked
+                      ? [...snapshot.bodyParts, part]
+                      : snapshot.bodyParts.filter((item) => item !== part);
+                    update({ bodyParts });
+                  }}
+                />
+                {BODY_PART_LABELS[part]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label className="grid gap-1 text-sm sm:col-span-2">
           <span className="font-medium text-slate-600">Description</span>
           <textarea
@@ -222,9 +270,6 @@ export function ExerciseEditor({
             className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </label>
-        {muscleGroupsConflict ? (
-          <p className="text-sm text-red-600 sm:col-span-2">Secondary muscle group must be different from the primary muscle group.</p>
-        ) : null}
         {!creating && editing && missingPrimary ? (
           <p className="text-sm text-slate-500 sm:col-span-2">A primary muscle group is required.</p>
         ) : null}
@@ -289,8 +334,9 @@ function exerciseSnapshot(exercise: ExerciseOption): ExerciseSnapshot {
     instructions: exercise.instructions ?? "",
     trackingType: exercise.trackingType,
     customParameters: exercise.trackingType === "custom" ? [...exercise.trackingParameters] : ["weight", "reps"],
-    primaryMuscleGroup: exercise.primaryMuscleGroup ?? "",
-    secondaryMuscleGroup: exercise.secondaryMuscleGroup ?? "",
+    primaryMuscleGroup: exercise.primaryMuscleGroup,
+    secondaryMuscleGroups: exercise.secondaryMuscleGroups.filter((muscle) => muscle !== exercise.primaryMuscleGroup),
+    bodyParts: [...exercise.bodyParts],
   };
 }
 
@@ -302,7 +348,8 @@ function persistedExercise(snapshot: ExerciseSnapshot) {
     trackingType: snapshot.trackingType,
     trackingParameters:
       snapshot.trackingType === "custom" ? snapshot.customParameters : parametersFor(snapshot.trackingType, null),
-    primaryMuscleGroup: snapshot.primaryMuscleGroup.trim(),
-    secondaryMuscleGroup: snapshot.secondaryMuscleGroup.trim(),
+    primaryMuscleGroup: snapshot.primaryMuscleGroup,
+    secondaryMuscleGroups: snapshot.secondaryMuscleGroups.filter((muscle) => muscle !== snapshot.primaryMuscleGroup),
+    bodyParts: snapshot.bodyParts,
   };
 }

@@ -35,7 +35,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       tracking_type: exercise.trackingType,
       tracking_parameters: exercise.trackingParameters,
       primary_muscle_group: exercise.primaryMuscleGroup,
-      secondary_muscle_group: exercise.secondaryMuscleGroup,
+      secondary_muscle_groups: exercise.secondaryMuscleGroups,
+      body_parts: exercise.bodyParts,
     })
     .eq("id", id)
     .select("id, name")

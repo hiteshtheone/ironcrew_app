@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { databaseErrorMessage } from "@/lib/api/route-utils";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
+import { bodyPartsFromList, muscleFromField, musclesFromList } from "@/lib/exercises/muscle-group";
 import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
 import {
   type ClientDashboardData,
@@ -63,7 +64,7 @@ const WORKOUT_EXECUTION_COLUMNS = `
       prescribed_distance_meters,
       prescribed_height_cm,
       prescribed_heart_rate_bpm,
-      exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_group )
+      exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts )
     )
   )
 `;
@@ -489,8 +490,9 @@ function normalizeExercise(
     heightCm,
     heartRateBpm,
     trackingParameters: parameters,
-    primaryMuscleGroup: stringField(exercise, "primary_muscle_group"),
-    secondaryMuscleGroup: stringField(exercise, "secondary_muscle_group"),
+    primaryMuscleGroup: muscleFromField(exercise?.primary_muscle_group),
+    secondaryMuscleGroups: musclesFromList(exercise?.secondary_muscle_groups),
+    bodyParts: bodyPartsFromList(exercise?.body_parts),
     sets,
     previousSets,
   };
