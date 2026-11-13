@@ -97,6 +97,10 @@ export type ClientDashboardReady = {
   scheduledCount: number;
   completedCount: number;
   remainingCount: number;
+  /** At least one goal that is not cancelled, set by the client or their trainer. */
+  hasGoal: boolean;
+  hasStartedProgram: boolean;
+  hasLoggedWorkout: boolean;
 };
 
 export type ClientDashboardData =

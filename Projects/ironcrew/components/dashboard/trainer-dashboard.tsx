@@ -9,11 +9,20 @@ import {
   Users,
 } from "lucide-react";
 
+import { GetStartedChecklist } from "@/components/dashboard/get-started-checklist";
 import { TodayWorkouts } from "@/components/dashboard/today-workouts";
 import { LogoutButton } from "@/components/logout-button";
 import type { TrainerDashboardReady } from "@/lib/dashboard/load-trainer-dashboard";
+import type { ChecklistItem } from "@/lib/onboarding/checklist";
 
-export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
+export function TrainerOverview({
+  data,
+  checklist = null,
+}: {
+  data: TrainerDashboardReady;
+  /** Null when the checklist is dismissed or finished. */
+  checklist?: ChecklistItem[] | null;
+}) {
   const weekDeltaUp = data.weekDeltaLabel.startsWith("+");
 
   return (
@@ -28,6 +37,8 @@ export function TrainerOverview({ data }: { data: TrainerDashboardReady }) {
           <Plus className="size-4" /> Add client
         </Link>
       </div>
+
+      {checklist ? <GetStartedChecklist items={checklist} /> : null}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Active clients" value={String(data.activeClients)} detail={data.newClientsLabel} icon={Users} tone="bg-violet-50 text-violet-600" />

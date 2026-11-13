@@ -9,6 +9,7 @@ import {
   readJson,
   requireUser,
 } from "@/lib/api/route-utils";
+import { isOnboardingStep } from "@/lib/onboarding/steps";
 
 type ProfileRow = {
   role: "client" | "trainer";
@@ -155,10 +156,67 @@ export async function PATCH(request: Request) {
   if (profileError) return jsonError(databaseErrorMessage(profileError), 500);
   if (!profile) return jsonError("No profile was found for this account", 404);
 
+  const progress = parsedOnboardingProgress(parsedBody.body);
+  if ("error" in progress) return jsonError(progress.error, 400);
+  const hasProgress = Object.keys(progress.changes).length > 0;
+
+  // Onboarding-only requests (no name fields) leave the profile details alone.
+  if (!("first_name" in parsedBody.body)) {
+    if (!hasProgress) return jsonError("Nothing to update", 400);
+    const progressError = await saveOnboardingProgress(auth, progress.changes);
+    return progressError ?? NextResponse.json({ ok: true });
+  }
+
   const account = profile as ProfileRow;
-  if (account.role === "client") return updateClient(auth, parsedBody.body);
-  if (account.role === "trainer") return updateTrainer(auth, parsedBody.body);
-  return jsonError("This account role cannot edit profile details", 400);
+  const response =
+    account.role === "client"
+      ? await updateClient(auth, parsedBody.body)
+      : account.role === "trainer"
+        ? await updateTrainer(auth, parsedBody.body)
+        : jsonError("This account role cannot edit profile details", 400);
+  if (!response.ok || !hasProgress) return response;
+
+  const progressError = await saveOnboardingProgress(auth, progress.changes);
+  return progressError ?? response;
+}
+
+async function saveOnboardingProgress(
+  auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
+  changes: OnboardingProgressChanges,
+) {
+  const { error } = await auth.supabase.from("profiles").update(changes).eq("id", auth.user.id);
+  if (error) return jsonError(databaseErrorMessage(error), writeStatus(error.message));
+  return null;
+}
+
+type OnboardingProgressChanges = {
+  onboarding_step?: string | null;
+  onboarding_completed_at?: string;
+  checklist_dismissed_at?: string;
+};
+
+function parsedOnboardingProgress(
+  input: Record<string, unknown>,
+): { error: string } | { changes: OnboardingProgressChanges } {
+  const changes: OnboardingProgressChanges = {};
+  const now = new Date().toISOString();
+
+  if ("onboarding_step" in input) {
+    const step = asTrimmedString(input.onboarding_step);
+    if (step === undefined || (step !== null && !isOnboardingStep(step))) {
+      return { error: "onboarding_step is not a recognized step" };
+    }
+    changes.onboarding_step = step;
+  }
+  if ("onboarding_completed" in input) {
+    if (input.onboarding_completed !== true) return { error: "onboarding_completed can only be true" };
+    changes.onboarding_completed_at = now;
+  }
+  if ("checklist_dismissed" in input) {
+    if (input.checklist_dismissed !== true) return { error: "checklist_dismissed can only be true" };
+    changes.checklist_dismissed_at = now;
+  }
+  return { changes };
 }
 
 async function loadClient(

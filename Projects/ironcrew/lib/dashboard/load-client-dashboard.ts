@@ -184,7 +184,13 @@ export async function loadClientDashboard(
 
   const firstName = client.first_name?.trim() || fallbackName;
 
-  const [{ data: assignments, error: assignmentError }, { data: programAssignments, error: programError }] =
+  const [
+    { data: assignments, error: assignmentError },
+    { data: programAssignments, error: programError },
+    { count: goalCount, error: goalError },
+    { count: programCount, error: programCountError },
+    { count: sessionCount, error: sessionError },
+  ] =
     await Promise.all([
       supabase.from("workout_assignments").select(ASSIGNMENT_COLUMNS)
         .eq("client_id", client.id)
@@ -197,10 +203,20 @@ export async function loadClientDashboard(
         .eq("client_id", client.id)
         .in("status", ["scheduled", "in_progress"])
         .order("starts_on", { ascending: false }),
+      supabase
+        .from("goals")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", client.id)
+        .neq("status", "cancelled"),
+      supabase.from("program_assignments").select("id", { count: "exact", head: true }).eq("client_id", client.id),
+      supabase.from("workout_sessions").select("id", { count: "exact", head: true }).eq("client_id", client.id),
     ]);
 
   if (assignmentError) return { kind: "error", message: assignmentError.message };
   if (programError) return { kind: "error", message: programError.message };
+  if (goalError) return { kind: "error", message: goalError.message };
+  if (programCountError) return { kind: "error", message: programCountError.message };
+  if (sessionError) return { kind: "error", message: sessionError.message };
 
   const previousByBlock = await loadPreviousSets(supabase, client.id, assignments ?? []);
   if (!previousByBlock.ok) return { kind: "error", message: previousByBlock.message };
@@ -260,6 +276,9 @@ export async function loadClientDashboard(
     scheduledCount: active.length,
     completedCount,
     remainingCount,
+    hasGoal: (goalCount ?? 0) > 0,
+    hasStartedProgram: (programCount ?? 0) > 0,
+    hasLoggedWorkout: (sessionCount ?? 0) > 0,
   };
 }
 

@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 
 import { ClientProgress } from "@/components/dashboard/client-progress";
+import { GetStartedChecklist } from "@/components/dashboard/get-started-checklist";
+import { GoalPendingBanner } from "@/components/dashboard/goal-pending-banner";
 import { ClientWorkouts } from "@/components/dashboard/client-workouts";
 import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProgramsPanel } from "@/components/dashboard/programs-panel";
@@ -38,6 +40,7 @@ import {
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { libraryItemLabel, type TrainerProgramsData, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
+import type { ChecklistItem } from "@/lib/onboarding/checklist";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
 const CLIENT_SECTIONS = ["dashboard", "workouts", "programs", "calendar", "progress", "settings"] as const;
@@ -62,10 +65,13 @@ const sectionTitle: Record<Exclude<ClientSection, "dashboard">, string> = {
 export function ClientDashboard({
   data,
   programs,
+  checklist = null,
 }: {
   data: ClientDashboardData;
   /** The client's own programs. Null when the client profile is not linked. */
   programs: TrainerProgramsData | null;
+  /** Null when the checklist is dismissed or finished. */
+  checklist?: ChecklistItem[] | null;
 }) {
   if (data.kind === "error") {
     return (
@@ -81,7 +87,7 @@ export function ClientDashboard({
     );
   }
 
-  return <ClientShell data={data} programs={programs} />;
+  return <ClientShell data={data} programs={programs} checklist={checklist} />;
 }
 
 function getInitials(fullName: string) {
@@ -100,9 +106,11 @@ function isClientSection(value: string | null): value is ClientSection {
 function ClientShell({
   data,
   programs,
+  checklist,
 }: {
   data: Exclude<ClientDashboardData, { kind: "error" }>;
   programs: TrainerProgramsData | null;
+  checklist: ChecklistItem[] | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -187,8 +195,14 @@ function ClientShell({
           </div>
         </header>
 
+        {data.kind === "ready" && !data.hasGoal ? <GoalPendingBanner /> : null}
+
         {section === "dashboard" ? (
-          <ClientWeek data={data} workouts={programs?.kind === "ready" ? programs.workouts : []} />
+          <ClientWeek
+            data={data}
+            workouts={programs?.kind === "ready" ? programs.workouts : []}
+            checklist={checklist}
+          />
         ) : section === "settings" ? (
           <MyInfoForm />
         ) : section === "workouts" ? (
@@ -218,9 +232,11 @@ function ClientShell({
 function ClientWeek({
   data,
   workouts,
+  checklist,
 }: {
   data: Exclude<ClientDashboardData, { kind: "error" }>;
   workouts: WorkoutOption[];
+  checklist: ChecklistItem[] | null;
 }) {
   const router = useRouter();
   const today = data.kind === "ready" ? (data.days.find((day) => day.isToday)?.date ?? "") : "";
@@ -324,6 +340,7 @@ function ClientWeek({
         </section>
       ) : (
         <>
+          {checklist ? <GetStartedChecklist items={checklist} /> : null}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
             <Metric label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
