@@ -18,7 +18,6 @@ export type ClientChecklistFacts = {
   hasGoal: boolean;
   hasStartedProgram: boolean;
   hasLoggedWorkout: boolean;
-  timezone: string | null;
 };
 
 export function trainerChecklist(facts: TrainerChecklistFacts): ChecklistItem[] {
@@ -83,14 +82,6 @@ export function clientChecklist(facts: ClientChecklistFacts): ChecklistItem[] {
       detail: "Record sets from a scheduled workout.",
       done: facts.hasLoggedWorkout,
       href: "/dashboard?section=workouts",
-    },
-    {
-      id: "timezone",
-      label: "Confirm your timezone",
-      detail: "So 'today' matches your day.",
-      // UTC is the database default, so it most likely was never chosen.
-      done: Boolean(facts.timezone) && facts.timezone !== "UTC",
-      href: "/dashboard?section=settings",
     },
   ];
 }

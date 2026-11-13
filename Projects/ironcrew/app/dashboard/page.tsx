@@ -88,7 +88,6 @@ async function AuthenticatedDashboard() {
             hasGoal: dashboard.hasGoal,
             hasStartedProgram: dashboard.hasStartedProgram,
             hasLoggedWorkout: dashboard.hasLoggedWorkout,
-            timezone: activeProfile.timezone,
           })
         : [];
     const checklist = isChecklistVisible(items, activeProfile.checklist_dismissed_at) ? items : null;

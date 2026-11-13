@@ -45,16 +45,10 @@ test("dismissing hides the checklist even with open items", () => {
 });
 
 test("a client goal is only done when a goal exists", () => {
-  const facts = { hasGoal: false, hasStartedProgram: true, hasLoggedWorkout: true, timezone: "Asia/Kolkata" };
+  const facts = { hasGoal: false, hasStartedProgram: true, hasLoggedWorkout: true };
   const open = clientChecklist(facts).filter((item) => !item.done).map((item) => item.id);
   assert.deepEqual(open, ["goal"]);
   assert.equal(clientChecklist({ ...facts, hasGoal: true }).every((item) => item.done), true);
-});
-
-test("the UTC default does not count as a confirmed timezone", () => {
-  const facts = { hasGoal: true, hasStartedProgram: true, hasLoggedWorkout: true };
-  assert.equal(clientChecklist({ ...facts, timezone: "UTC" }).find((item) => item.id === "timezone")?.done, false);
-  assert.equal(clientChecklist({ ...facts, timezone: null }).find((item) => item.id === "timezone")?.done, false);
 });
 
 test("programs matching the goal are suggested first", () => {
