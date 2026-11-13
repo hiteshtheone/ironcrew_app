@@ -167,8 +167,8 @@ export function WorkoutEditor({
             {creating
               ? "Enter a name here, then add blocks. The workout is saved when you create it."
               : selected?.isSystem
-                ? "This system workout is available to everyone. Duplicate it to make your own copy."
-                : "Edit sets, reps, and blocks. A duplicate can be changed on its own."}
+                ? "This system workout is available to everyone. Duplicate it to copy the sets and reps. The exercises stay the same."
+                : "Edit sets, reps, and blocks. A duplicate uses the same exercises, and its sets and reps are separate."}
           </p>
         </div>
         {creating ? null : (

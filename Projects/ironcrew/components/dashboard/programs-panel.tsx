@@ -247,7 +247,7 @@ export function ProgramsPanel({
     void run("duplicate-program", async () => {
       const payload = await postJson(`/api/programs/${selected.id}/duplicate`, {});
       if (typeof payload.id === "string") openProgram(payload.id);
-      setNotice("Program duplicated. This copy can be edited on its own.");
+      setNotice("Program duplicated. It uses the same workouts.");
     });
   };
 
@@ -622,7 +622,7 @@ export function ProgramsPanel({
                 void run("duplicate-workout", async () => {
                   const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
                   if (typeof payload.id === "string") openWorkout(payload.id);
-                  setNotice("Workout duplicated. This copy can be edited on its own.");
+                  setNotice("Workout duplicated. It uses the same exercises. Sets and reps on this copy are separate.");
                 });
               }}
               onSave={(workoutId, body) => run("save-workout", async () => {
@@ -679,7 +679,7 @@ export function ProgramsPanel({
                   />
                 </label>
                 {selected.isSystem ? (
-                  <p className="text-sm text-slate-500">This system program is available to everyone. Duplicate it to make your own copy.</p>
+                  <p className="text-sm text-slate-500">This system program is available to everyone. Duplicate it to copy the schedule. The workouts stay the same.</p>
                 ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <EditSaveActions
