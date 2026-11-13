@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { FirstClientStep } from "@/components/onboarding/first-client-step";
@@ -29,7 +28,6 @@ export function OnboardingWizard({ context }: { context: OnboardingContext }) {
 
 /** Step navigation shared by every flow. The saved step lets a return visit resume. */
 function useWizard(flow: OnboardingFlow, initialStep: OnboardingStep) {
-  const router = useRouter();
   const steps = stepsFor(flow);
   const [step, setStep] = useState<OnboardingStep>(initialStep);
   const [finishing, setFinishing] = useState(false);
@@ -50,8 +48,11 @@ function useWizard(flow: OnboardingFlow, initialStep: OnboardingStep) {
       setFinishing(false);
       return;
     }
-    router.replace(destination);
-    router.refresh();
+    // A full navigation. The client router caches the first visit to /dashboard,
+    // which redirected here before onboarding was finished. Reusing that cache
+    // sends the user back through /onboarding, whose redirect to /dashboard
+    // drops the ?section= and ?creating= query.
+    window.location.replace(destination);
   };
 
   return {
