@@ -11,7 +11,11 @@ import { loadClientDashboard } from "@/lib/dashboard/load-client-dashboard";
 import { loadClientList } from "@/lib/dashboard/load-client-list";
 import { loadTrainerDashboard } from "@/lib/dashboard/load-trainer-dashboard";
 import { loadClientPrograms, loadTrainerPrograms } from "@/lib/dashboard/load-trainer-programs";
+import { clientChecklist, isChecklistVisible, trainerChecklist } from "@/lib/onboarding/checklist";
+import { loadTrainerChecklistFacts } from "@/lib/onboarding/load-checklist";
 import { createClient } from "@/lib/supabase/server";
+
+const PROFILE_COLUMNS = "role, full_name, timezone, onboarding_completed_at, checklist_dismissed_at";
 
 export default function DashboardPage() {
   return (
@@ -30,7 +34,7 @@ async function AuthenticatedDashboard() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("role, full_name, timezone")
+    .select(PROFILE_COLUMNS)
     .eq("id", userId)
     .maybeSingle();
 
@@ -55,7 +59,7 @@ async function AuthenticatedDashboard() {
 
     const reloaded = await supabase
       .from("profiles")
-      .select("role, full_name, timezone")
+      .select(PROFILE_COLUMNS)
       .eq("id", userId)
       .maybeSingle();
 
@@ -66,6 +70,9 @@ async function AuthenticatedDashboard() {
     activeProfile = reloaded.data;
   }
 
+  // Invited clients are claimed above with a fresh profile, so they also land here.
+  if (!activeProfile.onboarding_completed_at) redirect("/onboarding");
+
   if (activeProfile.role === "client") {
     const dashboard = await loadClientDashboard(supabase, {
       userId,
@@ -75,7 +82,17 @@ async function AuthenticatedDashboard() {
     // Clients build their own programs; trainer-assigned ones are not loaded here.
     const programs =
       dashboard.kind === "ready" ? await loadClientPrograms(supabase, dashboard.clientId) : null;
-    return <ClientDashboard data={dashboard} programs={programs} />;
+    const items =
+      dashboard.kind === "ready"
+        ? clientChecklist({
+            hasGoal: dashboard.hasGoal,
+            hasStartedProgram: dashboard.hasStartedProgram,
+            hasLoggedWorkout: dashboard.hasLoggedWorkout,
+            timezone: activeProfile.timezone,
+          })
+        : [];
+    const checklist = isChecklistVisible(items, activeProfile.checklist_dismissed_at) ? items : null;
+    return <ClientDashboard data={dashboard} programs={programs} checklist={checklist} />;
   }
 
   const profileInput = {
@@ -83,11 +100,14 @@ async function AuthenticatedDashboard() {
     fullName: activeProfile.full_name,
     timezone: activeProfile.timezone,
   };
-  const [dashboard, clientList, planning] = await Promise.all([
+  const [dashboard, clientList, planning, checklistFacts] = await Promise.all([
     loadTrainerDashboard(supabase, profileInput),
     loadClientList(supabase, profileInput),
     loadTrainerPrograms(supabase, userId),
+    activeProfile.checklist_dismissed_at ? null : loadTrainerChecklistFacts(supabase, userId),
   ]);
+  const checklistItems = checklistFacts ? trainerChecklist(checklistFacts) : [];
+  const checklist = isChecklistVisible(checklistItems, activeProfile.checklist_dismissed_at) ? checklistItems : null;
 
   if (dashboard.kind === "error") {
     return <TrainerLoadError message={dashboard.message} />;
@@ -106,7 +126,7 @@ async function AuthenticatedDashboard() {
         dateLabel: dashboard.dateLabel,
       }}
       today={dashboard.today}
-      overview={<TrainerOverview data={dashboard} />}
+      overview={<TrainerOverview data={dashboard} checklist={checklist} />}
       clients={<ClientListPanel data={clientList} programs={programs} workouts={workouts} />}
       programs={
         <ProgramsPanel
