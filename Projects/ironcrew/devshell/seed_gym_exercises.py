@@ -53,6 +53,8 @@ TRACKING_PARAMETERS = {
     "reps": ("reps",),
     "weight_reps": ("weight", "reps"),
     "distance_time": ("distance", "time"),
+    "distance_weight": ("distance", "weight"),
+    "reps_height": ("reps", "height"),
 }
 
 
@@ -120,12 +122,18 @@ def build_exercises() -> tuple[Exercise, ...]:
         Exercise("Cycling", "Low-impact pedalling exercise for cardiovascular endurance.", "Adjust the seat, pedal smoothly at a sustainable cadence, and increase resistance without rocking your hips.", "cardio", "stationary bike", "distance_time", ("quadriceps", "glutes", "hamstrings", "calves"), ("lower_body",)),
         Exercise("Jumping Jack", "Rhythmic full-body movement that elevates heart rate.", "Jump your feet outward while raising your arms overhead, then return both to the starting position and repeat.", "cardio", "bodyweight", reps, ("full_body", "shoulders", "calves"), ("full_body",)),
         Exercise("Rowing", "Full-body cardiovascular exercise performed on a rowing machine.", "Drive with your legs, lean back slightly, pull the handle toward your lower ribs, then return arms, torso, and legs in sequence.", "cardio", "rowing machine", "distance_time", ("upper_back", "lats", "quadriceps", "hamstrings", "biceps"), ("full_body",)),
+        Exercise("Dead Bug", "Supine core exercise reaching the opposite arm and leg.", "Lie on your back, press your lower back gently down, and reach the opposite arm and leg. Each rep is one side.", "abdominals", "bodyweight", reps, (), ("core_and_midsections",)),
+        Exercise("Farmer Carry", "Loaded walk with a weight in each hand.", "Walk tall with a kettlebell or dumbbell in each hand. Keep your shoulders packed and your steps even.", "forearms", "kettlebell", "distance_weight", ("quadriceps",), ("full_body",)),
+        Exercise("Sled Push", "Leg-drive push of a loaded sled.", "Drive the sled with your legs for the distance on the workout. Use a load you can move without stopping.", "quadriceps", "sled", "distance_weight", ("glutes",), ("lower_body",)),
+        Exercise("Sled Pull", "Rope pull of a loaded sled toward you.", "Pull the sled in with the rope. Start lighter than the load you use to push.", "lats", "sled", "distance_weight", ("biceps",), ("upper_body",)),
+        Exercise("Box Jump", "Jump onto a box, stand tall, and step down.", "Jump up, stand fully, and step down. Use a lower box or a step-up if the landing is sloppy.", "quadriceps", "box", "reps_height", ("calves",), ("lower_body",)),
+        Exercise("Wall Ball", "Squat and throw a medicine ball to a high target.", "Squat until your hips pass your knees, then throw the ball to the target in one motion.", "quadriceps", "medicine ball", strength, ("shoulders",), ("full_body",)),
     )
 
 
 def validate_exercises(exercises: Sequence[Exercise]) -> None:
-    if len(exercises) != 44:
-        raise ValueError(f"expected 44 exercises, got {len(exercises)}")
+    if len(exercises) != 50:
+        raise ValueError(f"expected 50 exercises, got {len(exercises)}")
     names = [exercise.name for exercise in exercises]
     if len(names) != len(set(names)):
         raise ValueError("exercise names must be unique")
@@ -193,7 +201,7 @@ def seed_exercises(connection: Connection, exercises: Sequence[Exercise]) -> int
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Seed 44 shared gym exercises.")
+    parser = argparse.ArgumentParser(description="Seed the shared gym exercises.")
     parser.add_argument(
         "--dry-run",
         action="store_true",

@@ -1,5 +1,6 @@
 from create_beginner_10k import build_plan as build_beginner_10k
-from create_yoddha import RESERVED_EXERCISE_NAMES, build_plan
+from create_yoddha import build_plan
+from seed_gym_exercises import build_exercises
 
 
 def test_yoddha_matches_the_five_week_brief():
@@ -11,7 +12,13 @@ def test_yoddha_matches_the_five_week_brief():
     assert plan.estimated_duration_weeks == 5
     assert [phase.name for phase in plan.phases] == ["Base", "Race-specific", "Taper"]
     assert [len(phase.weeks) for phase in plan.phases] == [2, 2, 1]
-    assert {exercise.name for exercise in plan.exercises}.isdisjoint(RESERVED_EXERCISE_NAMES)
+    used = {
+        block.exercise
+        for workout in plan.workouts
+        for block in workout.blocks
+        if block.exercise is not None
+    }
+    assert used <= {exercise.name for exercise in build_exercises()}
 
     assert [session.workout for session in weeks[0].sessions] == [
         "Yoddha Strength Week 1",
@@ -46,23 +53,23 @@ def test_yoddha_matches_the_five_week_brief():
     ]
     assert [session.day for session in weeks[4].sessions] == [1, 2, 4, 6, 7]
 
-    assert _duration(workouts["Yoddha Easy Run 25 min"], "Conversational Run") == 25 * 60
-    assert _duration(workouts["Yoddha Easy Run 30 min"], "Conversational Run") == 30 * 60
-    assert _distance(workouts["Yoddha Station Practice 1"], "Easy Row") == 500
-    assert _distance(workouts["Yoddha Station Practice 2"], "Easy Row") == 750
+    assert _duration(workouts["Yoddha Easy Run 25 min"], "Treadmill") == 25 * 60
+    assert _duration(workouts["Yoddha Easy Run 30 min"], "Treadmill") == 30 * 60
+    assert _distance(workouts["Yoddha Station Practice 1"], "Rowing") == 500
+    assert _distance(workouts["Yoddha Station Practice 2"], "Rowing") == 750
     assert _distance(workouts["Yoddha Station Practice 1"], "Sled Push") == 15
     assert _distance(workouts["Yoddha Station Practice 2"], "Sled Push") == 20
-    assert _reps(workouts["Yoddha Strength Week 1"], "Goblet Squat") == (3, 8)
-    assert _reps(workouts["Yoddha Strength Week 2"], "Goblet Squat") == (3, 10)
-    assert _reps(workouts["Yoddha Strength Week 3"], "Goblet Squat") == (3, 6)
-    assert _reps(workouts["Yoddha Strength Week 4"], "Goblet Squat") == (2, 6)
-    assert _reps(workouts["Yoddha Taper Strength"], "Goblet Squat") == (2, 5)
+    assert _reps(workouts["Yoddha Strength Week 1"], "Squat") == (3, 8)
+    assert _reps(workouts["Yoddha Strength Week 2"], "Squat") == (3, 10)
+    assert _reps(workouts["Yoddha Strength Week 3"], "Squat") == (3, 6)
+    assert _reps(workouts["Yoddha Strength Week 4"], "Squat") == (2, 6)
+    assert _reps(workouts["Yoddha Taper Strength"], "Squat") == (2, 5)
 
-    repeats = _blocks(workouts["Yoddha 700 m Repeats"], "Steady Run")
+    repeats = _blocks(workouts["Yoddha 700 m Repeats"], "Treadmill")
     assert [(block.sets, block.distance_meters, block.rest_seconds) for block in repeats] == [(4, 700, 120)]
     compromised = workouts["Yoddha Compromised Rounds"]
     assert compromised.description.startswith("Hard.")
-    assert [block.distance_meters for block in _blocks(compromised, "Steady Run")] == [400, 400, 400]
+    assert [block.distance_meters for block in _blocks(compromised, "Treadmill")] == [400, 400, 400]
     assert _blocks(compromised, "Sled Pull")[0].rest_seconds == 180
 
     simulation = workouts["Yoddha Simulation"]
@@ -73,16 +80,16 @@ def test_yoddha_matches_the_five_week_brief():
         for block in simulation.blocks
         if block.block_type == "exercise"
     ] == [
-        ("Steady Run", 700),
-        ("Easy Row", 500),
-        ("Steady Run", 700),
+        ("Treadmill", 700),
+        ("Rowing", 500),
+        ("Treadmill", 700),
         ("Sled Push", 30),
-        ("Steady Run", 700),
+        ("Treadmill", 700),
         ("Sled Pull", 30),
-        ("Steady Run", 700),
-        ("Kettlebell Farmer Carry", 100),
+        ("Treadmill", 700),
+        ("Farmer Carry", 100),
     ]
-    assert _blocks(workouts["Yoddha 500 m Repeats"], "Steady Run")[0].sets == 5
+    assert _blocks(workouts["Yoddha 500 m Repeats"], "Treadmill")[0].sets == 5
     assert _reps(workouts["Yoddha Run and Stations 1"], "Wall Ball") == (3, 10)
     assert _blocks(workouts["Yoddha Run and Stations 1"], "Wall Ball")[0].load == 6
     assert _blocks(workouts["Yoddha Run and Stations 1"], "Box Jump")[0].height_cm == 60
@@ -106,12 +113,11 @@ def test_yoddha_matches_the_five_week_brief():
     assert "skip it if you are not racing" in weeks[4].notes
 
 
-def test_yoddha_names_do_not_replace_beginner_10k_rows():
+def test_yoddha_workouts_do_not_replace_beginner_10k_rows():
     yoddha = build_plan()
     beginner = build_beginner_10k()
 
     assert yoddha.name != beginner.name
-    assert {exercise.name for exercise in yoddha.exercises}.isdisjoint(exercise.name for exercise in beginner.exercises)
     assert {workout.name for workout in yoddha.workouts}.isdisjoint(workout.name for workout in beginner.workouts)
 
 
