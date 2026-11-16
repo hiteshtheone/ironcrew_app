@@ -115,6 +115,7 @@ function ClientShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [navOpen, setNavOpen] = useState(false);
+  const [homeNonce, setHomeNonce] = useState(0);
   const brandName = data.kind === "ready" ? data.trainer_business_name : "Trainer";
 
   // The active section lives in the URL (`?section=workouts`) so views are deep-linkable.
@@ -123,6 +124,8 @@ function ClientShell({
 
   const openSection = (id: ClientSection) => {
     setNavOpen(false);
+    // Already on the dashboard: collapse the workout of the day without resetting the selected day.
+    if (id === "dashboard") setHomeNonce((current) => current + 1);
     if (id === section) return;
     // Leaving a section drops its params (e.g. workout filters) so they don't leak into other views.
     const params = stripWorkoutParams(new URLSearchParams(window.location.search));
@@ -202,6 +205,7 @@ function ClientShell({
             data={data}
             workouts={programs?.kind === "ready" ? programs.workouts : []}
             checklist={checklist}
+            homeNonce={homeNonce}
           />
         ) : section === "settings" ? (
           <MyInfoForm />
@@ -233,19 +237,24 @@ function ClientWeek({
   data,
   workouts,
   checklist,
+  homeNonce,
 }: {
   data: Exclude<ClientDashboardData, { kind: "error" }>;
   workouts: WorkoutOption[];
   checklist: ChecklistItem[] | null;
+  /** Bumps when Dashboard is opened again, which collapses the workout list. */
+  homeNonce: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const today = data.kind === "ready" ? (data.days.find((day) => day.isToday)?.date ?? "") : "";
   const [selectedDate, setSelectedDate] = useState(today);
   const [statusById, setStatusById] = useState<Record<string, AssignmentStatus>>({});
   const [pendingIds, setPendingIds] = useState<Record<string, true>>({});
   const [errorById, setErrorById] = useState<Record<string, string>>({});
-  const [collapsedIds, setCollapsedIds] = useState<Record<string, true>>({});
-  const [collapsedForDate, setCollapsedForDate] = useState(today);
+  const [expandedIds, setExpandedIds] = useState<Record<string, true>>({});
+  const [expandedForDate, setExpandedForDate] = useState(today);
+  const [seenHomeNonce, setSeenHomeNonce] = useState(homeNonce);
 
   const days =
     data.kind === "ready"
@@ -266,10 +275,15 @@ function ClientWeek({
   const completion = scheduledCount > 0 ? Math.round((completedCount / scheduledCount) * 100) : 0;
   const selectedDay = days.find((day) => day.date === selectedDate) ?? days.find((day) => day.isToday) ?? days[0];
   const selectedDateKey = selectedDay?.date ?? "";
-  if (selectedDateKey !== collapsedForDate) {
-    setCollapsedForDate(selectedDateKey);
-    setCollapsedIds({});
+  if (selectedDateKey !== expandedForDate || seenHomeNonce !== homeNonce) {
+    setExpandedForDate(selectedDateKey);
+    setSeenHomeNonce(homeNonce);
+    setExpandedIds({});
   }
+
+  const openView = (query: string) => {
+    window.history.pushState(null, "", `${pathname}?${query}`);
+  };
   const selectedWorkouts = (selectedDay?.workouts ?? []).filter((workout) => workout.status !== "cancelled");
   const nextWorkout = days
     .filter((day) => day.date > today)
@@ -342,10 +356,10 @@ function ClientWeek({
         <>
           {checklist ? <GetStartedChecklist items={checklist} /> : null}
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
-            <Metric label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
-            <Metric label="Remaining" value={String(remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
-            <Metric label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
+            <Metric href={`${pathname}?section=workouts&when=this_week`} onNavigate={() => openView("section=workouts&when=this_week")} label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
+            <Metric href={`${pathname}?section=workouts&when=this_week&status=finished`} onNavigate={() => openView("section=workouts&when=this_week&status=finished")} label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
+            <Metric href={`${pathname}?section=workouts&when=this_week&status=unfinished`} onNavigate={() => openView("section=workouts&when=this_week&status=unfinished")} label="Remaining" value={String(remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
+            <Metric href={`${pathname}?section=programs`} onNavigate={() => openView("section=programs")} label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
@@ -408,7 +422,7 @@ function ClientWeek({
             ) : (
               <div className="mt-5 space-y-4">
                 {selectedWorkouts.map((workout) => {
-                  const expanded = !collapsedIds[workout.id];
+                  const expanded = Boolean(expandedIds[workout.id]);
                   return (
                     <article key={workout.id} className="rounded-xl border border-slate-100 p-4">
                       <WorkoutCompletion workout={workout} />
@@ -417,7 +431,7 @@ function ClientWeek({
                           type="button"
                           aria-expanded={expanded}
                           onClick={() =>
-                            setCollapsedIds((current) => {
+                            setExpandedIds((current) => {
                               const next = { ...current };
                               if (next[workout.id]) delete next[workout.id];
                               else next[workout.id] = true;
@@ -689,6 +703,8 @@ function StatusBadge({ status }: { status: AssignmentStatus }) {
 }
 
 function Metric({
+  href,
+  onNavigate,
   label,
   value,
   detail,
@@ -696,6 +712,8 @@ function Metric({
   tone,
   compact = false,
 }: {
+  href: string;
+  onNavigate: () => void;
   label: string;
   value: string;
   detail: string;
@@ -704,7 +722,15 @@ function Metric({
   compact?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <a
+      href={href}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault();
+        onNavigate();
+      }}
+      className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
+    >
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-slate-500">{label}</p>
         <span className={`grid size-9 place-items-center rounded-xl ${tone}`}>
@@ -713,6 +739,6 @@ function Metric({
       </div>
       <p className={`mt-5 font-bold tracking-tight ${compact ? "truncate text-xl" : "text-3xl"}`}>{value}</p>
       <p className="mt-1 text-xs text-slate-500">{detail}</p>
-    </div>
+    </a>
   );
 }

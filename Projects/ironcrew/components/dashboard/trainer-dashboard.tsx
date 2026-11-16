@@ -41,10 +41,10 @@ export function TrainerOverview({
       {checklist ? <GetStartedChecklist items={checklist} /> : null}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Active clients" value={String(data.activeClients)} detail={data.newClientsLabel} icon={Users} tone="bg-violet-50 text-violet-600" />
-        <Metric label="Completed today" value={String(data.completedToday)} detail={data.completedTodayDetail} icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
-        <Metric label="Pending today" value={String(data.pendingToday)} detail={data.pendingTodayDetail} icon={Clock3} tone="bg-amber-50 text-amber-600" />
-        <Metric label="Average adherence" value={data.adherenceLabel} detail={data.adherenceDetail} icon={TrendingUp} tone="bg-orange-50 text-orange-600" />
+        <Metric href="/dashboard?section=clients" label="Active clients" value={String(data.activeClients)} detail={data.newClientsLabel} icon={Users} tone="bg-violet-50 text-violet-600" />
+        <Metric href="/dashboard?section=calendar" label="Completed today" value={String(data.completedToday)} detail={data.completedTodayDetail} icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
+        <Metric href="/dashboard?section=calendar" label="Pending today" value={String(data.pendingToday)} detail={data.pendingTodayDetail} icon={Clock3} tone="bg-amber-50 text-amber-600" />
+        <Metric href="/dashboard?section=clients" label="Average adherence" value={data.adherenceLabel} detail={data.adherenceDetail} icon={TrendingUp} tone="bg-orange-50 text-orange-600" />
       </div>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
@@ -148,12 +148,12 @@ function changeTone(change: string) {
   return "text-slate-500";
 }
 
-function Metric({ label, value, detail, icon: Icon, tone }: { label: string; value: string; detail: string; icon: React.ComponentType<{ className?: string }>; tone: string }) {
+function Metric({ href, label, value, detail, icon: Icon, tone }: { href: string; label: string; value: string; detail: string; icon: React.ComponentType<{ className?: string }>; tone: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <Link href={href} className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950">
       <div className="flex items-center justify-between"><p className="text-sm font-medium text-slate-500">{label}</p><span className={`grid size-9 place-items-center rounded-xl ${tone}`}><Icon className="size-[18px]" /></span></div>
       <p className="mt-5 text-3xl font-bold tracking-tight">{value}</p>
       <p className="mt-1 text-xs text-slate-500">{detail}</p>
-    </div>
+    </Link>
   );
 }
