@@ -6,6 +6,7 @@
     "start": "next start",
     "lint": "eslint .",
     "catalog": "tsx scripts/catalog.ts",
+    "purge-system": "tsx scripts/purge-system-catalog.ts",
     "shell": "PYTHONPATH=devshell python -m devshell"
   },
   "dependencies": {
