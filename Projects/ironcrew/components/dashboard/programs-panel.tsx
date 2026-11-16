@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
 import { ExerciseEditor } from "@/components/dashboard/exercise-editor";
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
-import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { DeactivateControl, DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 import { MUSCLE_LABELS } from "@/lib/exercises/muscle-group";
@@ -336,6 +336,26 @@ export function ProgramsPanel({
       setNotice(
         `Assigned to ${input.clientIds.length} client${input.clientIds.length === 1 ? "" : "s"}.`,
       );
+    });
+  };
+
+  const deactivateForClient = (clientId: string) => {
+    if (!selected) return;
+    void run(`deactivate-${clientId}`, async () => {
+      const response = await fetch(`/api/clients/${clientId}/programs/${selected.id}/deactivate`, { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to deactivate this program");
+      setNotice("Program deactivated. Upcoming workouts were removed from their calendar.");
+    });
+  };
+
+  const deactivateOwnProgram = () => {
+    if (!selected) return;
+    void run("deactivate-program", async () => {
+      const response = await fetch(`/api/me/programs/${selected.id}/deactivate`, { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to deactivate this program");
+      setNotice("Program deactivated. Upcoming workouts were removed from your calendar.");
     });
   };
 
@@ -704,7 +724,16 @@ export function ProgramsPanel({
 
               {isClient ? (
                 isActive ? (
-                  <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active.</p>
+                  <div className="space-y-3">
+                    <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active.</p>
+                    <DeactivateControl
+                      label="Deactivate program"
+                      detail="Deactivating removes upcoming workouts from your calendar. Completed and past sessions stay."
+                      pending={pending === "deactivate-program"}
+                      disabled={pending !== null && pending !== "deactivate-program"}
+                      onDeactivate={deactivateOwnProgram}
+                    />
+                  </div>
                 ) : (
                   <form onSubmit={startProgram} className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
@@ -735,7 +764,9 @@ export function ProgramsPanel({
                   clientsError={clientsError}
                   assignedIds={selected.assignedClients.map((client) => client.id)}
                   pending={pending === "assign-program"}
+                  deactivatingId={pending?.startsWith("deactivate-") ? pending.slice("deactivate-".length) : null}
                   onAssign={assignProgram}
+                  onDeactivate={deactivateForClient}
                 />
               )}
 
@@ -971,13 +1002,16 @@ function AssignProgramForm({
   clientsError = null,
   assignedIds,
   pending,
+  deactivatingId = null,
   onAssign,
+  onDeactivate,
 }: {
   programName: string;
   clients: AssignableClient[];
   clientsError?: string | null;
   assignedIds: string[];
   pending: boolean;
+  deactivatingId?: string | null;
   onAssign: (input: {
     clientIds: string[];
     startsOn: string;
@@ -985,6 +1019,7 @@ function AssignProgramForm({
     goalType: GoalType;
     confirmOverlap: boolean;
   }) => Promise<boolean>;
+  onDeactivate: (clientId: string) => void;
 }) {
   const assigned = new Set(assignedIds);
   const available = clients.filter((client) => !assigned.has(client.id));
@@ -1038,21 +1073,30 @@ function AssignProgramForm({
         <>
           <fieldset>
             <legend className="text-sm font-medium text-slate-600">Clients</legend>
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2 space-y-2">
               {clients.map((client) => {
                 const already = assigned.has(client.id);
+                const deactivating = deactivatingId === client.id;
                 return (
-                  <li key={client.id}>
+                  <li key={client.id} className="space-y-2">
                     <label className={`flex items-center gap-2 text-sm ${already ? "text-slate-500" : ""}`}>
                       <input
                         type="checkbox"
                         checked={already || picked.includes(client.id)}
-                        disabled={already || pending}
+                        disabled={already || pending || deactivatingId !== null}
                         onChange={(event) => toggle(client.id, event.target.checked)}
                       />
                       <span>{client.name}</span>
                       {already ? <span className="text-xs">Already assigned</span> : null}
                     </label>
+                    {already ? (
+                      <DeactivateControl
+                        detail={`Deactivate ${programName} for ${client.name}? Upcoming workouts from this program will be removed from their calendar. Completed and past sessions stay.`}
+                        pending={deactivating}
+                        disabled={pending || (deactivatingId !== null && !deactivating)}
+                        onDeactivate={() => onDeactivate(client.id)}
+                      />
+                    ) : null}
                   </li>
                 );
               })}
@@ -1107,7 +1151,7 @@ function AssignProgramForm({
               ) : null}
               <button
                 type="submit"
-                disabled={pending || picked.length === 0}
+                disabled={pending || deactivatingId !== null || picked.length === 0}
                 className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {pending ? "Assigning..." : confirming && overlapping.length > 0 ? "Assign anyway" : "Assign program"}

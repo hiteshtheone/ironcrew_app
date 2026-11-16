@@ -170,3 +170,43 @@ export function DeleteControl({
     </div>
   );
 }
+
+/** Two-step deactivate: the first click reveals the warning, the second click stops the program. */
+export function DeactivateControl({
+  detail,
+  pending = false,
+  disabled = false,
+  onDeactivate,
+  label = "Deactivate",
+  className = "flex flex-wrap items-center gap-2",
+}: {
+  detail: string;
+  pending?: boolean;
+  disabled?: boolean;
+  onDeactivate: () => void;
+  label?: string;
+  className?: string;
+}) {
+  const [armed, setArmed] = useState(false);
+  const busy = pending || disabled;
+
+  if (!armed) {
+    return (
+      <button type="button" onClick={() => setArmed(true)} disabled={busy} className={dashboardDeleteClass}>
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className}>
+      <p className="w-full text-sm text-slate-600">{detail}</p>
+      <button type="button" onClick={() => setArmed(false)} disabled={pending} className={dashboardEditClass}>
+        Keep active
+      </button>
+      <button type="button" onClick={onDeactivate} disabled={pending} className={dashboardConfirmClass}>
+        {pending ? "Deactivating..." : label}
+      </button>
+    </div>
+  );
+}

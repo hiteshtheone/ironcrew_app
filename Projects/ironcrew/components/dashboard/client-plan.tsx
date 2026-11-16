@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
 import { WorkoutsBrowser } from "@/components/dashboard/workouts/workouts-browser";
-import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { DeactivateControl, DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import type { ClientGoal } from "@/lib/dashboard/load-client-list";
 import { libraryItemLabel, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
@@ -205,6 +205,24 @@ export function ClientPlan({
       .finally(() => setPending(null));
   };
 
+  const deactivateProgram = () => {
+    if (!client.programId) return;
+    setPending("deactivate-program");
+    setError(null);
+    setNotice(null);
+    void fetch(`/api/clients/${client.id}/programs/${client.programId}/deactivate`, { method: "POST" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "Unable to deactivate this program");
+        setNotice("Program deactivated. Upcoming workouts were removed from their calendar.");
+        router.refresh();
+      })
+      .catch((caught: unknown) => {
+        setError(caught instanceof Error ? caught.message : "Unable to deactivate this program");
+      })
+      .finally(() => setPending(null));
+  };
+
   const deleteClient = () => {
     setPending("delete-client");
     setError(null);
@@ -275,9 +293,18 @@ export function ClientPlan({
               <dd className="font-semibold">{client.programStartsOn ?? "—"}</dd>
             </div>
           </dl>
-          <button type="button" onClick={openProgram} className="mt-5 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">
-            Edit phases and weeks
-          </button>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={openProgram} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">
+              Edit phases and weeks
+            </button>
+            <DeactivateControl
+              label="Deactivate program"
+              detail={`Deactivate ${client.programName ?? "this program"}? Upcoming workouts from it will be removed from their calendar. Completed and past sessions stay.`}
+              pending={pending === "deactivate-program"}
+              disabled={pending !== null && pending !== "deactivate-program"}
+              onDeactivate={deactivateProgram}
+            />
+          </div>
         </section>
       ) : null}
 
