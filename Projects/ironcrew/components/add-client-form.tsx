@@ -31,12 +31,19 @@ const emptyForm: FormState = {
   onboarding_notes: "",
 };
 
-export function AddClientForm() {
+/**
+ * With `onSaved`, the form is embedded (onboarding): it opens editable, hides
+ * status and notes, and hands control back instead of navigating.
+ */
+export function AddClientForm({ onSaved }: { onSaved?: () => void } = {}) {
   const router = useRouter();
+  const embedded = onSaved !== undefined;
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { editing, startEditing, stopEditing } = useEditMode("new-client");
+  const editMode = useEditMode("new-client");
+  const editing = embedded || editMode.editing;
+  const { startEditing, stopEditing } = editMode;
   const dirty = !valuesEqual(form, emptyForm);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -75,6 +82,10 @@ export function AddClientForm() {
         throw new Error(payload.error || "Unable to add client");
       }
 
+      if (onSaved) {
+        onSaved();
+        return;
+      }
       router.push("/dashboard");
       router.refresh();
     } catch (submitError: unknown) {
@@ -154,6 +165,8 @@ export function AddClientForm() {
             }
           />
         </div>
+        {!embedded && (
+        <>
         <div className="grid gap-2">
           <Label htmlFor="status">Status</Label>
           <select
@@ -187,10 +200,19 @@ export function AddClientForm() {
             className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </div>
+        </>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
+      {embedded ? (
+        <div className="flex justify-end">
+          <Button type="submit" disabled={!dirty || isLoading}>
+            {isLoading ? "Saving..." : "Save client"}
+          </Button>
+        </div>
+      ) : (
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button asChild type="button" variant="outline">
           <Link href="/dashboard">Cancel</Link>
@@ -205,6 +227,7 @@ export function AddClientForm() {
           onCancel={cancelEdit}
         />
       </div>
+      )}
     </form>
   );
 }

@@ -9,6 +9,7 @@ import {
   readJson,
   requireUser,
 } from "@/lib/api/route-utils";
+import { isOnboardingStep } from "@/lib/onboarding/steps";
 
 type ProfileRow = {
   role: "client" | "trainer";
@@ -20,11 +21,17 @@ type ClientRow = {
   id: string;
 };
 
-type GoalDetails = {
-  goal: string;
+type ClientGoal = {
+  id: string;
+  title: string;
   goal_type: string;
-  goal_status: string;
-}
+  status: string;
+  target_date: string | null;
+  /** "self" when the client created the goal. "coach" when a trainer did. */
+  set_by: "self" | "coach";
+  /** The coach's name when set_by is "coach" and the name is readable. */
+  coach_name: string | null;
+};
 
 type ClientAccount = {
   role: "client";
@@ -36,9 +43,7 @@ type ClientAccount = {
   date_of_birth: string | null;
   timezone: string;
   trainer_business_name: string | null;
-  goal: string | null;
-  goal_type: string | null;
-  goal_status: string | null;
+  goals: ClientGoal[];
 };
 
 type TrainerAccount = {
@@ -155,10 +160,67 @@ export async function PATCH(request: Request) {
   if (profileError) return jsonError(databaseErrorMessage(profileError), 500);
   if (!profile) return jsonError("No profile was found for this account", 404);
 
+  const progress = parsedOnboardingProgress(parsedBody.body);
+  if ("error" in progress) return jsonError(progress.error, 400);
+  const hasProgress = Object.keys(progress.changes).length > 0;
+
+  // Onboarding-only requests (no name fields) leave the profile details alone.
+  if (!("first_name" in parsedBody.body)) {
+    if (!hasProgress) return jsonError("Nothing to update", 400);
+    const progressError = await saveOnboardingProgress(auth, progress.changes);
+    return progressError ?? NextResponse.json({ ok: true });
+  }
+
   const account = profile as ProfileRow;
-  if (account.role === "client") return updateClient(auth, parsedBody.body);
-  if (account.role === "trainer") return updateTrainer(auth, parsedBody.body);
-  return jsonError("This account role cannot edit profile details", 400);
+  const response =
+    account.role === "client"
+      ? await updateClient(auth, parsedBody.body)
+      : account.role === "trainer"
+        ? await updateTrainer(auth, parsedBody.body)
+        : jsonError("This account role cannot edit profile details", 400);
+  if (!response.ok || !hasProgress) return response;
+
+  const progressError = await saveOnboardingProgress(auth, progress.changes);
+  return progressError ?? response;
+}
+
+async function saveOnboardingProgress(
+  auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
+  changes: OnboardingProgressChanges,
+) {
+  const { error } = await auth.supabase.from("profiles").update(changes).eq("id", auth.user.id);
+  if (error) return jsonError(databaseErrorMessage(error), writeStatus(error.message));
+  return null;
+}
+
+type OnboardingProgressChanges = {
+  onboarding_step?: string | null;
+  onboarding_completed_at?: string;
+  checklist_dismissed_at?: string;
+};
+
+function parsedOnboardingProgress(
+  input: Record<string, unknown>,
+): { error: string } | { changes: OnboardingProgressChanges } {
+  const changes: OnboardingProgressChanges = {};
+  const now = new Date().toISOString();
+
+  if ("onboarding_step" in input) {
+    const step = asTrimmedString(input.onboarding_step);
+    if (step === undefined || (step !== null && !isOnboardingStep(step))) {
+      return { error: "onboarding_step is not a recognized step" };
+    }
+    changes.onboarding_step = step;
+  }
+  if ("onboarding_completed" in input) {
+    if (input.onboarding_completed !== true) return { error: "onboarding_completed can only be true" };
+    changes.onboarding_completed_at = now;
+  }
+  if ("checklist_dismissed" in input) {
+    if (input.checklist_dismissed !== true) return { error: "checklist_dismissed can only be true" };
+    changes.checklist_dismissed_at = now;
+  }
+  return { changes };
 }
 
 async function loadClient(
@@ -185,9 +247,7 @@ async function loadClient(
       date_of_birth: null,
       timezone: profile.timezone,
       trainer_business_name: null,
-      goal: null,
-      goal_type: null,
-      goal_status: null,
+      goals: [],
     };
     return unlinked;
   }
@@ -195,8 +255,8 @@ async function loadClient(
   // Getting Trainer details
   const trainer_business_name = await getTrainer(auth, client)
 
-  // Get goal
-  const goal_details = await getGoalDetails(auth, client)
+  const goalsResult = await getGoalDetails(auth, client);
+  if ("error" in goalsResult) return goalsResult.error;
 
   const linked: ClientAccount = {
     role: "client",
@@ -208,9 +268,7 @@ async function loadClient(
     date_of_birth: client.date_of_birth,
     timezone: profile.timezone,
     trainer_business_name: trainer_business_name,
-    goal: goal_details.goal,
-    goal_type: goal_details.goal_type,
-    goal_status: goal_details.goal_status,
+    goals: goalsResult.goals,
   };
   return linked;
 }
@@ -272,9 +330,7 @@ async function updateClient(
       date_of_birth: null,
       timezone,
       trainer_business_name: null,
-      goal: null,
-      goal_type: null,
-      goal_status: null,
+      goals: [],
     } satisfies ClientAccount);
   }
 
@@ -317,8 +373,8 @@ async function updateClient(
   // Getting Trainer details
   const trainer_business_name = await getTrainer(auth, client)
 
-  // Get goal
-  const goal_details = await getGoalDetails(auth, client)
+  const goalsResult = await getGoalDetails(auth, client);
+  if ("error" in goalsResult) return goalsResult.error;
 
   return NextResponse.json({
     role: "client",
@@ -330,9 +386,7 @@ async function updateClient(
     date_of_birth: updated.date_of_birth,
     timezone,
     trainer_business_name: trainer_business_name,
-    goal: goal_details.goal,
-    goal_type: goal_details.goal_type,
-    goal_status: goal_details.goal_status,
+    goals: goalsResult.goals,
   } satisfies ClientAccount);
 }
 
@@ -437,32 +491,68 @@ async function getTrainer(
   return trainer_business_name
 }
 
+function coachName(value: unknown) {
+  const trainer = Array.isArray(value) ? value[0] : value;
+  if (!trainer || typeof trainer !== "object") return null;
+  const record = trainer as {
+    first_name?: string | null;
+    last_name?: string | null;
+    business_name?: string | null;
+  };
+  const personal = [record.first_name, record.last_name]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+  return personal || record.business_name?.trim() || null;
+}
+
 async function getGoalDetails(
   auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
   client: ClientRow,
-){
-  const { data:goal, error: goalError } = await auth.supabase
+): Promise<{ error: NextResponse } | { goals: ClientGoal[] }> {
+  const { data, error } = await auth.supabase
     .from("goals")
-    .select("title, goal_type, status")
+    .select(
+      "id, title, goal_type, status, target_date, created_by_trainer_id, trainers!created_by_trainer_id(first_name, last_name, business_name)",
+    )
     .eq("client_id", client.id)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
 
-  let goal_db, goal_type_db, goal_status_db
-  if (goalError) {
-    console.log("Failed to get goal Data. Not crashing. Moving on!", goalError.message)
-  } else if (goal) {
-    goal_db = goal.title
-    goal_type_db = goal.goal_type
-    goal_status_db = goal.status
+  if (error) return { error: jsonError(databaseErrorMessage(error), writeStatus(error.message)) };
+
+  const rows = data ?? [];
+  const missingCoachIds = [
+    ...new Set(
+      rows.flatMap((goal) =>
+        goal.created_by_trainer_id && !coachName(goal.trainers) ? [goal.created_by_trainer_id] : [],
+      ),
+    ),
+  ];
+  const namesById = new Map<string, string>();
+  if (missingCoachIds.length > 0) {
+    const { data: trainers, error: trainerError } = await auth.supabase
+      .from("trainers")
+      .select("id, first_name, last_name, business_name")
+      .in("id", missingCoachIds);
+    if (trainerError) return { error: jsonError(databaseErrorMessage(trainerError), writeStatus(trainerError.message)) };
+    for (const trainer of trainers ?? []) {
+      const name = coachName(trainer);
+      if (name) namesById.set(trainer.id, name);
+    }
   }
-  const goal_tittle = goal_db?.trim() || "TBD"
-  const goal_type = goal_type_db?.trim() || "TBD"
-  const goal_status = goal_status_db?.trim() || "TBD"
-  const goal_details: GoalDetails = {
-    goal: goal_tittle,
-    goal_type: goal_type,
-    goal_status: goal_status,
-  };
 
-  return goal_details
+  return {
+    goals: rows.map((goal) => {
+      const coachId = goal.created_by_trainer_id;
+      return {
+        id: goal.id,
+        title: goal.title,
+        goal_type: goal.goal_type,
+        status: goal.status,
+        target_date: goal.target_date,
+        set_by: coachId ? "coach" : "self",
+        coach_name: coachId ? coachName(goal.trainers) ?? namesById.get(coachId) ?? null : null,
+      };
+    }),
+  };
 }

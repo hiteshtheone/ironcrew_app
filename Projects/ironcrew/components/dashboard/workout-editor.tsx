@@ -3,7 +3,9 @@
 import { FormEvent, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { exerciseSummary } from "@/components/dashboard/library-details";
 import { libraryItemLabel, type ExerciseOption, type LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
+import { loadUnitOrDefault } from "@/lib/dashboard/workout-prefill";
 import { tracks, type TrackingParameter } from "@/lib/exercises/tracking";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
@@ -28,7 +30,7 @@ type BlockDraft = {
   repsMin: string;
   repsMax: string;
   load: string;
-  loadUnit: string;
+  loadUnit: "kg" | "lb";
   restSeconds: string;
   durationSeconds: string;
   distanceKm: string;
@@ -52,6 +54,7 @@ export function WorkoutEditor({
   pending,
   creating = false,
   onDuplicate,
+  onOpenExercise,
   onSave,
   onCreate,
   onCancelCreate,
@@ -63,6 +66,7 @@ export function WorkoutEditor({
   pending: string | null;
   creating?: boolean;
   onDuplicate: (workoutId: string) => void;
+  onOpenExercise?: (exerciseId: string) => void;
   onSave: (workoutId: string, body: Record<string, unknown>) => Promise<boolean>;
   onCreate?: (body: Record<string, unknown>) => Promise<boolean>;
   onCancelCreate?: () => void;
@@ -116,7 +120,7 @@ export function WorkoutEditor({
         prescribed_reps_min: includeParameter(parameters, "reps") ? emptyNumber(block.repsMin) : null,
         prescribed_reps_max: includeParameter(parameters, "reps") ? emptyNumber(block.repsMax) : null,
         prescribed_load: includeParameter(parameters, "weight") ? emptyNumber(block.load) : null,
-        load_unit: includeParameter(parameters, "weight") ? block.loadUnit.trim() || null : null,
+        load_unit: includeParameter(parameters, "weight") ? loadUnitOrDefault(block.loadUnit) : null,
         rest_seconds: emptyNumber(block.restSeconds),
         prescribed_duration_seconds: includeParameter(parameters, "time") ? emptyNumber(block.durationSeconds) : null,
         prescribed_distance_meters: includeParameter(parameters, "distance") ? kilometersToMeters(block.distanceKm) : null,
@@ -167,8 +171,8 @@ export function WorkoutEditor({
             {creating
               ? "Enter a name here, then add blocks. The workout is saved when you create it."
               : selected?.isSystem
-                ? "This system workout is available to everyone. Duplicate it to make your own copy."
-                : "Edit sets, reps, and blocks. A duplicate can be changed on its own."}
+                ? "This system workout is available to everyone. Duplicate it to copy the sets and reps. The exercises stay the same."
+                : "Edit sets, reps, and blocks. A duplicate uses the same exercises, and its sets and reps are separate."}
           </p>
         </div>
         {creating ? null : (
@@ -261,21 +265,13 @@ export function WorkoutEditor({
                     </select>
                   </label>
                   {block.blockType === "exercise" ? (
-                    <label className="grid gap-1 text-sm">
-                      <span className="font-medium text-slate-600">Exercise</span>
-                      <select
-                        required
-                        disabled={!editable}
-                        value={block.exerciseId}
-                        onChange={(event) => updateBlock(block.key, { exerciseId: event.target.value })}
-                        className={fieldClass}
-                      >
-                        <option value="">Select</option>
-                        {exercises.map((exercise) => (
-                          <option key={exercise.id} value={exercise.id}>{libraryItemLabel(exercise.name, exercise.isSystem)}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <ExerciseBlockField
+                      block={block}
+                      exercises={exercises}
+                      disabled={!editable}
+                      onChange={(exerciseId) => updateBlock(block.key, { exerciseId })}
+                      onOpenExercise={onOpenExercise}
+                    />
                   ) : null}
                   <label className="grid gap-1 text-sm sm:col-span-2">
                     <span className="font-medium text-slate-600">Title</span>
@@ -293,7 +289,15 @@ export function WorkoutEditor({
                       <NumberField label="Load" value={block.load} disabled={!editable} onChange={(load) => updateBlock(block.key, { load })} step="any" />
                       <label className="grid gap-1 text-sm">
                         <span className="font-medium text-slate-600">Load unit</span>
-                        <input maxLength={20} disabled={!editable} value={block.loadUnit} onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value })} className={fieldClass} />
+                        <select
+                          disabled={!editable}
+                          value={block.loadUnit}
+                          onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value === "lb" ? "lb" : "kg" })}
+                          className={fieldClass}
+                        >
+                          <option value="kg">kg</option>
+                          <option value="lb">lb</option>
+                        </select>
                       </label>
                     </>
                   ) : null}
@@ -354,6 +358,56 @@ export function WorkoutEditor({
   );
 }
 
+function ExerciseBlockField({
+  block,
+  exercises,
+  disabled,
+  onChange,
+  onOpenExercise,
+}: {
+  block: BlockDraft;
+  exercises: ExerciseOption[];
+  disabled: boolean;
+  onChange: (exerciseId: string) => void;
+  onOpenExercise?: (exerciseId: string) => void;
+}) {
+  const exercise = exercises.find((item) => item.id === block.exerciseId) ?? null;
+
+  return (
+    <div className="grid gap-1 text-sm">
+      <label className="grid gap-1">
+        <span className="font-medium text-slate-600">Exercise</span>
+        <select
+          required
+          disabled={disabled}
+          value={block.exerciseId}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClass}
+        >
+          <option value="">Select</option>
+          {exercises.map((item) => (
+            <option key={item.id} value={item.id}>{libraryItemLabel(item.name, item.isSystem)}</option>
+          ))}
+        </select>
+      </label>
+      {exercise ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs text-slate-500">{exerciseSummary(exercise)}</p>
+          {onOpenExercise ? (
+            <button
+              type="button"
+              onClick={() => onOpenExercise(exercise.id)}
+              className="shrink-0 text-xs font-semibold text-slate-700 underline-offset-2 hover:underline"
+            >
+              Exercise details
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function NumberField({
   label,
   value,
@@ -394,7 +448,7 @@ function toDraft(block: LibraryWorkout["blocks"][number]): BlockDraft {
     repsMin: block.repsMin == null ? "" : String(block.repsMin),
     repsMax: block.repsMax == null ? "" : String(block.repsMax),
     load: block.load == null ? "" : String(block.load),
-    loadUnit: block.loadUnit ?? "",
+    loadUnit: loadUnitOrDefault(block.loadUnit),
     restSeconds: block.restSeconds == null ? "" : String(block.restSeconds),
     durationSeconds: block.durationSeconds == null ? "" : String(block.durationSeconds),
     distanceKm: metersToKm(block.distanceMeters),
@@ -413,7 +467,7 @@ function emptyBlock(exerciseId: string): BlockDraft {
     repsMin: "",
     repsMax: "",
     load: "",
-    loadUnit: "",
+    loadUnit: "kg",
     restSeconds: "",
     durationSeconds: "",
     distanceKm: "",

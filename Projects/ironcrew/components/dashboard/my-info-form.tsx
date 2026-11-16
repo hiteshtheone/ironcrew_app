@@ -6,6 +6,17 @@ import { useRouter } from "next/navigation";
 import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GOAL_STATUS_LABELS, GOAL_TYPE_LABELS, isGoalStatus, isGoalType } from "@/lib/plans/constants";
+
+type ClientGoal = {
+  id: string;
+  title: string;
+  goal_type: string;
+  status: string;
+  target_date: string | null;
+  set_by: "self" | "coach";
+  coach_name: string | null;
+};
 
 type ClientAccount = {
   role: "client";
@@ -16,10 +27,8 @@ type ClientAccount = {
   phone: string | null;
   date_of_birth: string | null;
   timezone: string;
-  trainer_business_name: string;
-  goal: string;
-  goal_type: string;
-  goal_status: string;
+  trainer_business_name: string | null;
+  goals: ClientGoal[];
 };
 
 type TrainerAccount = {
@@ -52,6 +61,28 @@ const emptyForm: FormState = {
   bio: "",
   timezone: "UTC",
 };
+
+function goalTypeLabel(value: string) {
+  return isGoalType(value) ? GOAL_TYPE_LABELS[value] : value;
+}
+
+function goalStatusLabel(value: string) {
+  return isGoalStatus(value) ? GOAL_STATUS_LABELS[value] : value;
+}
+
+function setByLabel(goal: ClientGoal) {
+  if (goal.set_by === "self") return "Set by self";
+  return goal.coach_name ? `Set by ${goal.coach_name}` : "Set by coach";
+}
+
+function formatTargetDate(ymd: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${ymd}T12:00:00Z`));
+}
 
 function formFromAccount(account: Account): FormState {
   return {
@@ -305,29 +336,39 @@ export function MyInfoForm() {
               onEdit={startEditing}
               onCancel={cancelEdit}
             />
-            <div>
-              {account?.role === "client" && account.linked && (
-                <>
-                  <table className="w-full border-collapse text-left">
-                    <thead>
-                      <tr className="bg-slate-100">
-                        <th className="border border-slate-200 p-3">Trainer</th>
-                        <th className="border border-slate-200 p-3">Goal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-slate-200 p-3">{account.trainer_business_name}</td>
-                        <td className="border border-slate-200 p-3">{account.goal} , {account.goal_type}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </>
-              )}
-            </div>
           </form>
         )}
       </section>
+
+      {account?.role === "client" && account.linked ? (
+        <ClientGoals trainerName={account.trainer_business_name} goals={account.goals ?? []} />
+      ) : null}
     </div>
+  );
+}
+
+function ClientGoals({ trainerName, goals }: { trainerName: string | null; goals: ClientGoal[] }) {
+  return (
+    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h2 className="text-lg font-bold">Goals</h2>
+      <p className="mt-1 text-sm text-slate-500">Trainer · {trainerName ?? "Trainer"}</p>
+      {goals.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No goal yet.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-slate-100">
+          {goals.map((goal) => (
+            <li key={goal.id} className="py-3 first:pt-0 last:pb-0">
+              <p className="text-sm font-semibold">{goal.title}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {goalTypeLabel(goal.goal_type)} · {goalStatusLabel(goal.status)}
+                {goal.target_date ? ` · ${formatTargetDate(goal.target_date)}` : ""}
+                {" · "}
+                {setByLabel(goal)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

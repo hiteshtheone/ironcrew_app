@@ -97,6 +97,10 @@ export type ClientDashboardReady = {
   scheduledCount: number;
   completedCount: number;
   remainingCount: number;
+  /** At least one goal that is not cancelled, set by the client or their trainer. */
+  hasGoal: boolean;
+  hasStartedProgram: boolean;
+  hasLoggedWorkout: boolean;
 };
 
 export type ClientDashboardData =
@@ -248,6 +252,12 @@ export function muscleGroupLabel(
   return parts || muscles;
 }
 
+export function loadUnitOrDefault(unit: string | null | undefined): "kg" | "lb" {
+  const normalized = unit?.trim().toLowerCase();
+  if (normalized === "lb" || normalized === "lbs") return "lb";
+  return "kg";
+}
+
 export function prescriptionDetail(
   sets: number | null,
   repsMin: number | null,
@@ -270,12 +280,7 @@ export function prescriptionDetail(
           ? `${repsMax} reps`
           : null;
   const setLabel = sets ? `${sets} ${sets === 1 ? "set" : "sets"}` : null;
-  const load =
-    extras?.load != null
-      ? extras.loadUnit
-        ? `${extras.load} ${extras.loadUnit}`
-        : String(extras.load)
-      : null;
+  const load = extras?.load != null ? `${extras.load} ${loadUnitOrDefault(extras.loadUnit)}` : null;
   const duration = extras?.durationSeconds != null ? `${extras.durationSeconds} sec` : null;
   const distance = extras?.distanceMeters != null ? `${metersToKmLabel(extras.distanceMeters)} km` : null;
   const height = extras?.heightCm != null ? `${extras.heightCm} cm` : null;

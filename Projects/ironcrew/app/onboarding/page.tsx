@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { OnboardingForm } from "@/components/onboarding-form";
+import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { LogoutButton } from "@/components/logout-button";
+import { loadOnboarding } from "@/lib/onboarding/load-onboarding";
 import { createClient } from "@/lib/supabase/server";
 
 export default function OnboardingPage() {
   return (
     <main className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-xl">
         <Suspense fallback={<div className="h-96 rounded-xl border bg-card" />}>
           <AuthenticatedOnboarding />
         </Suspense>
@@ -24,32 +26,19 @@ async function AuthenticatedOnboarding() {
 
   if (!user) redirect("/login");
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!error && profile) redirect("/dashboard");
-
-  // Invited clients already have a trainer-created row. Claim it here too so a
-  // direct visit to this page still lands on the dashboard.
-  if (!profile) {
-    const { data: claimed, error: claimError } = await supabase.rpc("claim_invited_client");
-    if (!claimError && claimed) redirect("/dashboard");
+  const loaded = await loadOnboarding(supabase, user);
+  if (loaded.kind === "done") redirect("/dashboard");
+  if (loaded.kind === "error") {
+    return (
+      <div className="rounded-xl border bg-card p-8">
+        <h1 className="text-xl font-bold">Couldn&apos;t load your setup</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{loaded.message}</p>
+        <LogoutButton className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+          Log out
+        </LogoutButton>
+      </div>
+    );
   }
 
-  const metadataName = user.user_metadata?.full_name;
-  const suggestedName =
-    (typeof metadataName === "string" && metadataName.trim()) ||
-    user.email?.split("@")[0] ||
-    "";
-  const parts = suggestedName.trim().split(/\s+/).filter(Boolean);
-
-  return (
-    <OnboardingForm
-      defaultFirstName={(parts[0] ?? "").slice(0, 80)}
-      defaultLastName={parts.slice(1).join(" ").slice(0, 80)}
-    />
-  );
+  return <OnboardingWizard context={loaded.context} />;
 }

@@ -5,12 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { ActiveProgramWarning } from "@/components/dashboard/active-program-warning";
 import { ExerciseEditor } from "@/components/dashboard/exercise-editor";
+import {
+  DayWorkoutSummary,
+  exerciseSummary,
+  LibraryDetailDialog,
+  workoutListSummary,
+  type LibraryDetail,
+} from "@/components/dashboard/library-details";
 import { WorkoutEditor } from "@/components/dashboard/workout-editor";
-import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { DeactivateControl, DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
-import { MUSCLE_LABELS } from "@/lib/exercises/muscle-group";
-import { TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
+import { libraryItemLabel, type TrainerProgramsData } from "@/lib/dashboard/load-trainer-programs";
 import { GOAL_TYPE_LABELS, GOAL_TYPES, isGoalType, type GoalType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -67,6 +72,7 @@ export function ProgramsPanel({
   const [showSystemPrograms, setShowSystemPrograms] = useState(true);
   const [showSystemWorkouts, setShowSystemWorkouts] = useState(true);
   const [showSystemExercises, setShowSystemExercises] = useState(true);
+  const [detail, setDetail] = useState<LibraryDetail | null>(null);
   // Set when the server reports an active program the page did not know about.
   const [conflict, setConflict] = useState<ActiveProgramSummary[] | null>(null);
   const selectedProgramId = selectedProgram?.id ?? null;
@@ -247,7 +253,7 @@ export function ProgramsPanel({
     void run("duplicate-program", async () => {
       const payload = await postJson(`/api/programs/${selected.id}/duplicate`, {});
       if (typeof payload.id === "string") openProgram(payload.id);
-      setNotice("Program duplicated. This copy can be edited on its own.");
+      setNotice("Program duplicated. It uses the same workouts.");
     });
   };
 
@@ -336,6 +342,26 @@ export function ProgramsPanel({
       setNotice(
         `Assigned to ${input.clientIds.length} client${input.clientIds.length === 1 ? "" : "s"}.`,
       );
+    });
+  };
+
+  const deactivateForClient = (clientId: string) => {
+    if (!selected) return;
+    void run(`deactivate-${clientId}`, async () => {
+      const response = await fetch(`/api/clients/${clientId}/programs/${selected.id}/deactivate`, { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to deactivate this program");
+      setNotice("Program deactivated. Upcoming workouts were removed from their calendar.");
+    });
+  };
+
+  const deactivateOwnProgram = () => {
+    if (!selected) return;
+    void run("deactivate-program", async () => {
+      const response = await fetch(`/api/me/programs/${selected.id}/deactivate`, { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to deactivate this program");
+      setNotice("Program deactivated. Upcoming workouts were removed from your calendar.");
     });
   };
 
@@ -493,20 +519,36 @@ export function ProgramsPanel({
               {visibleWorkouts.length === 0 ? (
                 <li className="text-sm text-slate-500">{data.workouts.length === 0 ? "No workouts yet." : "System workouts are hidden."}</li>
               ) : null}
-              {visibleWorkouts.map((workout) => (
-                <li key={workout.id}>
-                  <button
-                    type="button"
-                    onClick={() => openWorkout(workout.id)}
-                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${workout.id === selectedWorkoutId ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
-                  >
-                    <span className="block truncate">{libraryItemLabel(workout.name, workout.isSystem)}</span>
-                    <span className={`block truncate text-xs ${workout.id === selectedWorkoutId ? "text-slate-300" : "text-slate-500"}`}>
-                      {workout.blocks.length === 0 ? "No blocks yet" : `${workout.blocks.length} block${workout.blocks.length === 1 ? "" : "s"}`}
-                    </span>
-                  </button>
+              {visibleWorkouts.map((workout) => {
+                const selectedRow = workout.id === selectedWorkoutId;
+                return (
+                <li key={workout.id} className={`rounded-xl ${selectedRow ? "bg-slate-950 text-white" : ""}`}>
+                  <div className="flex items-start">
+                    <button
+                      type="button"
+                      onClick={() => openWorkout(workout.id)}
+                      className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm ${selectedRow ? "font-semibold" : "hover:bg-slate-100"}`}
+                    >
+                      <span className="block truncate">{libraryItemLabel(workout.name, workout.isSystem)}</span>
+                      <span className={`block truncate text-xs ${selectedRow ? "text-slate-300" : "text-slate-500"}`}>
+                        {workoutListSummary(workout)}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Details for ${workout.name}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetail({ kind: "workout", workoutId: workout.id });
+                      }}
+                      className={`shrink-0 self-center px-3 py-2 text-xs font-semibold ${selectedRow ? "text-slate-200" : "text-slate-700"}`}
+                    >
+                      Details
+                    </button>
+                  </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
 
@@ -530,20 +572,41 @@ export function ProgramsPanel({
               {visibleExercises.length === 0 ? (
                 <li className="text-sm text-slate-500">{data.exercises.length === 0 ? "No exercises yet." : "System exercises are hidden."}</li>
               ) : null}
-              {visibleExercises.map((exercise) => (
-                <li key={exercise.id}>
-                  <button
-                    type="button"
-                    onClick={() => openExercise(exercise.id)}
-                    className={`w-full rounded-xl px-3 py-2 text-left text-sm ${exercise.id === selectedExerciseId ? "bg-slate-950 font-semibold text-white" : "hover:bg-slate-100"}`}
-                  >
-                    <span className="block truncate">{libraryItemLabel(exercise.name, exercise.isSystem)}</span>
-                    <span className={`block truncate text-xs ${exercise.id === selectedExerciseId ? "text-slate-300" : "text-slate-500"}`}>
-                      {exerciseSummary(exercise)}
-                    </span>
-                  </button>
+              {visibleExercises.map((exercise) => {
+                const selectedRow = exercise.id === selectedExerciseId;
+                return (
+                <li key={exercise.id} className={`rounded-xl ${selectedRow ? "bg-slate-950 text-white" : ""}`}>
+                  <div className="flex items-start">
+                    <button
+                      type="button"
+                      onClick={() => openExercise(exercise.id)}
+                      className={`min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm ${selectedRow ? "font-semibold" : "hover:bg-slate-100"}`}
+                    >
+                      <span className="block truncate">{libraryItemLabel(exercise.name, exercise.isSystem)}</span>
+                      <span className={`block truncate text-xs ${selectedRow ? "text-slate-300" : "text-slate-500"}`}>
+                        {exerciseSummary(exercise)}
+                      </span>
+                      {exercise.description ? (
+                        <span className="block truncate text-xs text-slate-400">
+                          {exercise.description}
+                        </span>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Details for ${exercise.name}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetail({ kind: "exercise", exerciseId: exercise.id });
+                      }}
+                      className={`shrink-0 self-center px-3 py-2 text-xs font-semibold ${selectedRow ? "text-slate-200" : "text-slate-700"}`}
+                    >
+                      Details
+                    </button>
+                  </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         </div>
@@ -571,6 +634,7 @@ export function ProgramsPanel({
               creating
               pending={pending}
               onDuplicate={() => undefined}
+              onOpenExercise={(exerciseId) => setDetail({ kind: "exercise", exerciseId })}
               onCreate={createWorkout}
               onCancelCreate={closeCreate}
               onSave={async () => false}
@@ -618,11 +682,16 @@ export function ProgramsPanel({
               exercises={data.exercises}
               selectedWorkoutId={selectedWorkoutId}
               pending={pending}
+              onOpenExercise={(exerciseId) => setDetail({
+                kind: "exercise",
+                exerciseId,
+                workoutId: selectedWorkoutId ?? undefined,
+              })}
               onDuplicate={(workoutId) => {
                 void run("duplicate-workout", async () => {
                   const payload = await postJson(`/api/workouts/${workoutId}/duplicate`, {});
                   if (typeof payload.id === "string") openWorkout(payload.id);
-                  setNotice("Workout duplicated. This copy can be edited on its own.");
+                  setNotice("Workout duplicated. It uses the same exercises. Sets and reps on this copy are separate.");
                 });
               }}
               onSave={(workoutId, body) => run("save-workout", async () => {
@@ -679,7 +748,7 @@ export function ProgramsPanel({
                   />
                 </label>
                 {selected.isSystem ? (
-                  <p className="text-sm text-slate-500">This system program is available to everyone. Duplicate it to make your own copy.</p>
+                  <p className="text-sm text-slate-500">This system program is available to everyone. Duplicate it to copy the schedule. The workouts stay the same.</p>
                 ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <EditSaveActions
@@ -704,7 +773,16 @@ export function ProgramsPanel({
 
               {isClient ? (
                 isActive ? (
-                  <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active.</p>
+                  <div className="space-y-3">
+                    <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active.</p>
+                    <DeactivateControl
+                      label="Deactivate program"
+                      detail="Deactivating removes upcoming workouts from your calendar. Completed and past sessions stay."
+                      pending={pending === "deactivate-program"}
+                      disabled={pending !== null && pending !== "deactivate-program"}
+                      onDeactivate={deactivateOwnProgram}
+                    />
+                  </div>
                 ) : (
                   <form onSubmit={startProgram} className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
@@ -735,7 +813,9 @@ export function ProgramsPanel({
                   clientsError={clientsError}
                   assignedIds={selected.assignedClients.map((client) => client.id)}
                   pending={pending === "assign-program"}
+                  deactivatingId={pending?.startsWith("deactivate-") ? pending.slice("deactivate-".length) : null}
                   onAssign={assignProgram}
+                  onDeactivate={deactivateForClient}
                 />
               )}
 
@@ -805,21 +885,44 @@ export function ProgramsPanel({
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {Array.from({ length: 7 }, (_, index) => index + 1).map((dayNumber) => {
                         const slot = week.workouts.find((item) => item.dayNumber === dayNumber && item.position === 1);
+                        const chosenId = dayOverrides[dayNumber] ?? slot?.workoutId ?? "";
+                        const workout = chosenId ? data.workouts.find((item) => item.id === chosenId) ?? null : null;
                         return (
-                          <label key={dayNumber} className="block rounded-xl border border-slate-100 p-3">
-                            <span className="text-xs font-semibold text-slate-500">Day {dayNumber}</span>
-                            <select
-                              value={dayOverrides[dayNumber] ?? slot?.workoutId ?? ""}
-                              disabled={selected.isSystem || pending === `day-${dayNumber}`}
-                              onChange={(event) => saveDay(dayNumber, event.target.value)}
-                              className={`${fieldClass} mt-2`}
-                            >
-                              <option value="">Rest</option>
-                              {data.workouts.map((workout) => (
-                                <option key={workout.id} value={workout.id}>{libraryItemLabel(workout.name, workout.isSystem)}</option>
-                              ))}
-                            </select>
-                          </label>
+                          <div key={dayNumber} className="rounded-xl border border-slate-100 p-3">
+                            <label className="block">
+                              <span className="text-xs font-semibold text-slate-500">Day {dayNumber}</span>
+                              <select
+                                value={chosenId}
+                                disabled={selected.isSystem || pending === `day-${dayNumber}`}
+                                onChange={(event) => saveDay(dayNumber, event.target.value)}
+                                className={`${fieldClass} mt-2`}
+                              >
+                                <option value="">Rest</option>
+                                {chosenId && !data.workouts.some((item) => item.id === chosenId) ? (
+                                  <option value={chosenId}>
+                                    {slot && slot.workoutId === chosenId ? slot.workoutName : "Unavailable"}
+                                  </option>
+                                ) : null}
+                                {data.workouts.map((item) => (
+                                  <option key={item.id} value={item.id}>{libraryItemLabel(item.name, item.isSystem)}</option>
+                                ))}
+                              </select>
+                            </label>
+                            {chosenId ? (
+                              workout ? (
+                                <DayWorkoutSummary
+                                  workout={workout}
+                                  onDetails={() => setDetail({ kind: "workout", workoutId: workout.id })}
+                                />
+                              ) : (
+                                <p className="mt-3 text-sm font-semibold text-slate-900">
+                                  {slot && slot.workoutId === chosenId ? slot.workoutName : "Workout unavailable"}
+                                </p>
+                              )
+                            ) : (
+                              <p className="mt-3 text-xs text-slate-500">Rest</p>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -881,6 +984,14 @@ export function ProgramsPanel({
         </section>
         )}
       </div>
+      <LibraryDetailDialog
+        detail={detail}
+        workouts={data.workouts}
+        exercises={data.exercises}
+        onClose={() => setDetail(null)}
+        onOpenExercise={(exerciseId, workoutId) => setDetail({ kind: "exercise", exerciseId, workoutId })}
+        onBackToWorkout={(workoutId) => setDetail({ kind: "workout", workoutId })}
+      />
     </div>
   );
 }
@@ -971,13 +1082,16 @@ function AssignProgramForm({
   clientsError = null,
   assignedIds,
   pending,
+  deactivatingId = null,
   onAssign,
+  onDeactivate,
 }: {
   programName: string;
   clients: AssignableClient[];
   clientsError?: string | null;
   assignedIds: string[];
   pending: boolean;
+  deactivatingId?: string | null;
   onAssign: (input: {
     clientIds: string[];
     startsOn: string;
@@ -985,6 +1099,7 @@ function AssignProgramForm({
     goalType: GoalType;
     confirmOverlap: boolean;
   }) => Promise<boolean>;
+  onDeactivate: (clientId: string) => void;
 }) {
   const assigned = new Set(assignedIds);
   const available = clients.filter((client) => !assigned.has(client.id));
@@ -1038,21 +1153,30 @@ function AssignProgramForm({
         <>
           <fieldset>
             <legend className="text-sm font-medium text-slate-600">Clients</legend>
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2 space-y-2">
               {clients.map((client) => {
                 const already = assigned.has(client.id);
+                const deactivating = deactivatingId === client.id;
                 return (
-                  <li key={client.id}>
+                  <li key={client.id} className="space-y-2">
                     <label className={`flex items-center gap-2 text-sm ${already ? "text-slate-500" : ""}`}>
                       <input
                         type="checkbox"
                         checked={already || picked.includes(client.id)}
-                        disabled={already || pending}
+                        disabled={already || pending || deactivatingId !== null}
                         onChange={(event) => toggle(client.id, event.target.checked)}
                       />
                       <span>{client.name}</span>
                       {already ? <span className="text-xs">Already assigned</span> : null}
                     </label>
+                    {already ? (
+                      <DeactivateControl
+                        detail={`Deactivate ${programName} for ${client.name}? Upcoming workouts from this program will be removed from their calendar. Completed and past sessions stay.`}
+                        pending={deactivating}
+                        disabled={pending || (deactivatingId !== null && !deactivating)}
+                        onDeactivate={() => onDeactivate(client.id)}
+                      />
+                    ) : null}
                   </li>
                 );
               })}
@@ -1107,7 +1231,7 @@ function AssignProgramForm({
               ) : null}
               <button
                 type="submit"
-                disabled={pending || picked.length === 0}
+                disabled={pending || deactivatingId !== null || picked.length === 0}
                 className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {pending ? "Assigning..." : confirming && overlapping.length > 0 ? "Assign anyway" : "Assign program"}
@@ -1181,11 +1305,6 @@ function NewProgramForm({
       </div>
     </form>
   );
-}
-
-function exerciseSummary(exercise: ExerciseOption) {
-  const tracking = TRACKING_TYPE_LABELS[exercise.trackingType];
-  return exercise.primaryMuscleGroup ? `${tracking} · ${MUSCLE_LABELS[exercise.primaryMuscleGroup]}` : tracking;
 }
 
 async function postJson(url: string, body: unknown) {

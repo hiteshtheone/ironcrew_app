@@ -44,3 +44,15 @@ finally:
     engine.dispose()
 
 -----
+
+# Purge the shared system catalog
+# Deletes system programs, plus system workouts and exercises that have no logged session.
+# Also deletes calendar rows and program slots that point at system workouts.
+# Logged sets on a system workout stay, with that session, workout, its blocks, and the exercises those sets use.
+# Trainer- and client-owned programs, workouts, and exercises stay.
+# A personal workout loses a block only when that block used a system exercise that is being deleted.
+# Without --apply the deletes run, the counts print, and the transaction rolls back.
+
+export DATABASE_URL='postgresql://...'
+npm run purge-system
+npm run purge-system -- --apply

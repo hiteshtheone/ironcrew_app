@@ -1,4 +1,6 @@
-import type { ClientExercise, ClientLoggedSet } from "./client-week";
+import { loadUnitOrDefault, type ClientExercise, type ClientLoggedSet } from "./client-week";
+
+export { loadUnitOrDefault };
 
 export const MAX_PREFILL_SETS = 20;
 
@@ -125,8 +127,3 @@ function metersToKm(meters: number | null) {
   return String(Math.round((meters / 1000) * 1000) / 1000);
 }
 
-function loadUnitOrDefault(unit: string | null | undefined): "kg" | "lb" {
-  const normalized = unit?.trim().toLowerCase();
-  if (normalized === "lb" || normalized === "lbs") return "lb";
-  return "kg";
-}
