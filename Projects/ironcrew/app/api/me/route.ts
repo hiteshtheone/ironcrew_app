@@ -27,6 +27,10 @@ type ClientGoal = {
   goal_type: string;
   status: string;
   target_date: string | null;
+  /** "self" when the client created the goal. "coach" when a trainer did. */
+  set_by: "self" | "coach";
+  /** The coach's name when set_by is "coach" and the name is readable. */
+  coach_name: string | null;
 };
 
 type ClientAccount = {
@@ -487,25 +491,68 @@ async function getTrainer(
   return trainer_business_name
 }
 
+function coachName(value: unknown) {
+  const trainer = Array.isArray(value) ? value[0] : value;
+  if (!trainer || typeof trainer !== "object") return null;
+  const record = trainer as {
+    first_name?: string | null;
+    last_name?: string | null;
+    business_name?: string | null;
+  };
+  const personal = [record.first_name, record.last_name]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+  return personal || record.business_name?.trim() || null;
+}
+
 async function getGoalDetails(
   auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
   client: ClientRow,
 ): Promise<{ error: NextResponse } | { goals: ClientGoal[] }> {
   const { data, error } = await auth.supabase
     .from("goals")
-    .select("id, title, goal_type, status, target_date")
+    .select(
+      "id, title, goal_type, status, target_date, created_by_trainer_id, trainers!created_by_trainer_id(first_name, last_name, business_name)",
+    )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
 
   if (error) return { error: jsonError(databaseErrorMessage(error), writeStatus(error.message)) };
 
+  const rows = data ?? [];
+  const missingCoachIds = [
+    ...new Set(
+      rows.flatMap((goal) =>
+        goal.created_by_trainer_id && !coachName(goal.trainers) ? [goal.created_by_trainer_id] : [],
+      ),
+    ),
+  ];
+  const namesById = new Map<string, string>();
+  if (missingCoachIds.length > 0) {
+    const { data: trainers, error: trainerError } = await auth.supabase
+      .from("trainers")
+      .select("id, first_name, last_name, business_name")
+      .in("id", missingCoachIds);
+    if (trainerError) return { error: jsonError(databaseErrorMessage(trainerError), writeStatus(trainerError.message)) };
+    for (const trainer of trainers ?? []) {
+      const name = coachName(trainer);
+      if (name) namesById.set(trainer.id, name);
+    }
+  }
+
   return {
-    goals: (data ?? []).map((goal) => ({
-      id: goal.id,
-      title: goal.title,
-      goal_type: goal.goal_type,
-      status: goal.status,
-      target_date: goal.target_date,
-    })),
+    goals: rows.map((goal) => {
+      const coachId = goal.created_by_trainer_id;
+      return {
+        id: goal.id,
+        title: goal.title,
+        goal_type: goal.goal_type,
+        status: goal.status,
+        target_date: goal.target_date,
+        set_by: coachId ? "coach" : "self",
+        coach_name: coachId ? coachName(goal.trainers) ?? namesById.get(coachId) ?? null : null,
+      };
+    }),
   };
 }

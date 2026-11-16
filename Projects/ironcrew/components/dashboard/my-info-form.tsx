@@ -14,6 +14,8 @@ type ClientGoal = {
   goal_type: string;
   status: string;
   target_date: string | null;
+  set_by: "self" | "coach";
+  coach_name: string | null;
 };
 
 type ClientAccount = {
@@ -66,6 +68,11 @@ function goalTypeLabel(value: string) {
 
 function goalStatusLabel(value: string) {
   return isGoalStatus(value) ? GOAL_STATUS_LABELS[value] : value;
+}
+
+function setByLabel(goal: ClientGoal) {
+  if (goal.set_by === "self") return "Set by self";
+  return goal.coach_name ? `Set by ${goal.coach_name}` : "Set by coach";
 }
 
 function formatTargetDate(ymd: string) {
@@ -355,6 +362,8 @@ function ClientGoals({ trainerName, goals }: { trainerName: string | null; goals
               <p className="mt-1 text-sm text-slate-500">
                 {goalTypeLabel(goal.goal_type)} · {goalStatusLabel(goal.status)}
                 {goal.target_date ? ` · ${formatTargetDate(goal.target_date)}` : ""}
+                {" · "}
+                {setByLabel(goal)}
               </p>
             </li>
           ))}
