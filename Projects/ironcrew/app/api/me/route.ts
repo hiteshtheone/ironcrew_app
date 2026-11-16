@@ -21,11 +21,13 @@ type ClientRow = {
   id: string;
 };
 
-type GoalDetails = {
-  goal: string;
+type ClientGoal = {
+  id: string;
+  title: string;
   goal_type: string;
-  goal_status: string;
-}
+  status: string;
+  target_date: string | null;
+};
 
 type ClientAccount = {
   role: "client";
@@ -37,9 +39,7 @@ type ClientAccount = {
   date_of_birth: string | null;
   timezone: string;
   trainer_business_name: string | null;
-  goal: string | null;
-  goal_type: string | null;
-  goal_status: string | null;
+  goals: ClientGoal[];
 };
 
 type TrainerAccount = {
@@ -243,9 +243,7 @@ async function loadClient(
       date_of_birth: null,
       timezone: profile.timezone,
       trainer_business_name: null,
-      goal: null,
-      goal_type: null,
-      goal_status: null,
+      goals: [],
     };
     return unlinked;
   }
@@ -253,8 +251,8 @@ async function loadClient(
   // Getting Trainer details
   const trainer_business_name = await getTrainer(auth, client)
 
-  // Get goal
-  const goal_details = await getGoalDetails(auth, client)
+  const goalsResult = await getGoalDetails(auth, client);
+  if ("error" in goalsResult) return goalsResult.error;
 
   const linked: ClientAccount = {
     role: "client",
@@ -266,9 +264,7 @@ async function loadClient(
     date_of_birth: client.date_of_birth,
     timezone: profile.timezone,
     trainer_business_name: trainer_business_name,
-    goal: goal_details.goal,
-    goal_type: goal_details.goal_type,
-    goal_status: goal_details.goal_status,
+    goals: goalsResult.goals,
   };
   return linked;
 }
@@ -330,9 +326,7 @@ async function updateClient(
       date_of_birth: null,
       timezone,
       trainer_business_name: null,
-      goal: null,
-      goal_type: null,
-      goal_status: null,
+      goals: [],
     } satisfies ClientAccount);
   }
 
@@ -375,8 +369,8 @@ async function updateClient(
   // Getting Trainer details
   const trainer_business_name = await getTrainer(auth, client)
 
-  // Get goal
-  const goal_details = await getGoalDetails(auth, client)
+  const goalsResult = await getGoalDetails(auth, client);
+  if ("error" in goalsResult) return goalsResult.error;
 
   return NextResponse.json({
     role: "client",
@@ -388,9 +382,7 @@ async function updateClient(
     date_of_birth: updated.date_of_birth,
     timezone,
     trainer_business_name: trainer_business_name,
-    goal: goal_details.goal,
-    goal_type: goal_details.goal_type,
-    goal_status: goal_details.goal_status,
+    goals: goalsResult.goals,
   } satisfies ClientAccount);
 }
 
@@ -498,29 +490,22 @@ async function getTrainer(
 async function getGoalDetails(
   auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
   client: ClientRow,
-){
-  const { data:goal, error: goalError } = await auth.supabase
+): Promise<{ error: NextResponse } | { goals: ClientGoal[] }> {
+  const { data, error } = await auth.supabase
     .from("goals")
-    .select("title, goal_type, status")
+    .select("id, title, goal_type, status, target_date")
     .eq("client_id", client.id)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
 
-  let goal_db, goal_type_db, goal_status_db
-  if (goalError) {
-    console.log("Failed to get goal Data. Not crashing. Moving on!", goalError.message)
-  } else if (goal) {
-    goal_db = goal.title
-    goal_type_db = goal.goal_type
-    goal_status_db = goal.status
-  }
-  const goal_tittle = goal_db?.trim() || "TBD"
-  const goal_type = goal_type_db?.trim() || "TBD"
-  const goal_status = goal_status_db?.trim() || "TBD"
-  const goal_details: GoalDetails = {
-    goal: goal_tittle,
-    goal_type: goal_type,
-    goal_status: goal_status,
+  if (error) return { error: jsonError(databaseErrorMessage(error), writeStatus(error.message)) };
+
+  return {
+    goals: (data ?? []).map((goal) => ({
+      id: goal.id,
+      title: goal.title,
+      goal_type: goal.goal_type,
+      status: goal.status,
+      target_date: goal.target_date,
+    })),
   };
-
-  return goal_details
 }
