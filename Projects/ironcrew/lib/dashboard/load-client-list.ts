@@ -8,8 +8,10 @@ import {
   formatLongDate,
   greetingFor,
   initialsFrom,
+  isAssignmentStatus,
   resolveTimeZone,
 } from "@/lib/dashboard/client-week";
+import { clientRosterSignal, type RosterAssignment } from "@/lib/dashboard/client-roster";
 
 type ProfileInput = {
   userId: string;
@@ -56,7 +58,20 @@ export type ClientRecord = {
   hasActiveProgram: boolean;
   /** Every active program, including ones the client built for themselves. */
   activePrograms: ActiveProgramSummary[];
+  /** Completed share of this month's non-cancelled workouts. Null when none were scheduled. */
+  consistencyPercent: number | null;
+  /** Change versus last month, or "No workouts this month" when this month is empty. */
+  consistencyDelta: string;
+  lastWorkoutName: string | null;
+  lastWorkoutOn: string | null;
 };
+
+type ClientIdentity = Omit<
+  ClientRecord,
+  "consistencyPercent" | "consistencyDelta" | "lastWorkoutName" | "lastWorkoutOn"
+>;
+
+const ASSIGNMENT_PAGE_SIZE = 1000;
 
 export type ClientListReady = {
   kind: "ready";
@@ -107,19 +122,134 @@ export async function loadClientList(
 
   const clients = (links ?? [])
     .map((row) => normalizeClient(row, timeZone))
-    .filter((client): client is ClientRecord => client !== null)
+    .filter((client): client is ClientIdentity => client !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
 
   const newThisMonth = clients.filter(
     (client) => client.startedOn !== null && client.startedOn >= months.thisStart && client.startedOn <= months.thisEnd,
   ).length;
 
+  const clientIds = clients.map((client) => client.id);
+  const rangeEnd = months.thisEnd > week.today ? months.thisEnd : week.today;
+  const [windowResult, completedResult] = await Promise.all([
+    loadWindowAssignments(supabase, clientIds, months.previousStart, rangeEnd),
+    loadLatestCompleted(supabase, clientIds, week.today),
+  ]);
+  if ("error" in windowResult) return { kind: "error", message: windowResult.error };
+  if ("error" in completedResult) return { kind: "error", message: completedResult.error };
+
+  const windowByClient = groupAssignments(windowResult.rows);
+  const completedByClient = groupAssignments(completedResult.rows);
+  const myClients = clients.map((client) => ({
+    ...client,
+    ...clientRosterSignal(
+      windowByClient.get(client.id) ?? [],
+      completedByClient.get(client.id) ?? [],
+      months,
+      week.today,
+    ),
+  }));
+
   return {
     kind: "ready",
     ...shell,
     activeClients: clients.length,
     newClientsLabel: countLabel(newThisMonth, "new this month", "None new this month"),
-    myClients: clients,
+    myClients,
+  };
+}
+
+async function loadWindowAssignments(
+  supabase: SupabaseClient,
+  clientIds: string[],
+  start: string,
+  end: string,
+): Promise<{ rows: RosterAssignment[] } | { error: string }> {
+  if (clientIds.length === 0) return { rows: [] };
+
+  const rows: RosterAssignment[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("workout_assignments")
+      .select("id, client_id, scheduled_for, status, workouts(name)")
+      .in("client_id", clientIds)
+      .gte("scheduled_for", start)
+      .lte("scheduled_for", end)
+      .order("scheduled_for", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + ASSIGNMENT_PAGE_SIZE - 1);
+
+    if (error) return { error: error.message };
+    const page = data ?? [];
+    for (const row of page) {
+      const assignment = normalizeAssignment(row);
+      if (assignment) rows.push(assignment);
+    }
+    if (page.length < ASSIGNMENT_PAGE_SIZE) return { rows };
+    from += ASSIGNMENT_PAGE_SIZE;
+  }
+}
+
+async function loadLatestCompleted(
+  supabase: SupabaseClient,
+  clientIds: string[],
+  today: string,
+): Promise<{ rows: RosterAssignment[] } | { error: string }> {
+  if (clientIds.length === 0) return { rows: [] };
+
+  const latest = new Map<string, RosterAssignment>();
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("workout_assignments")
+      .select("id, client_id, scheduled_for, status, workouts(name)")
+      .in("client_id", clientIds)
+      .eq("status", "completed")
+      .lte("scheduled_for", today)
+      .order("scheduled_for", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + ASSIGNMENT_PAGE_SIZE - 1);
+
+    if (error) return { error: error.message };
+    const page = data ?? [];
+    for (const row of page) {
+      const assignment = normalizeAssignment(row);
+      if (!assignment || latest.has(assignment.clientId)) continue;
+      latest.set(assignment.clientId, assignment);
+    }
+    if (latest.size === clientIds.length || page.length < ASSIGNMENT_PAGE_SIZE) {
+      return { rows: [...latest.values()] };
+    }
+    from += ASSIGNMENT_PAGE_SIZE;
+  }
+}
+
+function groupAssignments(rows: RosterAssignment[]) {
+  const grouped = new Map<string, RosterAssignment[]>();
+  for (const row of rows) {
+    const existing = grouped.get(row.clientId);
+    if (existing) existing.push(row);
+    else grouped.set(row.clientId, [row]);
+  }
+  return grouped;
+}
+
+function normalizeAssignment(row: unknown): RosterAssignment | null {
+  const record = asRecord(row);
+  if (!record) return null;
+
+  const clientId = stringField(record, "client_id");
+  const scheduledFor = stringField(record, "scheduled_for");
+  const status = stringField(record, "status");
+  if (!clientId || !scheduledFor || !status || !isAssignmentStatus(status)) return null;
+
+  const workout = asRecord(firstRelation(record.workouts));
+  return {
+    clientId,
+    scheduledFor,
+    status,
+    workoutName: stringField(workout, "name") || "Workout",
   };
 }
 
@@ -187,7 +317,7 @@ function ymdInTimeZone(iso: string, timeZone: string) {
   return year && month && day ? `${year}-${month}-${day}` : null;
 }
 
-function normalizeClient(row: unknown, timeZone: string): ClientRecord | null {
+function normalizeClient(row: unknown, timeZone: string): ClientIdentity | null {
   const record = asRecord(row);
   if (!record) return null;
 
