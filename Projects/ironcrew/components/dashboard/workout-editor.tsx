@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { exerciseSummary } from "@/components/dashboard/library-details";
 import { libraryItemLabel, type ExerciseOption, type LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
 import { loadUnitOrDefault } from "@/lib/dashboard/workout-prefill";
 import { tracks, type TrackingParameter } from "@/lib/exercises/tracking";
@@ -53,6 +54,7 @@ export function WorkoutEditor({
   pending,
   creating = false,
   onDuplicate,
+  onOpenExercise,
   onSave,
   onCreate,
   onCancelCreate,
@@ -64,6 +66,7 @@ export function WorkoutEditor({
   pending: string | null;
   creating?: boolean;
   onDuplicate: (workoutId: string) => void;
+  onOpenExercise?: (exerciseId: string) => void;
   onSave: (workoutId: string, body: Record<string, unknown>) => Promise<boolean>;
   onCreate?: (body: Record<string, unknown>) => Promise<boolean>;
   onCancelCreate?: () => void;
@@ -262,21 +265,13 @@ export function WorkoutEditor({
                     </select>
                   </label>
                   {block.blockType === "exercise" ? (
-                    <label className="grid gap-1 text-sm">
-                      <span className="font-medium text-slate-600">Exercise</span>
-                      <select
-                        required
-                        disabled={!editable}
-                        value={block.exerciseId}
-                        onChange={(event) => updateBlock(block.key, { exerciseId: event.target.value })}
-                        className={fieldClass}
-                      >
-                        <option value="">Select</option>
-                        {exercises.map((exercise) => (
-                          <option key={exercise.id} value={exercise.id}>{libraryItemLabel(exercise.name, exercise.isSystem)}</option>
-                        ))}
-                      </select>
-                    </label>
+                    <ExerciseBlockField
+                      block={block}
+                      exercises={exercises}
+                      disabled={!editable}
+                      onChange={(exerciseId) => updateBlock(block.key, { exerciseId })}
+                      onOpenExercise={onOpenExercise}
+                    />
                   ) : null}
                   <label className="grid gap-1 text-sm sm:col-span-2">
                     <span className="font-medium text-slate-600">Title</span>
@@ -360,6 +355,56 @@ export function WorkoutEditor({
         </>
       )}
     </form>
+  );
+}
+
+function ExerciseBlockField({
+  block,
+  exercises,
+  disabled,
+  onChange,
+  onOpenExercise,
+}: {
+  block: BlockDraft;
+  exercises: ExerciseOption[];
+  disabled: boolean;
+  onChange: (exerciseId: string) => void;
+  onOpenExercise?: (exerciseId: string) => void;
+}) {
+  const exercise = exercises.find((item) => item.id === block.exerciseId) ?? null;
+
+  return (
+    <div className="grid gap-1 text-sm">
+      <label className="grid gap-1">
+        <span className="font-medium text-slate-600">Exercise</span>
+        <select
+          required
+          disabled={disabled}
+          value={block.exerciseId}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClass}
+        >
+          <option value="">Select</option>
+          {exercises.map((item) => (
+            <option key={item.id} value={item.id}>{libraryItemLabel(item.name, item.isSystem)}</option>
+          ))}
+        </select>
+      </label>
+      {exercise ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs text-slate-500">{exerciseSummary(exercise)}</p>
+          {onOpenExercise ? (
+            <button
+              type="button"
+              onClick={() => onOpenExercise(exercise.id)}
+              className="shrink-0 text-xs font-semibold text-slate-700 underline-offset-2 hover:underline"
+            >
+              Exercise details
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
