@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { ClientExercise, ClientLoggedSet } from "./client-week";
+import { prescriptionDetail, type ClientExercise, type ClientLoggedSet } from "./client-week";
 import { draftSets, fieldsFromCoach, fieldsFromLog, previousSetsForBlock, type PriorResult } from "./workout-prefill";
+
+test("a prescribed load with no unit is shown in kilograms", () => {
+  assert.equal(prescriptionDetail(3, 6, 8, { load: 100, loadUnit: null }), "3 sets · 100 kg · 6–8 reps");
+  assert.equal(prescriptionDetail(null, null, null, { load: 60, loadUnit: "  " }), "60 kg");
+  assert.equal(prescriptionDetail(1, 5, null, { load: 70, loadUnit: "lbs" }), "1 set · 70 lb · 5 reps");
+});
 
 test("a fresh workout shows the coach weight and the low end of the rep range", () => {
   const [set] = draftSets(exercise({ load: 60, repsMin: 6, repsMax: 8 }));

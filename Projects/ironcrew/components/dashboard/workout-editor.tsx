@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 
 import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { libraryItemLabel, type ExerciseOption, type LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
+import { loadUnitOrDefault } from "@/lib/dashboard/workout-prefill";
 import { tracks, type TrackingParameter } from "@/lib/exercises/tracking";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
@@ -28,7 +29,7 @@ type BlockDraft = {
   repsMin: string;
   repsMax: string;
   load: string;
-  loadUnit: string;
+  loadUnit: "kg" | "lb";
   restSeconds: string;
   durationSeconds: string;
   distanceKm: string;
@@ -116,7 +117,7 @@ export function WorkoutEditor({
         prescribed_reps_min: includeParameter(parameters, "reps") ? emptyNumber(block.repsMin) : null,
         prescribed_reps_max: includeParameter(parameters, "reps") ? emptyNumber(block.repsMax) : null,
         prescribed_load: includeParameter(parameters, "weight") ? emptyNumber(block.load) : null,
-        load_unit: includeParameter(parameters, "weight") ? block.loadUnit.trim() || null : null,
+        load_unit: includeParameter(parameters, "weight") ? loadUnitOrDefault(block.loadUnit) : null,
         rest_seconds: emptyNumber(block.restSeconds),
         prescribed_duration_seconds: includeParameter(parameters, "time") ? emptyNumber(block.durationSeconds) : null,
         prescribed_distance_meters: includeParameter(parameters, "distance") ? kilometersToMeters(block.distanceKm) : null,
@@ -293,7 +294,15 @@ export function WorkoutEditor({
                       <NumberField label="Load" value={block.load} disabled={!editable} onChange={(load) => updateBlock(block.key, { load })} step="any" />
                       <label className="grid gap-1 text-sm">
                         <span className="font-medium text-slate-600">Load unit</span>
-                        <input maxLength={20} disabled={!editable} value={block.loadUnit} onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value })} className={fieldClass} />
+                        <select
+                          disabled={!editable}
+                          value={block.loadUnit}
+                          onChange={(event) => updateBlock(block.key, { loadUnit: event.target.value === "lb" ? "lb" : "kg" })}
+                          className={fieldClass}
+                        >
+                          <option value="kg">kg</option>
+                          <option value="lb">lb</option>
+                        </select>
                       </label>
                     </>
                   ) : null}
@@ -394,7 +403,7 @@ function toDraft(block: LibraryWorkout["blocks"][number]): BlockDraft {
     repsMin: block.repsMin == null ? "" : String(block.repsMin),
     repsMax: block.repsMax == null ? "" : String(block.repsMax),
     load: block.load == null ? "" : String(block.load),
-    loadUnit: block.loadUnit ?? "",
+    loadUnit: loadUnitOrDefault(block.loadUnit),
     restSeconds: block.restSeconds == null ? "" : String(block.restSeconds),
     durationSeconds: block.durationSeconds == null ? "" : String(block.durationSeconds),
     distanceKm: metersToKm(block.distanceMeters),
@@ -413,7 +422,7 @@ function emptyBlock(exerciseId: string): BlockDraft {
     repsMin: "",
     repsMax: "",
     load: "",
-    loadUnit: "",
+    loadUnit: "kg",
     restSeconds: "",
     durationSeconds: "",
     distanceKm: "",
