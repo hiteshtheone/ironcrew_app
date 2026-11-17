@@ -30,8 +30,17 @@ export type ProgressSet = {
 export type ProgressSession = {
   assignmentId: string;
   scheduledFor: string;
+  name: string | null;
   calories: number | null;
   heartRateBpm: number | null;
+};
+
+/** Heart rate for one workout in the selected week. Kept apart from muscle totals. */
+export type ProgressHeartRate = {
+  assignmentId: string;
+  name: string;
+  scheduledFor: string;
+  heartRateBpm: number;
 };
 
 export type ProgressWeek = {
@@ -49,8 +58,6 @@ export type ProgressBodyPart = {
   weightKg: number;
   reps: number;
   maxWeightKg: number;
-  /** Mean session heart rate of workouts that logged this muscle. Null when none recorded one. */
-  avgHeartRateBpm: number | null;
 };
 
 export type ClientProgressReport = {
@@ -64,6 +71,7 @@ export type ClientProgressReport = {
   };
   weeks: ProgressWeek[];
   bodyParts: ProgressBodyPart[];
+  heartRates: ProgressHeartRate[];
 };
 
 export function movementKind(name: string | null, equipment: string | null) {
@@ -103,17 +111,34 @@ export function buildClientProgress(
   }));
   const weekByStart = new Map(weeks.map((week) => [week.start, week]));
   const bodyParts = new Map<string, BodyPartTally>();
-  const heartRateByAssignment = new Map<string, number>();
   const countedSessions = new Set<string>();
+  const heartRates: ProgressHeartRate[] = [];
 
   for (const session of sessions) {
     if (countedSessions.has(session.assignmentId)) continue;
     countedSessions.add(session.assignmentId);
-    if (session.heartRateBpm != null) heartRateByAssignment.set(session.assignmentId, session.heartRateBpm);
+    if (
+      session.heartRateBpm != null &&
+      session.scheduledFor >= weekStart &&
+      session.scheduledFor <= weekEnd
+    ) {
+      heartRates.push({
+        assignmentId: session.assignmentId,
+        name: session.name?.trim() || "Workout",
+        scheduledFor: session.scheduledFor,
+        heartRateBpm: session.heartRateBpm,
+      });
+    }
     if (session.calories == null || session.calories <= 0) continue;
     const week = weekByStart.get(weekStartFor(session.scheduledFor));
     if (week) week.calories += session.calories;
   }
+  heartRates.sort(
+    (left, right) =>
+      left.scheduledFor.localeCompare(right.scheduledFor) ||
+      left.name.localeCompare(right.name) ||
+      left.assignmentId.localeCompare(right.assignmentId),
+  );
 
   for (const set of sets) {
     const start = weekStartFor(set.scheduledFor);
@@ -132,18 +157,12 @@ export function buildClientProgress(
     const reps = set.repetitions != null && set.repetitions > 0 ? set.repetitions : 0;
     const weightReps = reps > 0 ? reps : loadPerRep > 0 ? 1 : 0;
     if (loadPerRep === 0 && reps === 0) continue;
-    const heartRateBpm = heartRateByAssignment.get(set.assignmentId);
     for (const share of muscleWeightShares(set)) {
       const existing = bodyParts.get(share.name) ?? blankBodyPart(share.name);
       existing.weightedLoad += loadPerRep * share.weightShare * weightReps;
       existing.weightReps += weightReps;
       existing.reps += reps;
       existing.maxWeightKg = Math.max(existing.maxWeightKg, loadPerRep);
-      if (heartRateBpm != null && !existing.heartRateAssignments.has(set.assignmentId)) {
-        existing.heartRateAssignments.add(set.assignmentId);
-        existing.heartRateSum += heartRateBpm;
-        existing.heartRateWorkouts += 1;
-      }
       bodyParts.set(share.name, existing);
     }
   }
@@ -166,13 +185,13 @@ export function buildClientProgress(
     weekEnd,
     completion: { completed, notCompleted, cancelled, percent },
     weeks,
+    heartRates,
     bodyParts: [...bodyParts.values()]
       .map((part) => ({
         name: part.name,
         weightKg: round2(part.weightReps > 0 ? part.weightedLoad / part.weightReps : 0),
         reps: part.reps,
         maxWeightKg: round2(part.maxWeightKg),
-        avgHeartRateBpm: part.heartRateWorkouts > 0 ? Math.round(part.heartRateSum / part.heartRateWorkouts) : null,
       }))
       .sort((left, right) => right.weightKg - left.weightKg || right.maxWeightKg - left.maxWeightKg || left.name.localeCompare(right.name)),
   };
@@ -185,9 +204,6 @@ type BodyPartTally = {
   maxWeightKg: number;
   weightedLoad: number;
   weightReps: number;
-  heartRateSum: number;
-  heartRateWorkouts: number;
-  heartRateAssignments: Set<string>;
 };
 
 function blankBodyPart(name: string): BodyPartTally {
@@ -198,9 +214,6 @@ function blankBodyPart(name: string): BodyPartTally {
     maxWeightKg: 0,
     weightedLoad: 0,
     weightReps: 0,
-    heartRateSum: 0,
-    heartRateWorkouts: 0,
-    heartRateAssignments: new Set(),
   };
 }
 

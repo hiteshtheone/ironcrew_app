@@ -55,6 +55,7 @@ async function loadAssignments(
         id,
         scheduled_for,
         status,
+        workouts ( name ),
         workout_sessions (
           calories,
           heart_rate_bpm,
@@ -98,9 +99,11 @@ function collectRow(
   assignments.push({ scheduledFor, status });
 
   const session = asRecord(firstRelation(record.workout_sessions));
+  const workout = asRecord(firstRelation(record.workouts));
   sessions.push({
     assignmentId: id,
     scheduledFor,
+    name: stringField(workout, "name"),
     calories: nonNegative(session?.calories),
     heartRateBpm: nonNegative(session?.heart_rate_bpm),
   });

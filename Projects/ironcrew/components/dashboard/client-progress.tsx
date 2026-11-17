@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { addDays, formatLongDate, type ClientDashboardData } from "@/lib/dashboard/client-week";
+import { addDays, formatLongDate, formatShortDate, type ClientDashboardData } from "@/lib/dashboard/client-week";
 
 type ProgressReport = {
   weekStart: string;
@@ -27,7 +27,12 @@ type ProgressReport = {
     weightKg: number;
     reps: number;
     maxWeightKg: number;
-    avgHeartRateBpm: number | null;
+  }[];
+  heartRates: {
+    assignmentId: string;
+    name: string;
+    scheduledFor: string;
+    heartRateBpm: number;
   }[];
 };
 
@@ -55,7 +60,7 @@ export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { 
       .then(async (response) => {
         const body = (await response.json().catch(() => null)) as (ProgressReport & { error?: string }) | null;
         if (!response.ok) throw new Error(body?.error || "Couldn't load progress");
-        if (!body?.completion || !Array.isArray(body.weeks) || !Array.isArray(body.bodyParts)) {
+        if (!body?.completion || !Array.isArray(body.weeks) || !Array.isArray(body.bodyParts) || !Array.isArray(body.heartRates)) {
           throw new Error("Couldn't load progress");
         }
         setReport(body);
@@ -140,8 +145,9 @@ export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { 
                   empty="Nothing logged in these weeks."
                 />
               </ChartCard>
-              <ChartCard title="By body part" detail="60% of used weight is given to the primary muscle and 40% to the other secondary muscles combined. Weight is shown per rep. Average heart rate is the mean of workouts that trained that muscle.">
+              <ChartCard title="By body part" detail="60% of used weight is given to the primary muscle and 40% to the other secondary muscles combined. Weight is shown per rep.">
                 <BodyPartTotals parts={report.bodyParts} />
+                <WorkoutHeartRates rates={report.heartRates} />
               </ChartCard>
               <ChartCard title="Max weight" detail="Heaviest single set for each body part this week">
                 <BodyPartMax parts={report.bodyParts} />
@@ -275,8 +281,6 @@ function BodyPartTotals({ parts }: { parts: ProgressReport["bodyParts"] }) {
   if (logged.length === 0) return <p className="mt-4 text-sm text-slate-500">Nothing logged this week.</p>;
   const maxWeight = Math.max(...logged.map((part) => part.weightKg));
   const maxReps = Math.max(...logged.map((part) => part.reps));
-  const heartRates = logged.flatMap((part) => (part.avgHeartRateBpm == null ? [] : [part.avgHeartRateBpm]));
-  const maxHeartRate = heartRates.length > 0 ? Math.max(...heartRates) : 0;
 
   return (
     <ul className="mt-5 space-y-4">
@@ -285,12 +289,37 @@ function BodyPartTotals({ parts }: { parts: ProgressReport["bodyParts"] }) {
           <p className="text-sm font-semibold">{part.name}</p>
           <Meter className="mt-2" label="Weight per rep" value={part.weightKg} max={maxWeight} color={WEIGHT} suffix="kg" />
           <Meter className="mt-2" label="Reps" value={part.reps} max={maxReps} color={REPS} suffix="" />
-          {part.avgHeartRateBpm != null ? (
-            <Meter className="mt-2" label="Avg HR" value={part.avgHeartRateBpm} max={maxHeartRate} color={HEART_RATE} suffix="bpm" />
-          ) : null}
         </li>
       ))}
     </ul>
+  );
+}
+
+function WorkoutHeartRates({ rates }: { rates: ProgressReport["heartRates"] }) {
+  const max = rates.length > 0 ? Math.max(...rates.map((rate) => rate.heartRateBpm)) : 0;
+
+  return (
+    <div className="mt-6 border-t border-slate-100 pt-5">
+      <h3 className="text-sm font-bold">Heart rate</h3>
+      <p className="mt-1 text-sm text-slate-500">Average for each workout this week</p>
+      {rates.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No heart rate logged this week.</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {rates.map((rate) => (
+            <li key={rate.assignmentId}>
+              <Meter
+                label={`${rate.name} · ${formatShortDate(rate.scheduledFor)}`}
+                value={rate.heartRateBpm}
+                max={max}
+                color={HEART_RATE}
+                suffix="bpm"
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

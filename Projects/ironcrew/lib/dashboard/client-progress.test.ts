@@ -24,7 +24,6 @@ test("primary muscle keeps 60 percent of used weight and secondaries split the r
   assert.equal(byName.Shoulders?.reps, 10);
   assert.equal(byName.Chest?.maxWeightKg, 100);
   assert.equal(byName.Triceps?.maxWeightKg, 100);
-  assert.equal(byName.Chest?.avgHeartRateBpm, null);
 });
 
 test("a set with no secondary muscle keeps all of its weight on the primary", () => {
@@ -88,7 +87,7 @@ test("calories are summed once per workout even when it has several sets", () =>
   assert.equal(previous?.calories, 180);
 });
 
-test("body part heart rate averages each workout once and skips a missing heart rate", () => {
+test("heart rate is listed once per workout and stays off the body part totals", () => {
   const report = buildClientProgress(
     WEEK,
     [],
@@ -99,21 +98,28 @@ test("body part heart rate averages each workout once and skips a missing heart 
       set({ assignmentId: "c", load: 20, repetitions: 8, muscleGroup: "chest", secondaryMuscleGroups: [] }),
     ],
     [
-      session({ assignmentId: "a", heartRateBpm: 141 }),
-      session({ assignmentId: "b", heartRateBpm: 160 }),
-      session({ assignmentId: "c", heartRateBpm: null }),
+      session({ assignmentId: "a", name: "Push", heartRateBpm: 141 }),
+      session({ assignmentId: "a", name: "Push", heartRateBpm: 999 }),
+      session({ assignmentId: "b", name: "Pull", scheduledFor: "2026-11-11", heartRateBpm: 160 }),
+      session({ assignmentId: "c", name: "Legs", heartRateBpm: null }),
+      session({ assignmentId: "old", name: "Earlier", scheduledFor: "2026-11-02", heartRateBpm: 120 }),
     ],
   );
 
-  const chest = report.bodyParts.find((part) => part.name === "Chest");
-  const triceps = report.bodyParts.find((part) => part.name === "Triceps");
-  assert.equal(chest?.avgHeartRateBpm, 151);
-  assert.equal(triceps?.avgHeartRateBpm, 160);
+  assert.equal("avgHeartRateBpm" in (report.bodyParts[0] ?? {}), false);
+  assert.deepEqual(
+    report.heartRates.map((rate) => ({ name: rate.name, heartRateBpm: rate.heartRateBpm })),
+    [
+      { name: "Push", heartRateBpm: 141 },
+      { name: "Pull", heartRateBpm: 160 },
+    ],
+  );
 });
 
 function session(overrides: Partial<ProgressSession> & Pick<ProgressSession, "assignmentId">): ProgressSession {
   return {
     scheduledFor: WEEK,
+    name: null,
     calories: null,
     heartRateBpm: null,
     ...overrides,
