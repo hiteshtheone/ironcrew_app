@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { ComingSoonBanner } from "@/components/dashboard/coming-soon-banner";
 import { GetStartedChecklist } from "@/components/dashboard/get-started-checklist";
 import { TodayWorkouts } from "@/components/dashboard/today-workouts";
 import { LogoutButton } from "@/components/logout-button";
@@ -37,6 +38,8 @@ export function TrainerOverview({
           <Plus className="size-4" /> Add client
         </Link>
       </div>
+
+      <ComingSoonBanner />
 
       {checklist ? <GetStartedChecklist items={checklist} /> : null}
 
