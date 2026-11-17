@@ -48,6 +48,12 @@ export async function PUT(request: Request, context: RouteContext) {
   const note = asTrimmedString(parsedBody.body.note);
   if (note === undefined) return jsonError("note must be a string or null", 400);
   if (note && note.length > 10000) return jsonError("note must be 10000 characters or fewer", 400);
+  const calories = optionalWholeNumber(parsedBody.body.calories);
+  if (calories === undefined) return jsonError("calories must be a whole number that is zero or greater", 400);
+  const sessionHeartRate = optionalWholeNumber(parsedBody.body.heart_rate_bpm);
+  if (sessionHeartRate === undefined) {
+    return jsonError("heart_rate_bpm must be a whole number that is zero or greater", 400);
+  }
   if (!Array.isArray(parsedBody.body.blocks)) return jsonError("blocks must be an array", 400);
 
   const auth = await requireUser();
@@ -88,6 +94,8 @@ export async function PUT(request: Request, context: RouteContext) {
     clientId: stringValue(assignment.client_id),
     workoutId: stringValue(assignment.workout_id),
     note,
+    calories,
+    heartRateBpm: sessionHeartRate,
   });
   if ("error" in sessionId) return sessionId.error;
 
@@ -278,7 +286,14 @@ async function markInProgress(
 
 async function ensureSession(
   supabase: SupabaseClient,
-  input: { assignmentId: string; clientId: string | null; workoutId: string | null; note: string | null },
+  input: {
+    assignmentId: string;
+    clientId: string | null;
+    workoutId: string | null;
+    note: string | null;
+    calories: number | null;
+    heartRateBpm: number | null;
+  },
 ) {
   if (!input.clientId || !input.workoutId) return { error: jsonError("Workout assignment not found", 404) };
 
@@ -296,7 +311,11 @@ async function ensureSession(
   if (existing?.id) {
     const { error } = await supabase
       .from("workout_sessions")
-      .update({ client_feedback: input.note })
+      .update({
+        client_feedback: input.note,
+        calories: input.calories,
+        heart_rate_bpm: input.heartRateBpm,
+      })
       .eq("id", existing.id);
     if (error) {
       const failure = /row-level security/i.test(error.message) ? 403 : 500;
@@ -313,6 +332,8 @@ async function ensureSession(
       workout_id: input.workoutId,
       status: "in_progress",
       client_feedback: input.note,
+      calories: input.calories,
+      heart_rate_bpm: input.heartRateBpm,
     })
     .select("id")
     .single();

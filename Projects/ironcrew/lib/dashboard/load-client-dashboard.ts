@@ -33,6 +33,8 @@ type ProfileInput = {
 const WORKOUT_EXECUTION_COLUMNS = `
   workout_sessions (
     client_feedback,
+    calories,
+    heart_rate_bpm,
     exercise_results (
       workout_block_id,
       set_number,
@@ -426,6 +428,8 @@ function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLogge
     givenBy: source.givenBy,
     status,
     sessionNote: stringField(session, "client_feedback"),
+    calories: nonNegativeNumber(session?.calories),
+    heartRateBpm: nonNegativeNumber(session?.heart_rate_bpm),
     exercises: blocks
       .map((block) => {
         const blockId = stringField(block, "id") ?? "";
