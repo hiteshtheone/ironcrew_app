@@ -6,22 +6,20 @@ const features: { label: string; icon: LucideIcon }[] = [
   { label: "Nutrition", icon: Apple },
 ];
 
-/** Icon-only preview of features that are not available yet. Shown on both dashboard homes. */
+/** One-line preview of features that are not available yet. Shown on both dashboard homes. */
 export function ComingSoonBanner() {
   return (
-    <ul className="mt-4 flex items-center gap-2" aria-label="Coming soon">
+    <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+      <span className="font-medium text-slate-700">Coming soon</span>
       {features.map(({ label, icon: Icon }) => (
-        <li key={label}>
-          <span
-            role="img"
-            title={`${label} coming soon`}
-            aria-label={`${label} coming soon`}
-            className="grid size-8 place-items-center rounded-lg border border-slate-200 bg-white text-emerald-600 shadow-sm"
-          >
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-        </li>
+        <span
+          key={label}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 font-medium text-slate-700 shadow-sm"
+        >
+          <Icon className="size-4 text-emerald-600" aria-hidden="true" />
+          {label}
+        </span>
       ))}
-    </ul>
+    </p>
   );
 }
