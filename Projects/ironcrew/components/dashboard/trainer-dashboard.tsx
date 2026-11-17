@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { ComingSoonBanner } from "@/components/dashboard/coming-soon-banner";
 import { GetStartedChecklist } from "@/components/dashboard/get-started-checklist";
 import { TodayWorkouts } from "@/components/dashboard/today-workouts";
 import { LogoutButton } from "@/components/logout-button";
@@ -37,6 +38,8 @@ export function TrainerOverview({
           <Plus className="size-4" /> Add client
         </Link>
       </div>
+
+      <ComingSoonBanner />
 
       {checklist ? <GetStartedChecklist items={checklist} /> : null}
 
@@ -71,17 +74,29 @@ export function TrainerOverview({
       </div>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-bold">Client progress</h2><p className="mt-1 text-sm text-slate-500">Workout consistency this month</p></div><span className="text-sm font-semibold text-slate-700">View all clients</span></div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold">Client progress</h2>
+            <p className="mt-1 text-sm text-slate-500">Workout consistency this month</p>
+          </div>
+          <Link href="/dashboard?section=clients" className="flex items-center gap-1 text-sm font-semibold text-slate-700 hover:text-slate-950">
+            View all clients <ChevronRight className="size-4" />
+          </Link>
+        </div>
         {data.progress.length === 0 ? (
           <p className="mt-8 text-sm text-slate-500">No workout history yet</p>
         ) : (
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {data.progress.map((client) => (
-              <div key={client.clientId} className="rounded-xl border border-slate-100 p-4">
+              <Link
+                key={client.clientId}
+                href={`/dashboard?section=clients&client=${client.clientId}`}
+                className="block rounded-xl border border-slate-100 p-4 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
+              >
                 <div className="flex items-center gap-3"><span className={`grid size-9 place-items-center rounded-full text-xs font-bold ${client.tone}`}>{client.initials}</span><div><p className="text-sm font-semibold">{client.name}</p><p className="text-xs text-slate-500">Workout consistency</p></div></div>
                 <div className="mt-5 flex items-end justify-between"><p className="text-2xl font-bold">{client.value}</p><span className={`text-xs font-semibold ${changeTone(client.change)}`}>{client.change}</span></div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-slate-900" style={{ width: `${client.width}%` }} /></div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

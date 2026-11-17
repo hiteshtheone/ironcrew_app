@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
-import { addDays, formatLongDate, type ClientDashboardData } from "@/lib/dashboard/client-week";
+import { addDays, formatLongDate, formatShortDate, type ClientDashboardData } from "@/lib/dashboard/client-week";
 
 type ProgressReport = {
   weekStart: string;
@@ -20,6 +20,7 @@ type ProgressReport = {
     rodeKm: number;
     weightKg: number;
     reps: number;
+    calories: number;
   }[];
   bodyParts: {
     name: string;
@@ -27,12 +28,20 @@ type ProgressReport = {
     reps: number;
     maxWeightKg: number;
   }[];
+  heartRates: {
+    assignmentId: string;
+    name: string;
+    scheduledFor: string;
+    heartRateBpm: number;
+  }[];
 };
 
 const RAN = "#10b981";
 const RODE = "#7c3aed";
 const WEIGHT = "#0f172a";
 const REPS = "#d97706";
+const CALORIES = "#e11d48";
+const HEART_RATE = "#0f766e";
 
 export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
   const currentWeekStart = data.kind === "ready" ? (data.days[0]?.date ?? "") : "";
@@ -51,7 +60,7 @@ export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { 
       .then(async (response) => {
         const body = (await response.json().catch(() => null)) as (ProgressReport & { error?: string }) | null;
         if (!response.ok) throw new Error(body?.error || "Couldn't load progress");
-        if (!body?.completion || !Array.isArray(body.weeks) || !Array.isArray(body.bodyParts)) {
+        if (!body?.completion || !Array.isArray(body.weeks) || !Array.isArray(body.bodyParts) || !Array.isArray(body.heartRates)) {
           throw new Error("Couldn't load progress");
         }
         setReport(body);
@@ -72,7 +81,7 @@ export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { 
   return (
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Progress</h1>
-      <p className="mt-2 text-sm text-slate-500">Weekly completion, distance, and the weight and reps you logged.</p>
+      <p className="mt-2 text-sm text-slate-500">Weekly completion, distance, and the weight, reps, and calories you logged.</p>
 
       {data.kind === "unlinked" ? (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 shadow-sm">
@@ -121,18 +130,24 @@ export function ClientProgress({ data }: { data: Exclude<ClientDashboardData, { 
                   empty="Nothing logged in these weeks."
                 />
               </ChartCard>
-              <ChartCard title="Weight and reps" detail="Total load and repetitions for each of those weeks">
+              <ChartCard title="Weight, reps, and calories" detail="Total load, repetitions, and calories burnt for each of those weeks">
                 <GroupedColumns
-                  points={report.weeks.map((week) => ({ id: week.start, label: week.label, values: [week.weightKg, week.reps] }))}
+                  points={report.weeks.map((week) => ({
+                    id: week.start,
+                    label: week.label,
+                    values: [week.weightKg, week.reps, week.calories],
+                  }))}
                   series={[
                     { label: "Weight (kg)", color: WEIGHT },
                     { label: "Reps", color: REPS },
+                    { label: "Calories", color: CALORIES },
                   ]}
                   empty="Nothing logged in these weeks."
                 />
               </ChartCard>
               <ChartCard title="By body part" detail="60% of used weight is given to the primary muscle and 40% to the other secondary muscles combined. Weight is shown per rep.">
                 <BodyPartTotals parts={report.bodyParts} />
+                <WorkoutHeartRates rates={report.heartRates} />
               </ChartCard>
               <ChartCard title="Max weight" detail="Heaviest single set for each body part this week">
                 <BodyPartMax parts={report.bodyParts} />
@@ -230,9 +245,9 @@ function GroupedColumns({
 
   return (
     <div className="mt-5 overflow-x-auto">
-      <div className="flex h-52 min-w-[720px] items-end gap-2">
+      <div className="flex h-52 min-w-max items-end gap-2">
         {points.map((point) => (
-          <div key={point.id} className="flex min-w-14 flex-1 flex-col items-center">
+          <div key={point.id} className="flex w-24 shrink-0 flex-col items-center">
             <div className="flex h-40 items-end gap-1">
               {point.values.map((value, index) => {
                 const max = maxes[index] || 1;
@@ -277,6 +292,34 @@ function BodyPartTotals({ parts }: { parts: ProgressReport["bodyParts"] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function WorkoutHeartRates({ rates }: { rates: ProgressReport["heartRates"] }) {
+  const max = rates.length > 0 ? Math.max(...rates.map((rate) => rate.heartRateBpm)) : 0;
+
+  return (
+    <div className="mt-6 border-t border-slate-100 pt-5">
+      <h3 className="text-sm font-bold">Heart rate</h3>
+      <p className="mt-1 text-sm text-slate-500">Average for each workout this week</p>
+      {rates.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No heart rate logged this week.</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {rates.map((rate) => (
+            <li key={rate.assignmentId}>
+              <Meter
+                label={`${rate.name} · ${formatShortDate(rate.scheduledFor)}`}
+                value={rate.heartRateBpm}
+                max={max}
+                color={HEART_RATE}
+                suffix="bpm"
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

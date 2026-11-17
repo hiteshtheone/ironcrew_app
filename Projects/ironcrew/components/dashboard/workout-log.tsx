@@ -42,6 +42,10 @@ export function WorkoutLog({
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
   const [note, setNote] = useState(workout.sessionNote ?? "");
   const [noteBaseline, setNoteBaseline] = useState(workout.sessionNote ?? "");
+  const [calories, setCalories] = useState(() => wholeNumberText(workout.calories));
+  const [caloriesBaseline, setCaloriesBaseline] = useState(() => wholeNumberText(workout.calories));
+  const [heartRate, setHeartRate] = useState(() => wholeNumberText(workout.heartRateBpm));
+  const [heartRateBaseline, setHeartRateBaseline] = useState(() => wholeNumberText(workout.heartRateBpm));
   const { editing: editingNote, startEditing: startNoteEdit, stopEditing: stopNoteEdit } = useEditMode(workout.id);
   const [blocks, setBlocks] = useState<DraftBlock[]>(() => workout.exercises.map(draftBlock));
   const [setBaselines, setSetBaselines] = useState<Record<string, DraftSet[]>>(() => baselineSetsFrom(workout.exercises.map(draftBlock)));
@@ -54,6 +58,10 @@ export function WorkoutLog({
     setLoadedWorkoutId(workout.id);
     setNote(workout.sessionNote ?? "");
     setNoteBaseline(workout.sessionNote ?? "");
+    setCalories(wholeNumberText(workout.calories));
+    setCaloriesBaseline(wholeNumberText(workout.calories));
+    setHeartRate(wholeNumberText(workout.heartRateBpm));
+    setHeartRateBaseline(wholeNumberText(workout.heartRateBpm));
     setBlocks(nextBlocks);
     setSetBaselines(baselineSetsFrom(nextBlocks));
     setOpenBlockId(null);
@@ -62,14 +70,15 @@ export function WorkoutLog({
   const save = (blockId: string) => {
     const block = blocks.find((item) => item.id === blockId);
     const blockDirty = block ? !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets) : false;
+    const sessionDirty = note !== noteBaseline || calories !== caloriesBaseline || heartRate !== heartRateBaseline;
     if (blockId === "note") {
-      if (!editingNote || note === noteBaseline) return;
+      if (!editingNote || !sessionDirty) return;
     } else if (!blockDirty) {
       return;
     }
-    const payload = buildPayload(note, blocks);
+    const payload = buildPayload(note, calories, heartRate, blocks);
     if ("error" in payload) {
-      setErrorByBlock((current) => ({ ...current, [blockId]: payload.error }));
+      setErrorByBlock((current) => ({ ...current, [payload.session ? "note" : blockId]: payload.error }));
       return;
     }
 
@@ -88,6 +97,8 @@ export function WorkoutLog({
         const body = (await response.json().catch(() => null)) as { error?: string; status?: string } | null;
         if (!response.ok) throw new Error(body?.error || "Couldn't save these details");
         setNoteBaseline(note);
+        setCaloriesBaseline(calories);
+        setHeartRateBaseline(heartRate);
         setSetBaselines(baselineSetsFrom(blocks));
         stopNoteEdit();
         if (body?.status) onLogged?.(body.status);
@@ -117,12 +128,38 @@ export function WorkoutLog({
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </label>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <label className="block text-sm font-medium text-slate-700">
+            Calories
+            <input
+              type="text"
+              inputMode="numeric"
+              value={calories}
+              disabled={!editingNote}
+              onChange={(event) => setCalories(event.target.value)}
+              placeholder="Optional"
+              className="mt-1 w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            Heart rate (bpm)
+            <input
+              type="text"
+              inputMode="numeric"
+              value={heartRate}
+              disabled={!editingNote}
+              onChange={(event) => setHeartRate(event.target.value)}
+              placeholder="Optional"
+              className="mt-1 w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+            />
+          </label>
+        </div>
         <EditSaveActions
           className="mt-2 flex flex-wrap items-center gap-2"
           editing={editingNote}
-          dirty={note !== noteBaseline}
+          dirty={note !== noteBaseline || calories !== caloriesBaseline || heartRate !== heartRateBaseline}
           pending={pendingBlockId === "note"}
-          saveLabel="Save note"
+          saveLabel="Save"
           pendingLabel="Saving…"
           saveType="button"
           onSave={() => save("note")}
@@ -131,6 +168,8 @@ export function WorkoutLog({
           onEdit={startNoteEdit}
           onCancel={() => {
             setNote(noteBaseline);
+            setCalories(caloriesBaseline);
+            setHeartRate(heartRateBaseline);
             stopNoteEdit();
           }}
         />
@@ -312,8 +351,19 @@ function draftBlock(exercise: ClientExercise): DraftBlock {
   };
 }
 
-function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
+function wholeNumberText(value: number | null) {
+  return value == null ? "" : String(value);
+}
+
+function buildPayload(
+  note: string,
+  caloriesText: string,
+  heartRateText: string,
+  blocks: DraftBlock[],
+): { error: string; session?: boolean } | {
   note: string | null;
+  calories: number | null;
+  heart_rate_bpm: number | null;
   blocks: {
     block_id: string;
     sets: {
@@ -329,6 +379,12 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
     }[];
   }[];
 } {
+  const calories = parseWholeNumber(caloriesText);
+  const sessionHeartRate = parseWholeNumber(heartRateText);
+  if (calories === undefined || sessionHeartRate === undefined) {
+    return { error: "Use a whole number that is zero or greater for calories and heart rate.", session: true };
+  }
+
   const parsedBlocks = [];
   for (const block of blocks) {
     const sets = [];
@@ -365,7 +421,7 @@ function buildPayload(note: string, blocks: DraftBlock[]): { error: string } | {
     parsedBlocks.push({ block_id: block.id, sets });
   }
 
-  return { note: note.trim() || null, blocks: parsedBlocks };
+  return { note: note.trim() || null, calories, heart_rate_bpm: sessionHeartRate, blocks: parsedBlocks };
 }
 
 function parseWholeNumber(value: string) {

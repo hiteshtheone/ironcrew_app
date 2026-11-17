@@ -16,6 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { ComingSoonBanner } from "@/components/dashboard/coming-soon-banner";
 import { ClientProgress } from "@/components/dashboard/client-progress";
 import { GetStartedChecklist } from "@/components/dashboard/get-started-checklist";
 import { GoalPendingBanner } from "@/components/dashboard/goal-pending-banner";
@@ -344,6 +345,8 @@ function ClientWeek({
           ? "This login is not connected to a client profile yet."
           : "Here is your plan for this week."}
       </p>
+
+      <ComingSoonBanner />
 
       {data.kind === "unlinked" ? (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 shadow-sm">

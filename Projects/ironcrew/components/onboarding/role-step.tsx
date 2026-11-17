@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { StepActions, StepCard, TimezoneField, useDetectedTimeZone } from "@/components/onboarding/step-layout";
+import { TermsAgreement } from "@/components/onboarding/terms-agreement";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { stepsFor } from "@/lib/onboarding/steps";
@@ -44,6 +45,7 @@ export function RoleStep({
   const [firstName, setFirstName] = useState(defaultFirstName);
   const [lastName, setLastName] = useState(defaultLastName);
   const [timezone, setTimezone] = useDetectedTimeZone("UTC");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -58,6 +60,10 @@ export function RoleStep({
       setError("Choose whether you are a trainer or a user");
       return;
     }
+    if (!agreed) {
+      setError("Agree to the Terms and Conditions to continue");
+      return;
+    }
 
     setIsLoading(true);
     const supabase = createClient();
@@ -66,6 +72,7 @@ export function RoleStep({
       p_first_name: firstName.trim(),
       p_last_name: lastName.trim() || null,
       p_timezone: timezone.trim() || null,
+      p_terms_accepted: true,
     });
 
     if (rpcError) {
@@ -133,8 +140,14 @@ export function RoleStep({
 
           <TimezoneField value={timezone} onChange={setTimezone} />
 
+          <TermsAgreement agreed={agreed} onChange={setAgreed} />
+
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <StepActions pending={isLoading} pendingLabel="Setting up your account..." />
+          <StepActions
+            pending={isLoading}
+            pendingLabel="Setting up your account..."
+            submitDisabled={!agreed}
+          />
         </div>
       </form>
     </StepCard>

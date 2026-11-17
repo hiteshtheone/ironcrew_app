@@ -6,6 +6,7 @@ import { databaseErrorMessage, isIsoDate, jsonError, requireUser } from "@/lib/a
 import {
   buildClientProgress,
   type ProgressAssignment,
+  type ProgressSession,
   type ProgressSet,
 } from "@/lib/dashboard/client-progress";
 import { addDays, currentWeek, formatWeekday, isAssignmentStatus } from "@/lib/dashboard/client-week";
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
   const loaded = await loadAssignments(auth.supabase, client.clientId, rangeStart, rangeEnd);
   if ("error" in loaded) return loaded.error;
 
-  return NextResponse.json(buildClientProgress(weekStart, loaded.assignments, loaded.sets));
+  return NextResponse.json(buildClientProgress(weekStart, loaded.assignments, loaded.sets, loaded.sessions));
 }
 
 async function loadAssignments(
@@ -44,6 +45,7 @@ async function loadAssignments(
 ) {
   const assignments: ProgressAssignment[] = [];
   const sets: ProgressSet[] = [];
+  const sessions: ProgressSession[] = [];
 
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await supabase
@@ -53,7 +55,10 @@ async function loadAssignments(
         id,
         scheduled_for,
         status,
+        workouts ( name ),
         workout_sessions (
+          calories,
+          heart_rate_bpm,
           exercise_results (
             repetitions,
             load,
@@ -73,26 +78,41 @@ async function loadAssignments(
 
     if (error) return { error: jsonError(databaseErrorMessage(error), 500) };
     const rows = data ?? [];
-    for (const row of rows) collectRow(row, assignments, sets);
+    for (const row of rows) collectRow(row, assignments, sets, sessions);
     if (rows.length < PAGE_SIZE) break;
   }
 
-  return { assignments, sets };
+  return { assignments, sets, sessions };
 }
 
-function collectRow(row: unknown, assignments: ProgressAssignment[], sets: ProgressSet[]) {
+function collectRow(
+  row: unknown,
+  assignments: ProgressAssignment[],
+  sets: ProgressSet[],
+  sessions: ProgressSession[],
+) {
   const record = asRecord(row);
+  const id = stringField(record, "id");
   const scheduledFor = stringField(record, "scheduled_for");
   const status = stringField(record, "status");
-  if (!record || !scheduledFor || !status || !isAssignmentStatus(status)) return;
+  if (!record || !id || !scheduledFor || !status || !isAssignmentStatus(status)) return;
   assignments.push({ scheduledFor, status });
 
   const session = asRecord(firstRelation(record.workout_sessions));
+  const workout = asRecord(firstRelation(record.workouts));
+  sessions.push({
+    assignmentId: id,
+    scheduledFor,
+    name: stringField(workout, "name"),
+    calories: nonNegative(session?.calories),
+    heartRateBpm: nonNegative(session?.heart_rate_bpm),
+  });
   for (const result of relationList(session?.exercise_results)) {
     const set = asRecord(result);
     if (!set) continue;
     const exercise = asRecord(firstRelation(set.exercises));
     sets.push({
+      assignmentId: id,
       scheduledFor,
       repetitions: nonNegative(set.repetitions),
       load: nonNegative(set.load),
