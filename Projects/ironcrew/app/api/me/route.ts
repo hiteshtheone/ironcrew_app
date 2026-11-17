@@ -15,6 +15,8 @@ type ProfileRow = {
   role: "client" | "trainer";
   full_name: string;
   timezone: string;
+  terms_accepted_at?: string | null;
+  onboarding_completed_at?: string | null;
 };
 
 type ClientRow = {
@@ -153,7 +155,7 @@ export async function PATCH(request: Request) {
 
   const { data: profile, error: profileError } = await auth.supabase
     .from("profiles")
-    .select("role, full_name, timezone")
+    .select("role, full_name, timezone, terms_accepted_at, onboarding_completed_at")
     .eq("id", auth.user.id)
     .maybeSingle();
 
@@ -163,6 +165,18 @@ export async function PATCH(request: Request) {
   const progress = parsedOnboardingProgress(parsedBody.body);
   if ("error" in progress) return jsonError(progress.error, 400);
   const hasProgress = Object.keys(progress.changes).length > 0;
+  const account = profile as ProfileRow;
+
+  // Invited clients accept the terms on their first screen, before a profile update.
+  if (
+    "first_name" in parsedBody.body &&
+    account.role === "client" &&
+    !account.onboarding_completed_at &&
+    !account.terms_accepted_at &&
+    parsedBody.body.terms_accepted !== true
+  ) {
+    return jsonError("Agree to the Terms and Conditions to continue", 400);
+  }
 
   // Onboarding-only requests (no name fields) leave the profile details alone.
   if (!("first_name" in parsedBody.body)) {
@@ -171,7 +185,6 @@ export async function PATCH(request: Request) {
     return progressError ?? NextResponse.json({ ok: true });
   }
 
-  const account = profile as ProfileRow;
   const response =
     account.role === "client"
       ? await updateClient(auth, parsedBody.body)
@@ -188,7 +201,19 @@ async function saveOnboardingProgress(
   auth: Exclude<Awaited<ReturnType<typeof requireUser>>, { error: NextResponse }>,
   changes: OnboardingProgressChanges,
 ) {
-  const { error } = await auth.supabase.from("profiles").update(changes).eq("id", auth.user.id);
+  const next = { ...changes };
+  if (next.terms_accepted_at) {
+    const { data, error } = await auth.supabase
+      .from("profiles")
+      .select("terms_accepted_at")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    if (error) return jsonError(databaseErrorMessage(error), writeStatus(error.message));
+    if (data?.terms_accepted_at) delete next.terms_accepted_at;
+  }
+  if (Object.keys(next).length === 0) return null;
+
+  const { error } = await auth.supabase.from("profiles").update(next).eq("id", auth.user.id);
   if (error) return jsonError(databaseErrorMessage(error), writeStatus(error.message));
   return null;
 }
@@ -197,6 +222,7 @@ type OnboardingProgressChanges = {
   onboarding_step?: string | null;
   onboarding_completed_at?: string;
   checklist_dismissed_at?: string;
+  terms_accepted_at?: string;
 };
 
 function parsedOnboardingProgress(
@@ -219,6 +245,10 @@ function parsedOnboardingProgress(
   if ("checklist_dismissed" in input) {
     if (input.checklist_dismissed !== true) return { error: "checklist_dismissed can only be true" };
     changes.checklist_dismissed_at = now;
+  }
+  if ("terms_accepted" in input) {
+    if (input.terms_accepted !== true) return { error: "terms_accepted can only be true" };
+    changes.terms_accepted_at = now;
   }
   return { changes };
 }
