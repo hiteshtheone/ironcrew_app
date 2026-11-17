@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { StepActions, StepCard, TimezoneField, patchMe, useDetectedTimeZone } from "@/components/onboarding/step-layout";
+import { TermsAgreement } from "@/components/onboarding/terms-agreement";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ClientOnboardingContext } from "@/lib/onboarding/load-onboarding";
@@ -25,19 +26,25 @@ export function InvitedWelcomeStep({
   const [phone, setPhone] = useState(client.phone ?? "");
   const [dateOfBirth, setDateOfBirth] = useState((client.dateOfBirth ?? "").slice(0, 10));
   const [timezone, setTimezone] = useDetectedTimeZone(storedTimezone);
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setPending(true);
     setError(null);
+    if (!agreed) {
+      setError("Agree to the Terms and Conditions to continue");
+      return;
+    }
+    setPending(true);
     const failure = await patchMe({
       first_name: firstName,
       last_name: lastName || null,
       phone: phone || null,
       date_of_birth: dateOfBirth || null,
       timezone,
+      terms_accepted: true,
     });
     setPending(false);
     if (failure) {
@@ -99,8 +106,9 @@ export function InvitedWelcomeStep({
           </div>
         </div>
         <TimezoneField id="welcome-timezone" value={timezone} onChange={setTimezone} />
+        <TermsAgreement agreed={agreed} onChange={setAgreed} />
         {error && <p className="text-sm text-red-500">{error}</p>}
-        <StepActions pending={pending} />
+        <StepActions pending={pending} submitDisabled={!agreed} />
       </form>
     </StepCard>
   );
