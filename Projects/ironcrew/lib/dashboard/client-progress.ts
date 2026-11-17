@@ -14,6 +14,7 @@ export type ProgressAssignment = {
 };
 
 export type ProgressSet = {
+  assignmentId: string;
   scheduledFor: string;
   repetitions: number | null;
   load: number | null;
@@ -25,6 +26,23 @@ export type ProgressSet = {
   secondaryMuscleGroups: string[];
 };
 
+/** One logged workout. Calories and heart rate are entered once for the session. */
+export type ProgressSession = {
+  assignmentId: string;
+  scheduledFor: string;
+  name: string | null;
+  calories: number | null;
+  heartRateBpm: number | null;
+};
+
+/** Heart rate for one workout in the selected week. Kept apart from muscle totals. */
+export type ProgressHeartRate = {
+  assignmentId: string;
+  name: string;
+  scheduledFor: string;
+  heartRateBpm: number;
+};
+
 export type ProgressWeek = {
   start: string;
   label: string;
@@ -32,6 +50,7 @@ export type ProgressWeek = {
   rodeKm: number;
   weightKg: number;
   reps: number;
+  calories: number;
 };
 
 export type ProgressBodyPart = {
@@ -52,6 +71,7 @@ export type ClientProgressReport = {
   };
   weeks: ProgressWeek[];
   bodyParts: ProgressBodyPart[];
+  heartRates: ProgressHeartRate[];
 };
 
 export function movementKind(name: string | null, equipment: string | null) {
@@ -76,6 +96,7 @@ export function buildClientProgress(
   weekStart: string,
   assignments: ProgressAssignment[],
   sets: ProgressSet[],
+  sessions: ProgressSession[] = [],
 ): ClientProgressReport {
   const weekEnd = addDays(weekStart, 6);
   const starts = Array.from({ length: TREND_WEEKS }, (_, index) => addDays(weekStart, (index - (TREND_WEEKS - 1)) * 7));
@@ -86,9 +107,38 @@ export function buildClientProgress(
     rodeKm: 0,
     weightKg: 0,
     reps: 0,
+    calories: 0,
   }));
   const weekByStart = new Map(weeks.map((week) => [week.start, week]));
-  const bodyParts = new Map<string, ProgressBodyPart & { weightedLoad: number; weightReps: number }>();
+  const bodyParts = new Map<string, BodyPartTally>();
+  const countedSessions = new Set<string>();
+  const heartRates: ProgressHeartRate[] = [];
+
+  for (const session of sessions) {
+    if (countedSessions.has(session.assignmentId)) continue;
+    countedSessions.add(session.assignmentId);
+    if (
+      session.heartRateBpm != null &&
+      session.scheduledFor >= weekStart &&
+      session.scheduledFor <= weekEnd
+    ) {
+      heartRates.push({
+        assignmentId: session.assignmentId,
+        name: session.name?.trim() || "Workout",
+        scheduledFor: session.scheduledFor,
+        heartRateBpm: session.heartRateBpm,
+      });
+    }
+    if (session.calories == null || session.calories <= 0) continue;
+    const week = weekByStart.get(weekStartFor(session.scheduledFor));
+    if (week) week.calories += session.calories;
+  }
+  heartRates.sort(
+    (left, right) =>
+      left.scheduledFor.localeCompare(right.scheduledFor) ||
+      left.name.localeCompare(right.name) ||
+      left.assignmentId.localeCompare(right.assignmentId),
+  );
 
   for (const set of sets) {
     const start = weekStartFor(set.scheduledFor);
@@ -108,7 +158,7 @@ export function buildClientProgress(
     const weightReps = reps > 0 ? reps : loadPerRep > 0 ? 1 : 0;
     if (loadPerRep === 0 && reps === 0) continue;
     for (const share of muscleWeightShares(set)) {
-      const existing = bodyParts.get(share.name) ?? { name: share.name, weightKg: 0, reps: 0, maxWeightKg: 0, weightedLoad: 0, weightReps: 0 };
+      const existing = bodyParts.get(share.name) ?? blankBodyPart(share.name);
       existing.weightedLoad += loadPerRep * share.weightShare * weightReps;
       existing.weightReps += weightReps;
       existing.reps += reps;
@@ -135,6 +185,7 @@ export function buildClientProgress(
     weekEnd,
     completion: { completed, notCompleted, cancelled, percent },
     weeks,
+    heartRates,
     bodyParts: [...bodyParts.values()]
       .map((part) => ({
         name: part.name,
@@ -143,6 +194,26 @@ export function buildClientProgress(
         maxWeightKg: round2(part.maxWeightKg),
       }))
       .sort((left, right) => right.weightKg - left.weightKg || right.maxWeightKg - left.maxWeightKg || left.name.localeCompare(right.name)),
+  };
+}
+
+type BodyPartTally = {
+  name: string;
+  weightKg: number;
+  reps: number;
+  maxWeightKg: number;
+  weightedLoad: number;
+  weightReps: number;
+};
+
+function blankBodyPart(name: string): BodyPartTally {
+  return {
+    name,
+    weightKg: 0,
+    reps: 0,
+    maxWeightKg: 0,
+    weightedLoad: 0,
+    weightReps: 0,
   };
 }
 

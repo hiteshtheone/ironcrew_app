@@ -64,6 +64,10 @@ export type ClientWorkout = {
   durationMinutes: number | null;
   status: AssignmentStatus;
   sessionNote: string | null;
+  /** Calories burnt for this session. Null when the client left it blank. */
+  calories: number | null;
+  /** Average heart rate in bpm for this session. Null when the client left it blank. */
+  heartRateBpm: number | null;
   /** Program this session was published from. Null for a one-off workout. */
   programName: string | null;
   /** "Self" when the client scheduled it, otherwise the trainer's name. */

@@ -124,6 +124,18 @@ function ReadOnlyExecution({ workout }: { workout: ClientWorkout }) {
         <p className="text-xs font-semibold text-slate-500">Session note</p>
         <p className="mt-1 text-sm text-slate-700">{workout.sessionNote?.trim() || "No note"}</p>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs font-semibold text-slate-500">Calories</p>
+          <p className="mt-1 text-sm text-slate-700">{workout.calories ?? "Not entered"}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-slate-500">Heart rate</p>
+          <p className="mt-1 text-sm text-slate-700">
+            {workout.heartRateBpm != null ? `${workout.heartRateBpm} bpm` : "Not entered"}
+          </p>
+        </div>
+      </div>
       {workout.exercises.length === 0 ? (
         <p className="text-sm text-slate-500">No blocks listed for this workout.</p>
       ) : (
