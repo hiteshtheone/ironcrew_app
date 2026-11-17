@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { requireUser } from "@/lib/api/route-utils";
 import { createClient } from "@/lib/supabase/server";
 
 const CLIENT_STATUSES = ["active", "inactive", "archived"] as const;
 const CLIENT_FIELDS =
   "id, first_name, last_name, email, phone, date_of_birth, status, onboarding_notes, created_at, updated_at";
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 type ClientStatus = (typeof CLIENT_STATUSES)[number];
 
 type ClientInsert = {
@@ -112,8 +110,10 @@ function databaseErrorMessage(error: {
 }
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+
+  const { data, error } = await auth.supabase
     .from("clients")
     .select(CLIENT_FIELDS)
     .order("created_at", { ascending: false });
@@ -192,40 +192,6 @@ export async function POST(request: Request) {
       { error: databaseErrorMessage(relationshipError) },
       { status: 500 },
     );
-  }
-
-  return NextResponse.json(data, { status: 201 });
-}
-
-export async function DELETE(request: Request) {
-  const { first_name } = await request.json();
-
-  if (typeof first_name !== "string" || !first_name.trim()) {
-    return NextResponse.json(
-      { error: "A first_name is required" },
-      { status: 400 },
-    );
-  }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({ first_name: first_name.trim() })
-    .select("id, first_name, created_at")
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const { error: errorDel } = await supabase
-    .from("clients")
-    .delete()
-    .eq("id", data.id)
-    .single();
-
-  if (errorDel) {
-    return NextResponse.json({ error: errorDel.message }, { status: 500 });
   }
 
   return NextResponse.json(data, { status: 201 });

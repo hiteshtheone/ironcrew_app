@@ -8,7 +8,6 @@ import {
   CalendarDays,
   Dumbbell,
   Menu,
-  MessageSquare,
   MoreHorizontal,
   Plus,
   Settings,
@@ -25,7 +24,6 @@ export type TrainerSection =
   | "clients"
   | "programs"
   | "calendar"
-  | "messages"
   | "settings";
 
 const navigation: { id: TrainerSection; label: string; icon: ComponentType<{ className?: string }> }[] = [
@@ -33,17 +31,10 @@ const navigation: { id: TrainerSection; label: string; icon: ComponentType<{ cla
   { id: "clients", label: "Clients", icon: Users },
   { id: "programs", label: "Programs", icon: Dumbbell },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
-  { id: "messages", label: "Messages", icon: MessageSquare },
 ];
 
-const sectionTitle: Record<Exclude<TrainerSection, "dashboard" | "clients" | "programs">, string> = {
-  calendar: "Calendar",
-  messages: "Messages",
-  settings: "Settings",
-};
-
 function isTrainerSection(value: string | null): value is TrainerSection {
-  return value === "dashboard" || value === "clients" || value === "programs" || value === "calendar" || value === "messages" || value === "settings";
+  return value === "dashboard" || value === "clients" || value === "programs" || value === "calendar" || value === "settings";
 }
 
 export function TrainerShell({
@@ -167,7 +158,6 @@ export function TrainerShell({
         {section === "programs" && programs}
         {section === "settings" && <MyInfoForm />}
         {section === "calendar" && <MonthCalendar today={today} endpoint="/api/calendar" showClientName />}
-        {section === "messages" && <EmptySection title={sectionTitle.messages} />}
       </section>
     </main>
   );
@@ -190,14 +180,5 @@ function SectionButton({
     >
       {children}
     </button>
-  );
-}
-
-function EmptySection({ title }: { title: string }) {
-  return (
-    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
-      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
-      <p className="mt-2 text-sm text-slate-500">Nothing here yet.</p>
-    </div>
   );
 }

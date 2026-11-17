@@ -9,7 +9,6 @@ import { RoleStep } from "@/components/onboarding/role-step";
 import { StarterProgramStep } from "@/components/onboarding/starter-program-step";
 import { patchMe } from "@/components/onboarding/step-layout";
 import { TrainerBusinessStep } from "@/components/onboarding/trainer-business-step";
-import { TrainingDaysStep, type Weekday } from "@/components/onboarding/training-days-step";
 import type {
   ClientOnboardingContext,
   ExistingGoal,
@@ -92,7 +91,6 @@ function TrainerWizard({ context }: { context: TrainerOnboardingContext }) {
           position={wizard.position}
           programs={context.starterPrograms}
           goalType={null}
-          trainingDays={[]}
           timezone={context.timezone}
           onBack={wizard.back}
           onDone={(destination) => void wizard.finish(destination)}
@@ -106,7 +104,6 @@ function TrainerWizard({ context }: { context: TrainerOnboardingContext }) {
 function ClientWizard({ context }: { context: ClientOnboardingContext }) {
   const wizard = useWizard(context.flow, context.step);
   const [goal, setGoal] = useState<ExistingGoal | null>(context.existingGoal);
-  const [trainingDays, setTrainingDays] = useState<Weekday[]>([]);
   const [timezone, setTimezone] = useState(context.timezone);
 
   let content;
@@ -136,18 +133,6 @@ function ClientWizard({ context }: { context: ClientOnboardingContext }) {
         }}
       />
     );
-  } else if (wizard.step === "training_days") {
-    content = (
-      <TrainingDaysStep
-        position={wizard.position}
-        initialDays={trainingDays}
-        onBack={wizard.back}
-        onNext={(days) => {
-          setTrainingDays(days);
-          wizard.next();
-        }}
-      />
-    );
   } else {
     content = (
       <StarterProgramStep
@@ -155,7 +140,6 @@ function ClientWizard({ context }: { context: ClientOnboardingContext }) {
         position={wizard.position}
         programs={context.starterPrograms}
         goalType={goal?.goalType ?? null}
-        trainingDays={trainingDays}
         timezone={timezone}
         onBack={wizard.back}
         onDone={(destination) => void wizard.finish(destination)}

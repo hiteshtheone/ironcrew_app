@@ -72,10 +72,11 @@ test("programs matching the goal are suggested first", () => {
 test("a saved step resumes only inside its own flow", () => {
   assert.equal(resumeStep("trainer", "first_client"), "first_client");
   assert.equal(resumeStep("trainer", "training_days"), "business");
+  assert.equal(resumeStep("client", "training_days"), "starter_program");
   assert.equal(resumeStep("invited", null), "welcome");
 });
 
 test("step numbers count the role step except for invited clients", () => {
-  assert.deepEqual(stepPosition("client", "goal"), { current: 2, total: 4 });
+  assert.deepEqual(stepPosition("client", "goal"), { current: 2, total: 3 });
   assert.deepEqual(stepPosition("invited", "goal"), { current: 2, total: 2 });
 });

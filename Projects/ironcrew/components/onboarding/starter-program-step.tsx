@@ -18,7 +18,6 @@ export function StarterProgramStep({
   position,
   programs,
   goalType,
-  trainingDays,
   timezone,
   onBack,
   onDone,
@@ -27,7 +26,6 @@ export function StarterProgramStep({
   position: { current: number; total: number };
   programs: StarterProgram[];
   goalType: GoalType | null;
-  trainingDays: string[];
   timezone: string;
   onBack?: () => void;
   onDone: (destination: string) => void;
@@ -85,9 +83,7 @@ export function StarterProgramStep({
       description={
         isTrainer
           ? "Copy a ready-made program to edit and assign, or start from a blank one."
-          : trainingDays.length > 0
-            ? `Suggested for your goal. You plan to train ${trainingDays.join(", ")}.`
-            : "Suggested for your goal. It starts today and fills your calendar."
+          : "Suggested for your goal. It starts today and fills your calendar."
       }
     >
       <form onSubmit={submit} className="flex flex-col gap-4">

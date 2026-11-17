@@ -5,6 +5,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "tsx --test lib/dashboard/*.test.ts lib/onboarding/*.test.ts lib/site.test.ts lib/observability/*.test.ts scripts/catalog/*.test.ts scripts/purge-system-catalog.test.ts",
     "catalog": "tsx scripts/catalog.ts",
     "purge-system": "tsx scripts/purge-system-catalog.ts",
     "shell": "PYTHONPATH=devshell python -m devshell"

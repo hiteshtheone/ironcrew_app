@@ -22,6 +22,7 @@ import {
   resolveTimeZone,
 } from "@/lib/dashboard/client-week";
 import { previousSetsForBlock, type PriorResult } from "@/lib/dashboard/workout-prefill";
+import { reportError } from "@/lib/observability/report-error";
 
 type ProfileInput = {
   userId: string;
@@ -173,14 +174,10 @@ export async function loadClientDashboard(
       .eq("id", trainerClient.trainer_id)
       .maybeSingle();
 
-    if (trainerData){
-      trainer_business_db = trainerData.business_name
-    } else {
-      console.log("Failed to get trainer Data. Not crashing. Moving on!")
-    }
-  } else {
-    console.log("No tainer associated with this client. Not crashing. Moving on!")
+    if (trainerError) reportError(trainerError, { area: "trainer-lookup" });
+    if (trainerData) trainer_business_db = trainerData.business_name;
   }
+  if (clientTrainerError) reportError(clientTrainerError, { area: "trainer-lookup" });
 
   const trainer_business_name = trainer_business_db?.trim() || "Trainer"
 
