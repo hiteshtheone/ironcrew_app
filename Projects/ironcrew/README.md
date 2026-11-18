@@ -57,6 +57,16 @@ export DATABASE_URL='postgresql://...'
 npm run purge-system
 npm run purge-system -- --apply
 
+# Seed every shared exercise, workout, and plan
+# scripts/seed-catalog.sh seeds the exercise library, validates every catalog, then applies them.
+# Strength workouts are applied before the running plans that name those workouts.
+# Running the script again updates the same shared names and rebuilds program phases.
+# Trainer- and client-owned rows stay untouched.
+# From Projects/ironcrew, with DATABASE_URL set:
+
+export DATABASE_URL='postgresql://...'
+./scripts/seed-catalog.sh
+
 # Lower body, Core, Upper body, Full body workouts
 # catalog/upper-body.yaml holds Beginner, Intermediate, and Advanced Upper Body.
 # The file names exercises from devshell/seed_gym_exercises.py and does not create them.
