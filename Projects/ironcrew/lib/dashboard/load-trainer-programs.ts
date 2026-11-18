@@ -74,12 +74,14 @@ export type ProgramWeek = {
   id: string;
   weekNumber: number;
   name: string | null;
+  notes: string | null;
   workouts: ProgramWorkoutSlot[];
 };
 
 export type ProgramPhase = {
   id: string;
   name: string;
+  description: string | null;
   position: number;
   weeks: ProgramWeek[];
 };
@@ -136,11 +138,13 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
           program_phases (
             id,
             name,
+            description,
             position,
             program_weeks (
               id,
               week_number,
               name,
+              notes,
               program_workouts (
                 id,
                 workout_id,
@@ -275,7 +279,7 @@ function normalizePhase(row: unknown): ProgramPhase | null {
     .filter((week): week is ProgramWeek => week !== null)
     .sort((left, right) => left.weekNumber - right.weekNumber);
 
-  return { id, name, position, weeks };
+  return { id, name, description: stringField(record, "description"), position, weeks };
 }
 
 function normalizeWeek(row: unknown): ProgramWeek | null {
@@ -293,6 +297,7 @@ function normalizeWeek(row: unknown): ProgramWeek | null {
     id,
     weekNumber,
     name: stringField(record, "name"),
+    notes: stringField(record, "notes"),
     workouts,
   };
 }

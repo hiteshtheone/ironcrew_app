@@ -1,0 +1,1276 @@
+# Shared 16-week general fitness program. Exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+# Workout names describe the session. The same workout can appear in more than one week.
+workouts:
+  - name: Foundation Upper Press
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station.
+      Leave a few reps in reserve so the next set stays clean.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Seated Dumbbell Press, use Barbell Curl instead of Dumbbell Curl, and skip Standing Lateral Raise.
+      If the cable station is unavailable, use Diamond Push-Up instead of Cable Pushdown.
+    minutes: 50
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Bent-Over Row
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Seated Dumbbell Press
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Standing Lateral Raise
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - exercise: Dumbbell Curl
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - exercise: Cable Pushdown
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
+
+  - name: Foundation Upper Pull
+    description: >
+      Equipment: a barbell, an incline bench, a pair of dumbbells, and a cable station.
+      Leave a few reps in reserve so the next set stays clean.
+      If the cable station is unavailable, use Pull-Up instead of Lat Pulldown.
+      If the incline bench is unavailable, use Dumbbell Bench Press instead of Incline Bench Press.
+      If the barbell is unavailable, use Seated Dumbbell Press instead of Overhead Press.
+      If dumbbells are unavailable, use Barbell Curl instead of Hammer Curl, use Cable Pushdown instead of Overhead Dumbbell Extension, and skip Bent-Over Rear Delt Fly.
+    minutes: 50
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Overhead Press
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Lat Pulldown
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Incline Bench Press
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Bent-Over Rear Delt Fly
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - exercise: Hammer Curl
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - exercise: Overhead Dumbbell Extension
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, shoulders, and lats gently.
+
+  - name: Foundation Lower Squat
+    description: >
+      Equipment: a barbell and a pair of dumbbells. Lunge and Calf Raise can be bodyweight.
+      Leave a few reps in reserve so the next set stays clean.
+      If the barbell is unavailable, Squat and Romanian Deadlift can use dumbbells.
+      If dumbbells are unavailable, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do two easy sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Romanian Deadlift
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Lunge
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Calf Raise
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Foundation Lower Hinge
+    description: >
+      Equipment: a barbell, a bench, and a pair of dumbbells. Calf Raise can be bodyweight.
+      Leave a few reps in reserve so the next set stays clean.
+      If the barbell or the bench is unavailable, use Glute Bridge instead of Hip Thrust.
+      If the bench is unavailable, use Lunge instead of Bulgarian Split Squat.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do two easy sets of the first hip thrust. Stop if a joint hurts.
+      - exercise: Hip Thrust
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Bulgarian Split Squat
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Glute Bridge
+        sets: 3
+        reps: 12-15
+        rest: 75
+      - exercise: Calf Raise
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Volume Upper Press
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station.
+      Add reps inside 8-12 before you increase the weight.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Seated Dumbbell Press, use Barbell Curl instead of Dumbbell Curl, and skip Standing Lateral Raise.
+      If the cable station is unavailable, use Diamond Push-Up instead of Cable Pushdown.
+    minutes: 65
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Bent-Over Row
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Seated Dumbbell Press
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Standing Lateral Raise
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Dumbbell Curl
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Cable Pushdown
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
+
+  - name: Volume Upper Pull
+    description: >
+      Equipment: a barbell, an incline bench, a pair of dumbbells, and a cable station.
+      Add reps inside 8-12 before you increase the weight.
+      If the cable station is unavailable, use Pull-Up instead of Lat Pulldown.
+      If the incline bench is unavailable, use Dumbbell Bench Press instead of Incline Bench Press.
+      If the barbell is unavailable, use Seated Dumbbell Press instead of Overhead Press.
+      If dumbbells are unavailable, use Barbell Curl instead of Hammer Curl, use Cable Pushdown instead of Overhead Dumbbell Extension, and skip Bent-Over Rear Delt Fly.
+    minutes: 65
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Overhead Press
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Lat Pulldown
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Incline Bench Press
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Bent-Over Rear Delt Fly
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Hammer Curl
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Overhead Dumbbell Extension
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, shoulders, and lats gently.
+
+  - name: Volume Lower Squat
+    description: >
+      Equipment: a barbell and a pair of dumbbells. Lunge and Calf Raise can be bodyweight.
+      Add reps inside 8-12 before you increase the weight.
+      If the barbell is unavailable, Squat and Romanian Deadlift can use dumbbells.
+      If dumbbells are unavailable, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 50
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do two easy sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Romanian Deadlift
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Lunge
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Calf Raise
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Volume Lower Hinge
+    description: >
+      Equipment: a barbell, a bench, and a pair of dumbbells. Calf Raise can be bodyweight.
+      Add reps inside 8-12 before you increase the weight.
+      If the barbell or the bench is unavailable, use Glute Bridge instead of Hip Thrust.
+      If the bench is unavailable, use Lunge instead of Bulgarian Split Squat.
+    minutes: 50
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do two easy sets of the first hip thrust. Stop if a joint hurts.
+      - exercise: Hip Thrust
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Bulgarian Split Squat
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Glute Bridge
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Calf Raise
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Deload Upper Press
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station.
+      Same exercises as Volume Upper Press. Use 2 sets and about 10-15% less weight.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Seated Dumbbell Press, use Barbell Curl instead of Dumbbell Curl, and skip Standing Lateral Raise.
+      If the cable station is unavailable, use Diamond Push-Up instead of Cable Pushdown.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Use about 10-15% less weight than the volume weeks. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Bent-Over Row
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Seated Dumbbell Press
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Standing Lateral Raise
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Dumbbell Curl
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Cable Pushdown
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
+
+  - name: Deload Upper Pull
+    description: >
+      Equipment: a barbell, an incline bench, a pair of dumbbells, and a cable station.
+      Same exercises as Volume Upper Pull. Use 2 sets and about 10-15% less weight.
+      If the cable station is unavailable, use Pull-Up instead of Lat Pulldown.
+      If the incline bench is unavailable, use Dumbbell Bench Press instead of Incline Bench Press.
+      If the barbell is unavailable, use Seated Dumbbell Press instead of Overhead Press.
+      If dumbbells are unavailable, use Barbell Curl instead of Hammer Curl, use Cable Pushdown instead of Overhead Dumbbell Extension, and skip Bent-Over Rear Delt Fly.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Use about 10-15% less weight than the volume weeks. Stop if a joint hurts.
+      - exercise: Overhead Press
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Lat Pulldown
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Incline Bench Press
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Bent-Over Rear Delt Fly
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Hammer Curl
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Overhead Dumbbell Extension
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, shoulders, and lats gently.
+
+  - name: Deload Lower Squat
+    description: >
+      Equipment: a barbell and a pair of dumbbells. Lunge and Calf Raise can be bodyweight.
+      Same exercises as Volume Lower Squat. Use 2 sets and about 10-15% less weight.
+      If the barbell is unavailable, Squat and Romanian Deadlift can use dumbbells.
+      If dumbbells are unavailable, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 30
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do two easy sets of the first squat. Use about 10-15% less weight than the volume weeks. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Romanian Deadlift
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Lunge
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Calf Raise
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Deload Lower Hinge
+    description: >
+      Equipment: a barbell, a bench, and a pair of dumbbells. Calf Raise can be bodyweight.
+      Same exercises as Volume Lower Hinge. Use 2 sets and about 10-15% less weight.
+      If the barbell or the bench is unavailable, use Glute Bridge instead of Hip Thrust.
+      If the bench is unavailable, use Lunge instead of Bulgarian Split Squat.
+    minutes: 30
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do two easy sets of the first hip thrust. Use about 10-15% less weight than the volume weeks. Stop if a joint hurts.
+      - exercise: Hip Thrust
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Bulgarian Split Squat
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Glute Bridge
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - exercise: Calf Raise
+        sets: 2
+        reps: 8-12
+        rest: 90
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Strength Upper Press
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station.
+      Rest 3 minutes on the bench and the row. Leave one or two reps in reserve.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Seated Dumbbell Press, use Barbell Curl instead of Dumbbell Curl, and skip Standing Lateral Raise.
+      If the cable station is unavailable, use Diamond Push-Up instead of Cable Pushdown.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then build to the working weight with two lighter sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 4
+        reps: 5-8
+        rest: 180
+      - exercise: Bent-Over Row
+        sets: 4
+        reps: 5-8
+        rest: 180
+      - exercise: Seated Dumbbell Press
+        sets: 3
+        reps: 6-8
+        rest: 120
+      - exercise: Standing Lateral Raise
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Dumbbell Curl
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Cable Pushdown
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
+
+  - name: Strength Upper Pull
+    description: >
+      Equipment: a barbell, an incline bench, a pair of dumbbells, and a cable station.
+      Rest 3 minutes on the press and the pulldown. Leave one or two reps in reserve.
+      If the cable station is unavailable, use Pull-Up instead of Lat Pulldown.
+      If the incline bench is unavailable, use Dumbbell Bench Press instead of Incline Bench Press.
+      If the barbell is unavailable, use Seated Dumbbell Press instead of Overhead Press.
+      If dumbbells are unavailable, use Barbell Curl instead of Hammer Curl, use Cable Pushdown instead of Overhead Dumbbell Extension, and skip Bent-Over Rear Delt Fly.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then build to the working weight with two lighter sets of the first press. Stop if a joint hurts.
+      - exercise: Overhead Press
+        sets: 4
+        reps: 5-8
+        rest: 180
+      - exercise: Lat Pulldown
+        sets: 4
+        reps: 5-8
+        rest: 180
+      - exercise: Incline Bench Press
+        sets: 3
+        reps: 6-8
+        rest: 120
+      - exercise: Bent-Over Rear Delt Fly
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Hammer Curl
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Overhead Dumbbell Extension
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, shoulders, and lats gently.
+
+  - name: Strength Lower Squat
+    description: >
+      Equipment: a barbell and a pair of dumbbells. Lunge and Calf Raise can be bodyweight.
+      Rest 3 minutes on the squat. Leave one or two reps in reserve.
+      If the barbell is unavailable, Squat and Romanian Deadlift can use dumbbells.
+      If dumbbells are unavailable, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then build to the working weight with two lighter sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 4
+        reps: 5-8
+        rest: 180
+      - exercise: Romanian Deadlift
+        sets: 3
+        reps: 6-8
+        rest: 120
+      - exercise: Lunge
+        sets: 3
+        reps: 6-8
+        rest: 120
+      - exercise: Calf Raise
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Strength Lower Hinge
+    description: >
+      Equipment: a barbell, a bench, and a pair of dumbbells. Calf Raise can be bodyweight.
+      Rest 3 minutes on the deadlift. Leave one or two reps in reserve.
+      If the barbell is unavailable, use Romanian Deadlift instead of Deadlift and use Glute Bridge instead of Hip Thrust.
+      If the bench is unavailable, use Glute Bridge instead of Hip Thrust and use Lunge instead of Bulgarian Split Squat.
+    minutes: 60
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then build to the working weight with two lighter sets of the first pull. Stop if a joint hurts.
+      - exercise: Deadlift
+        sets: 4
+        reps: 5-8
+        rest: 180
+      - exercise: Hip Thrust
+        sets: 3
+        reps: 6-8
+        rest: 120
+      - exercise: Bulgarian Split Squat
+        sets: 3
+        reps: 6-8
+        rest: 120
+      - exercise: Calf Raise
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Peak Upper Press
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station.
+      Push the bench and the row to RPE 9. Other compounds stay near RPE 8.5.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Seated Dumbbell Press, use Barbell Curl instead of Dumbbell Curl, and skip Standing Lateral Raise.
+      If the cable station is unavailable, use Diamond Push-Up instead of Cable Pushdown.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then build to the working weight with two lighter sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 4
+        reps: 6-8
+        rest: 150
+        rpe_target: 9
+      - exercise: Bent-Over Row
+        sets: 4
+        reps: 6-8
+        rest: 150
+        rpe_target: 9
+      - exercise: Seated Dumbbell Press
+        sets: 3
+        reps: 6-8
+        rest: 120
+        rpe_target: 8.5
+      - exercise: Standing Lateral Raise
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Dumbbell Curl
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Cable Pushdown
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
+
+  - name: Peak Upper Pull
+    description: >
+      Equipment: a barbell, an incline bench, a pair of dumbbells, and a cable station.
+      Push the press and the pulldown to RPE 9. The incline stays near RPE 8.5.
+      If the cable station is unavailable, use Pull-Up instead of Lat Pulldown.
+      If the incline bench is unavailable, use Dumbbell Bench Press instead of Incline Bench Press.
+      If the barbell is unavailable, use Seated Dumbbell Press instead of Overhead Press.
+      If dumbbells are unavailable, use Barbell Curl instead of Hammer Curl, use Cable Pushdown instead of Overhead Dumbbell Extension, and skip Bent-Over Rear Delt Fly.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then build to the working weight with two lighter sets of the first press. Stop if a joint hurts.
+      - exercise: Overhead Press
+        sets: 4
+        reps: 6-8
+        rest: 150
+        rpe_target: 9
+      - exercise: Lat Pulldown
+        sets: 4
+        reps: 6-8
+        rest: 150
+        rpe_target: 9
+      - exercise: Incline Bench Press
+        sets: 3
+        reps: 6-8
+        rest: 120
+        rpe_target: 8.5
+      - exercise: Bent-Over Rear Delt Fly
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Hammer Curl
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Overhead Dumbbell Extension
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, shoulders, and lats gently.
+
+  - name: Peak Lower Squat
+    description: >
+      Equipment: a barbell and a pair of dumbbells. Lunge and Calf Raise can be bodyweight.
+      Push the squat to RPE 9. The hinge and the lunge stay near RPE 8.5.
+      If the barbell is unavailable, Squat and Romanian Deadlift can use dumbbells.
+      If dumbbells are unavailable, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then build to the working weight with two lighter sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 4
+        reps: 6-8
+        rest: 150
+        rpe_target: 9
+      - exercise: Romanian Deadlift
+        sets: 3
+        reps: 6-8
+        rest: 120
+        rpe_target: 8.5
+      - exercise: Lunge
+        sets: 3
+        reps: 6-8
+        rest: 120
+        rpe_target: 8.5
+      - exercise: Calf Raise
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Peak Lower Hinge
+    description: >
+      Equipment: a barbell, a bench, and a pair of dumbbells. Calf Raise can be bodyweight.
+      Push the deadlift to RPE 9. The other compounds stay near RPE 8.5.
+      If the barbell is unavailable, use Romanian Deadlift instead of Deadlift and use Glute Bridge instead of Hip Thrust.
+      If the bench is unavailable, use Glute Bridge instead of Hip Thrust and use Lunge instead of Bulgarian Split Squat.
+    minutes: 60
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then build to the working weight with two lighter sets of the first pull. Stop if a joint hurts.
+      - exercise: Deadlift
+        sets: 4
+        reps: 6-8
+        rest: 150
+        rpe_target: 9
+      - exercise: Hip Thrust
+        sets: 3
+        reps: 6-8
+        rest: 120
+        rpe_target: 8.5
+      - exercise: Bulgarian Split Squat
+        sets: 3
+        reps: 6-8
+        rest: 120
+        rpe_target: 8.5
+      - exercise: Calf Raise
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Taper Upper Press
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station.
+      Same exercises as Peak Upper Press, at 2 sets around RPE 7.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Seated Dumbbell Press, use Barbell Curl instead of Dumbbell Curl, and skip Standing Lateral Raise.
+      If the cable station is unavailable, use Diamond Push-Up instead of Cable Pushdown.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do one easy set of the first press. Keep every set near RPE 7. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 2
+        reps: 6-8
+        rest: 150
+        rpe_target: 7
+      - exercise: Bent-Over Row
+        sets: 2
+        reps: 6-8
+        rest: 150
+        rpe_target: 7
+      - exercise: Seated Dumbbell Press
+        sets: 2
+        reps: 6-8
+        rest: 120
+        rpe_target: 7
+      - exercise: Standing Lateral Raise
+        sets: 2
+        reps: 10-12
+        rest: 60
+        rpe_target: 7
+      - exercise: Dumbbell Curl
+        sets: 2
+        reps: 10-12
+        rest: 60
+        rpe_target: 7
+      - exercise: Cable Pushdown
+        sets: 2
+        reps: 10-12
+        rest: 60
+        rpe_target: 7
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
+
+  - name: Taper Lower Squat
+    description: >
+      Equipment: a barbell and a pair of dumbbells. Lunge and Calf Raise can be bodyweight.
+      Same exercises as Peak Lower Squat, at 2 sets around RPE 7.
+      If the barbell is unavailable, Squat and Romanian Deadlift can use dumbbells.
+      If dumbbells are unavailable, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and ankles, then do one easy set of the first squat. Keep every set near RPE 7. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 2
+        reps: 6-8
+        rest: 150
+        rpe_target: 7
+      - exercise: Romanian Deadlift
+        sets: 2
+        reps: 6-8
+        rest: 120
+        rpe_target: 7
+      - exercise: Lunge
+        sets: 2
+        reps: 6-8
+        rest: 120
+        rpe_target: 7
+      - exercise: Calf Raise
+        sets: 2
+        reps: 10-12
+        rest: 60
+        rpe_target: 7
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Strength Benchmarks
+    description: >
+      Equipment: a barbell and a bench. Push-Up is bodyweight.
+      The last set of each lift is the heaviest 5 you can finish with clean form.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press and use Romanian Deadlift instead of Deadlift.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      Squat can use dumbbells.
+    minutes: 50
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips and shoulders, then build to the working weight with lighter sets. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 3
+        reps: 5
+        rest: 180
+        rpe_target: 9
+        instructions: Build across the sets. The last set is the heaviest 5 you can lift with clean form.
+      - exercise: Squat
+        sets: 3
+        reps: 5
+        rest: 180
+        rpe_target: 9
+        instructions: Build across the sets. The last set is the heaviest 5 you can lift with clean form.
+      - exercise: Deadlift
+        sets: 3
+        reps: 5
+        rest: 180
+        rpe_target: 9
+        instructions: Build across the sets. The last set is the heaviest 5 you can lift with clean form.
+      - exercise: Push-Up
+        sets: 1
+        instructions: Do one set for as many clean push-ups as you can. Stop when form breaks.
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms and legs. Stretch the chest, hips, and hamstrings gently.
+
+  - name: Easy Run 35 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Thirty-five continuous minutes at a conversational Zone 2 pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 45
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 2100
+        instructions: Run 35 minutes at a conversational pace. Full sentences should still come easily.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 40 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Forty continuous minutes at a conversational Zone 2 pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 50
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 2400
+        instructions: Run 40 minutes at a conversational pace. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Tempo Run 25 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Twenty-five minutes at a brisk tempo, about RPE 7.
+      If you are indoors, use Treadmill instead of Steady Interval.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Steady Interval
+        sets: 1
+        prescribed_duration_seconds: 1500
+        rpe_target: 7
+        instructions: Hold a brisk tempo for 25 minutes, about RPE 7. Short phrases should still be possible.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 30 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Thirty continuous minutes at a conversational Zone 2 pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1800
+        instructions: Run 30 minutes at a conversational pace. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 6 x 1 min Speed Bursts
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Six rounds of 1 minute fast and 2 minutes easy. The block is 18 minutes.
+      If you are indoors, use Treadmill instead of Speed Burst.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Speed Burst
+        sets: 6
+        prescribed_duration_seconds: 60
+        rest: 120
+        instructions: Run 1 minute faster than easy, not a sprint. Jog easy for 2 minutes between repeats.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 15 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Fifteen continuous minutes at a conversational pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 25
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 900
+        instructions: Run 15 minutes at a conversational pace. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 5 km Time Trial
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      A 5 km time trial. Start controlled and hold a pace you can finish.
+      If you are indoors, use Treadmill instead of Race Pace.
+    minutes: 45
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk, then jog a few easy minutes. A couple of short strides are enough. Stop if a joint hurts.
+      - exercise: Race Pace
+        sets: 1
+        prescribed_distance_meters: 5000
+        instructions: Run the 5 km. Start controlled and finish without stopping.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+programs:
+  - name: 16 Week General Fitness
+    description: >
+      A sixteen-week general fitness plan for strength, endurance, and conditioning.
+      Each week has an upper press, a lower squat, cardio, an upper pull, a lower hinge, and a second cardio day.
+      Day 4 is rest. Week 16 practices two shorter lift days, then tests a heavy 5, a push-up max, and a 5 km.
+    status: active
+    estimated_duration_weeks: 16
+    phases:
+      - name: Anatomical Adaptation and Foundation
+        description: >
+          Primary goal: master exercise technique, build tendon resilience, and establish workout consistency without excessive soreness.
+          Training focus: moderate loads for 3 sets of 12-15, resting 75 seconds on the first three lifts and 60 seconds on the rest, plus two 35-minute Zone 2 runs.
+          Key milestone: four consistent weeks at 3 sets of 12-15 plus two Zone 2 sessions.
+        weeks:
+          - week_number: 1
+            name: Week 1 — learn the lifts
+            notes: 3 sets of 12-15. Rest 75 seconds on the first three lifts and 60 seconds on the rest. Both cardio days are an easy 35-minute run.
+            days:
+              - day: 1
+                workout: Foundation Upper Press
+              - day: 2
+                workout: Foundation Lower Squat
+              - day: 3
+                workout: Easy Run 35 min
+              - day: 5
+                workout: Foundation Upper Pull
+              - day: 6
+                workout: Foundation Lower Hinge
+              - day: 7
+                workout: Easy Run 35 min
+          - week_number: 2
+            name: Week 2 — keep the form
+            notes: Same sessions as the first week. Leave a few reps in reserve so the next set stays clean.
+            days:
+              - day: 1
+                workout: Foundation Upper Press
+              - day: 2
+                workout: Foundation Lower Squat
+              - day: 3
+                workout: Easy Run 35 min
+              - day: 5
+                workout: Foundation Upper Pull
+              - day: 6
+                workout: Foundation Lower Hinge
+              - day: 7
+                workout: Easy Run 35 min
+          - week_number: 3
+            name: Week 3 — steady practice
+            notes: Same 3 sets of 12-15 and two 35-minute easy runs. Add a little load only when every rep is smooth.
+            days:
+              - day: 1
+                workout: Foundation Upper Press
+              - day: 2
+                workout: Foundation Lower Squat
+              - day: 3
+                workout: Easy Run 35 min
+              - day: 5
+                workout: Foundation Upper Pull
+              - day: 6
+                workout: Foundation Lower Hinge
+              - day: 7
+                workout: Easy Run 35 min
+          - week_number: 4
+            name: Week 4 — foundation complete
+            notes: Last week of 12-15. Finish both Zone 2 runs at a conversational pace.
+            days:
+              - day: 1
+                workout: Foundation Upper Press
+              - day: 2
+                workout: Foundation Lower Squat
+              - day: 3
+                workout: Easy Run 35 min
+              - day: 5
+                workout: Foundation Upper Pull
+              - day: 6
+                workout: Foundation Lower Hinge
+              - day: 7
+                workout: Easy Run 35 min
+      - name: Muscle Building and Volume Accumulation
+        description: >
+          Primary goal: increase total training volume and load to stimulate lean muscle.
+          Training focus: 4 sets of 8-12 on compounds and 3 sets of 8-12 on assistance, resting 90 seconds, adding reps before adding load. One 40-minute Zone 2 run and one 25-minute tempo run.
+          Key milestone: reps climb inside 8-12 before the load goes up.
+        weeks:
+          - week_number: 5
+            name: Week 5 — start the 8s
+            notes: Compounds are 4 sets of 8-12 and assistance is 3 sets of 8-12, resting 90 seconds. Start at the low end of 8-12. Day 3 is 40 easy minutes. Day 7 is a 25-minute tempo at RPE 7.
+            days:
+              - day: 1
+                workout: Volume Upper Press
+              - day: 2
+                workout: Volume Lower Squat
+              - day: 3
+                workout: Easy Run 40 min
+              - day: 5
+                workout: Volume Upper Pull
+              - day: 6
+                workout: Volume Lower Hinge
+              - day: 7
+                workout: Tempo Run 25 min
+          - week_number: 6
+            name: Week 6 — add a rep
+            notes: Add one rep on each lift inside 8-12 before you add weight. Keep the same runs.
+            days:
+              - day: 1
+                workout: Volume Upper Press
+              - day: 2
+                workout: Volume Lower Squat
+              - day: 3
+                workout: Easy Run 40 min
+              - day: 5
+                workout: Volume Upper Pull
+              - day: 6
+                workout: Volume Lower Hinge
+              - day: 7
+                workout: Tempo Run 25 min
+          - week_number: 7
+            name: Week 7 — add another rep
+            notes: Add another rep where form stays clean. Do not add load until you can finish 12.
+            days:
+              - day: 1
+                workout: Volume Upper Press
+              - day: 2
+                workout: Volume Lower Squat
+              - day: 3
+                workout: Easy Run 40 min
+              - day: 5
+                workout: Volume Upper Pull
+              - day: 6
+                workout: Volume Lower Hinge
+              - day: 7
+                workout: Tempo Run 25 min
+          - week_number: 8
+            name: Week 8 — top of the range
+            notes: If you hit 12 clean reps, the next session can use a little more weight and drop back toward 8.
+            days:
+              - day: 1
+                workout: Volume Upper Press
+              - day: 2
+                workout: Volume Lower Squat
+              - day: 3
+                workout: Easy Run 40 min
+              - day: 5
+                workout: Volume Upper Pull
+              - day: 6
+                workout: Volume Lower Hinge
+              - day: 7
+                workout: Tempo Run 25 min
+      - name: Mid-Point Deload
+        description: >
+          Primary goal: shed accumulated fatigue before the strength block.
+          Training focus: the same exercises as the volume phase, with 2 sets and about 10-15% less weight. The runs stay a 40-minute easy effort and a 25-minute tempo.
+          Key milestone: half the sets and a lighter load, then into the strength block recovered.
+        weeks:
+          - week_number: 9
+            name: Week 9 — half the sets
+            notes: Same exercises as the volume weeks. Use 2 sets and about 10-15% less weight. Sleep and hydrate. The runs stay the 40-minute easy effort and the 25-minute tempo.
+            days:
+              - day: 1
+                workout: Deload Upper Press
+              - day: 2
+                workout: Deload Lower Squat
+              - day: 3
+                workout: Easy Run 40 min
+              - day: 5
+                workout: Deload Upper Pull
+              - day: 6
+                workout: Deload Lower Hinge
+              - day: 7
+                workout: Tempo Run 25 min
+      - name: Strength and Force Production
+        description: >
+          Primary goal: lift heavier loads on compound movements while maintaining muscle.
+          Training focus: primary compounds at 4 sets of 5-8 with 3 minutes rest, other compounds at 3 sets of 6-8, and isolation at 3 sets of 10-12. One 30-minute Zone 2 run and six 1-minute fast efforts with 2 minutes easy.
+          Key milestone: the primary compounds at 5-8 reps with long rest, plus the 1-minute intervals.
+        weeks:
+          - week_number: 10
+            name: Week 10 — heavier compounds
+            notes: Primary lifts are 4 sets of 5-8 with 3 minutes rest. Day 3 is 30 easy minutes. Day 7 is six 1-minute fast efforts with 2 minutes easy.
+            days:
+              - day: 1
+                workout: Strength Upper Press
+              - day: 2
+                workout: Strength Lower Squat
+              - day: 3
+                workout: Easy Run 30 min
+              - day: 5
+                workout: Strength Upper Pull
+              - day: 6
+                workout: Strength Lower Hinge
+              - day: 7
+                workout: 6 x 1 min Speed Bursts
+          - week_number: 11
+            name: Week 11 — hold the heavy sets
+            notes: Same strength sessions. Rest the full 3 minutes on the primary lifts.
+            days:
+              - day: 1
+                workout: Strength Upper Press
+              - day: 2
+                workout: Strength Lower Squat
+              - day: 3
+                workout: Easy Run 30 min
+              - day: 5
+                workout: Strength Upper Pull
+              - day: 6
+                workout: Strength Lower Hinge
+              - day: 7
+                workout: 6 x 1 min Speed Bursts
+          - week_number: 12
+            name: Week 12 — add load on the 5s
+            notes: Add weight when 8 reps are clean. Isolation stays at 10-12.
+            days:
+              - day: 1
+                workout: Strength Upper Press
+              - day: 2
+                workout: Strength Lower Squat
+              - day: 3
+                workout: Easy Run 30 min
+              - day: 5
+                workout: Strength Upper Pull
+              - day: 6
+                workout: Strength Lower Hinge
+              - day: 7
+                workout: 6 x 1 min Speed Bursts
+          - week_number: 13
+            name: Week 13 — strength complete
+            notes: Last week of 5-8 on the primary lifts. Keep the intervals at 1 minute fast and 2 minutes easy.
+            days:
+              - day: 1
+                workout: Strength Upper Press
+              - day: 2
+                workout: Strength Lower Squat
+              - day: 3
+                workout: Easy Run 30 min
+              - day: 5
+                workout: Strength Upper Pull
+              - day: 6
+                workout: Strength Lower Hinge
+              - day: 7
+                workout: 6 x 1 min Speed Bursts
+      - name: Conditioning Peak and Final Taper
+        description: >
+          Primary goal: peak strength and conditioning, then test.
+          Training focus: weeks 14 and 15 push the main lifts to RPE 9 for 6-8 reps and keep the intervals crisp. Week 16 cuts practice volume in half, then tests a heavy 5, a push-up max, and a 5 km.
+          Key milestone: week 16 records a heavy 5, a push-up max, and a 5 km time.
+        weeks:
+          - week_number: 14
+            name: Week 14 — peak effort
+            notes: Primary lifts are 4 sets of 6-8 at RPE 9. Other compounds are 3 sets of 6-8 at RPE 8.5. Keep the intervals crisp.
+            days:
+              - day: 1
+                workout: Peak Upper Press
+              - day: 2
+                workout: Peak Lower Squat
+              - day: 3
+                workout: Easy Run 30 min
+              - day: 5
+                workout: Peak Upper Pull
+              - day: 6
+                workout: Peak Lower Hinge
+              - day: 7
+                workout: 6 x 1 min Speed Bursts
+          - week_number: 15
+            name: Week 15 — second peak
+            notes: Same peak sessions. Stop a set if a joint hurts. The easy run stays at 30 minutes.
+            days:
+              - day: 1
+                workout: Peak Upper Press
+              - day: 2
+                workout: Peak Lower Squat
+              - day: 3
+                workout: Easy Run 30 min
+              - day: 5
+                workout: Peak Upper Pull
+              - day: 6
+                workout: Peak Lower Hinge
+              - day: 7
+                workout: 6 x 1 min Speed Bursts
+          - week_number: 16
+            name: Week 16 — taper and test
+            notes: Days 1 and 2 are 2 sets at RPE 7. Day 3 is an easy 15-minute run. Day 5 tests a heavy 5 on bench, squat, and deadlift, plus a push-up max. Day 7 is a 5 km time trial.
+            days:
+              - day: 1
+                workout: Taper Upper Press
+              - day: 2
+                workout: Taper Lower Squat
+              - day: 3
+                workout: Easy Run 15 min
+              - day: 5
+                workout: Strength Benchmarks
+              - day: 7
+                workout: 5 km Time Trial

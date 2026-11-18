@@ -1,0 +1,341 @@
+# Shared beginner 5K program. Run exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+# Beginner Lower Body and Core comes from catalog/lower-body-core.yaml.
+# Workout names describe the session. The same workout can appear in more than one week.
+workouts:
+  - name: 8 x 1 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Eight easy jogs of 1 minute. Walk 90 seconds after each one. The whole block is 20 minutes.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 30
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 8
+        prescribed_duration_seconds: 60
+        rest: 90
+        instructions: Jog 1 minute at a conversational pace, then walk 90 seconds. Repeat until 20 minutes. Full sentences should still come easily.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 6 x 90s Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Six easy jogs of 90 seconds. Walk 2 minutes after each one. Six full rounds are 21 minutes.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 6
+        prescribed_duration_seconds: 90
+        rest: 120
+        instructions: Jog 90 seconds at a conversational pace, then walk 2 minutes. Six rounds fill 21 minutes so every jog keeps its walk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 90s and 3 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Two rounds of a 90-second jog, a 90-second walk, a 3-minute jog, and a 3-minute walk. The block is 18 minutes.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 30
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1080
+        instructions: Two rounds. Jog 90 seconds, walk 90 seconds, jog 3 minutes, walk 3 minutes. Keep every jog conversational.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 3 and 5 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Jog 3 minutes, walk 90 seconds, jog 5 minutes, walk 2.5 minutes, jog 3 minutes, walk 90 seconds, then jog 5 minutes.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1290
+        instructions: Jog 3 minutes, walk 90 seconds, jog 5 minutes, walk 2.5 minutes, jog 3 minutes, walk 90 seconds, and finish with a 5-minute jog. Stay conversational.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 3 x 5 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Three easy 5-minute jogs. Walk 3 minutes between them.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 3
+        prescribed_duration_seconds: 300
+        rest: 180
+        instructions: Jog 5 minutes at a conversational pace. Walk 3 minutes between the runs.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 2 x 8 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Two easy 8-minute jogs. Walk 5 minutes between them.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 2
+        prescribed_duration_seconds: 480
+        rest: 300
+        instructions: Jog 8 minutes at a conversational pace. Walk 5 minutes between the runs.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 20 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Twenty continuous minutes at a relaxed, conversational pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 30
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1200
+        instructions: Run 20 minutes without walking. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 5 and 8 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Jog 5 minutes, walk 3 minutes, jog 8 minutes, walk 3 minutes, then jog 5 minutes.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1440
+        instructions: Jog 5 minutes, walk 3 minutes, jog 8 minutes, walk 3 minutes, and finish with a 5-minute jog. Stay conversational.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 2 x 10 min Easy Run
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Two easy 10-minute jogs. Walk 3 minutes between them.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 2
+        prescribed_duration_seconds: 600
+        rest: 180
+        instructions: Jog 10 minutes at a conversational pace. Walk 3 minutes between the runs.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 25 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Twenty-five continuous minutes at a relaxed, steady pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1500
+        instructions: Run 25 minutes without walking. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 28 min
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Twenty-eight continuous minutes at a relaxed, steady pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_duration_seconds: 1680
+        instructions: Run 28 minutes without walking. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 5 km Race
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Race day. Start controlled and hold a pace you can finish for 5 km.
+      If you are indoors, use Treadmill instead of Race Pace.
+    minutes: 45
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk, then jog a few easy minutes. A couple of short strides are enough. Stop if a joint hurts.
+      - exercise: Race Pace
+        sets: 1
+        prescribed_distance_meters: 5000
+        instructions: Run the 5 km. Start controlled and finish without stopping. If there is no race, run 30 minutes continuously at the same relaxed pace.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+programs:
+  - name: 8 Week 5K Beginner Running
+    description: >
+      An eight-week beginner endurance plan to run a 5 km. Each week has three runs and one strength session: a run on day 1, a run on day 3, Beginner Lower Body and Core on day 5, and a run on day 7. Days 2, 4, and 6 are rest.
+    status: active
+    estimated_duration_weeks: 8
+    phases:
+      - name: Joint Adaptation & Habit Building
+        description: >
+          Primary goal: establish a 3-day-a-week routine and keep every running segment at a comfortable, conversational pace. Training focus: short jog and walk intervals so tendons, joints, and lungs adapt to impact, plus Beginner Lower Body and Core once each week. Key milestone: finish all 9 run sessions with no joint pain and steady breathing.
+        weeks:
+          - week_number: 1
+            name: Week 1 — jog and walk
+            notes: Alternate 1 minute of easy jogging with 90 seconds of walking for 20 minutes. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: 8 x 1 min Easy Run
+              - day: 3
+                workout: 8 x 1 min Easy Run
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: 8 x 1 min Easy Run
+          - week_number: 2
+            name: Week 2 — longer jogs
+            notes: Alternate 90 seconds of jogging with 2 minutes of walking. Six rounds are 21 minutes so every jog keeps its walk. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: 6 x 90s Easy Run
+              - day: 3
+                workout: 6 x 90s Easy Run
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: 6 x 90s Easy Run
+          - week_number: 3
+            name: Week 3 — mixed jogs
+            notes: Two rounds of 90 seconds jog, 90 seconds walk, 3 minutes jog, and 3 minutes walk. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: 90s and 3 min Easy Run
+              - day: 3
+                workout: 90s and 3 min Easy Run
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: 90s and 3 min Easy Run
+      - name: Aerobic Stamina & Interval Extension
+        description: >
+          Primary goal: teach the body to clear fatigue and sustain longer aerobic efforts. Training focus: longer running intervals and shorter walking breaks, with Beginner Lower Body and Core on day 5. Key milestone: the day 7 run in week 6 is continuous, with the walks gone.
+        weeks:
+          - week_number: 4
+            name: Week 4 — longer intervals
+            notes: Jog 3 minutes, walk 90 seconds, jog 5 minutes, walk 2.5 minutes, jog 3 minutes, walk 90 seconds, and finish with a 5-minute jog. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: 3 and 5 min Easy Run
+              - day: 3
+                workout: 3 and 5 min Easy Run
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: 3 and 5 min Easy Run
+          - week_number: 5
+            name: Week 5 — first continuous run
+            notes: Day 1 is three 5-minute jogs with 3-minute walks. Day 3 is two 8-minute jogs with a 5-minute walk. Day 7 is a 20-minute continuous run. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: 3 x 5 min Easy Run
+              - day: 3
+                workout: 2 x 8 min Easy Run
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: Easy Run 20 min
+          - week_number: 6
+            name: Week 6 — 25 min continuous
+            notes: Day 1 is a 5-minute jog, a 3-minute walk, an 8-minute jog, a 3-minute walk, and a 5-minute jog. Day 3 is two 10-minute jogs with a 3-minute walk. Day 7 is a 25-minute continuous run. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: 5 and 8 min Easy Run
+              - day: 3
+                workout: 2 x 10 min Easy Run
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: Easy Run 25 min
+      - name: Continuous Endurance & Race Readiness
+        description: >
+          Primary goal: build confidence for nonstop running and arrive fresh at the final session. Training focus: continuous easy runs, Beginner Lower Body and Core on day 5, then the 5 km. Key milestone: finish 5 km without stopping.
+        weeks:
+          - week_number: 7
+            name: Week 7 — steady continuous runs
+            notes: Three 25-minute continuous runs at a relaxed, steady pace. Day 5 is Beginner Lower Body and Core.
+            days:
+              - day: 1
+                workout: Easy Run 25 min
+              - day: 3
+                workout: Easy Run 25 min
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: Easy Run 25 min
+          - week_number: 8
+            name: Week 8 — 5 km
+            notes: Run 28 minutes continuously on days 1 and 3. Day 5 is Beginner Lower Body and Core. Race the 5 km on day 7. A 30-minute continuous run is the same session when there is no race.
+            days:
+              - day: 1
+                workout: Easy Run 28 min
+              - day: 3
+                workout: Easy Run 28 min
+              - day: 5
+                workout: Beginner Lower Body and Core
+              - day: 7
+                workout: 5 km Race

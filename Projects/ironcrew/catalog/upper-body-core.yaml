@@ -1,0 +1,160 @@
+# Shared upper-body and core workouts. Exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+workouts:
+  - name: Beginner Upper Body and Core
+    description: >
+      Equipment: a pair of dumbbells, a bench, and a cable station. Leave a few reps in reserve so the next set stays clean.
+      If the cable station is unavailable, use Bent-Over Row instead of Rows, Pull-Up instead of Lat Pulldown, and Diamond Push-Up instead of Cable Pushdown.
+      If dumbbells are unavailable, use Push-Up instead of Dumbbell Bench Press, Overhead Press instead of Seated Dumbbell Press, and Barbell Curl instead of Dumbbell Curl.
+      If a bench is unavailable, use Push-Up instead of Dumbbell Bench Press and Overhead Press instead of Seated Dumbbell Press.
+      If holding a plank is too hard, use Crunch instead of Plank.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Dumbbell Bench Press
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Rows
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Seated Dumbbell Press
+        sets: 3
+        reps: 8-12
+        rest: 75
+      - exercise: Lat Pulldown
+        sets: 3
+        reps: 8-12
+        rest: 75
+      - exercise: Dumbbell Curl
+        sets: 2
+        reps: 10-12
+        rest: 60
+      - exercise: Cable Pushdown
+        sets: 2
+        reps: 10-12
+        rest: 60
+      - exercise: Plank
+        sets: 2
+        prescribed_duration_seconds: 20
+        rest: 45
+      - exercise: Bird Dog
+        sets: 2
+        reps: 8-10
+        rest: 45
+      - exercise: Crunch
+        sets: 2
+        reps: 10-15
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, the lats, and the hips gently.
+
+  - name: Intermediate Upper Body and Core
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a cable station. Use a weight you can finish with one or two reps left.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press, dumbbells for Bent-Over Row, and Seated Dumbbell Press instead of Overhead Press.
+      If the bench is unavailable, use Push-Up instead of Bench Press.
+      If the cable station is unavailable, use Pull-Up instead of Lat Pulldown and Overhead Dumbbell Extension instead of Cable Pushdown.
+      If dumbbells are unavailable, use Barbell Curl instead of Dumbbell Curl.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders and do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Bent-Over Row
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Overhead Press
+        sets: 3
+        reps: 8-10
+        rest: 90
+      - exercise: Lat Pulldown
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Dumbbell Curl
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Cable Pushdown
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Plank
+        sets: 3
+        prescribed_duration_seconds: 30
+        rest: 45
+      - exercise: Russian Twist
+        sets: 3
+        reps: 10-12
+        rest: 45
+      - exercise: Reverse Crunch
+        sets: 3
+        reps: 10-15
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, the lats, and the hips gently.
+
+  - name: Advanced Upper Body and Core
+    description: >
+      Equipment: a barbell, a flat bench, an incline bench, a pull-up bar, and a pair of dumbbells. Skull Crushers can use an EZ bar or dumbbells.
+      Keep the listed rest, and leave one rep in reserve on the compounds.
+      If the pull-up bar is unavailable, use Lat Pulldown instead of Pull-Up and Reverse Crunch instead of Hanging Leg Raise.
+      If the incline bench is unavailable, use Dumbbell Bench Press instead of Incline Bench Press.
+      If dumbbells are unavailable, use Overhead Press instead of Arnold Press and use an EZ bar for Skull Crusher / Lying Triceps Extension.
+      If neither an EZ bar nor dumbbells is available, use Cable Pushdown instead of Skull Crusher / Lying Triceps Extension.
+      If the barbell is unavailable, use Dumbbell Bench Press instead of Bench Press and dumbbells for Bent-Over Row.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders, then build to the working weight with two lighter sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 5
+        reps: 4-6
+        rest: 150
+      - exercise: Pull-Up
+        sets: 4
+        reps: 5-8
+        rest: 120
+      - exercise: Incline Bench Press
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Bent-Over Row
+        sets: 4
+        reps: 6-8
+        rest: 90
+      - exercise: Arnold Press
+        sets: 3
+        reps: 8-10
+        rest: 75
+      - exercise: Skull Crusher / Lying Triceps Extension
+        sets: 3
+        reps: 8-10
+        rest: 60
+      - exercise: Hanging Leg Raise
+        sets: 4
+        reps: 8-12
+        rest: 60
+      - exercise: Plank
+        sets: 3
+        prescribed_duration_seconds: 45
+        rest: 45
+      - exercise: Bicycle Crunch
+        sets: 3
+        reps: 12-16
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest, shoulders, lats, and hips gently.

@@ -14,9 +14,9 @@ def test_exercise_reference_payload_is_complete_and_valid():
 
     validate_exercises(exercises)
 
-    assert len(exercises) == 44
-    assert len({exercise.name for exercise in exercises}) == 44
-    assert {"Squat", "Push-Up", "Deadlift", "Glute Bridge", "Burpee"} <= {
+    assert len(exercises) == 49
+    assert len({exercise.name for exercise in exercises}) == 49
+    assert {"Squat", "Push-Up", "Deadlift", "Glute Bridge", "Burpee", "Easy Run", "Speed Burst", "Steady Interval", "Stride", "Race Pace"} <= {
         exercise.name for exercise in exercises
     }
     for exercise in exercises:
@@ -28,15 +28,15 @@ def test_exercise_reference_payload_is_complete_and_valid():
 
 def test_dry_run_validates_without_a_database(capsys):
     assert main(["--dry-run"]) == 0
-    assert capsys.readouterr().out == "Validated 44 shared gym exercises.\n"
+    assert capsys.readouterr().out == "Validated 49 shared gym exercises.\n"
 
 
 def test_seed_executes_one_upsert_per_exercise():
     connection = RecordingConnection()
     exercises = build_exercises()
 
-    assert seed_exercises(connection, exercises) == 44
-    assert len(connection.calls) == 44
+    assert seed_exercises(connection, exercises) == 49
+    assert len(connection.calls) == 49
     first_parameters = connection.calls[0]
     assert first_parameters["name"] == "Bench Press"
     assert first_parameters["tracking_parameters"] == "{weight,reps}"
