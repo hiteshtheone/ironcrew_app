@@ -4,7 +4,8 @@ description: >-
   Build shared gym workouts for this repo from exercises already defined in
   seed_gym_exercises.py. Use when the user asks to create, change, or seed a
   workout, session, or exercise catalog, including beginner, intermediate, or
-  advanced plans and upper-body, lower-body, full-body, or core sessions.
+  advanced upper-body, lower-body, full-body, or core sessions. A multi-week
+  program with phases uses the create-plan skill.
 ---
 
 # General exercise
