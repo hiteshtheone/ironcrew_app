@@ -89,3 +89,12 @@ npm run catalog -- apply catalog/lower-body.yaml
 npm run catalog -- validate catalog/full-body.yaml
 ./node_modules/.bin/tsx --test scripts/catalog/full-body.test.ts
 npm run catalog -- apply catalog/full-body.yaml
+
+# catalog/core.yaml holds Beginner, Intermediate, and Advanced Core.
+# The file names exercises from devshell/seed_gym_exercises.py and does not create them.
+# Seed first, then validate, then apply.
+# Apply again to replace the blocks on those same shared workout names.
+# Trainer- and client-owned workouts and exercises stay untouched.
+npm run catalog -- validate catalog/core.yaml
+./node_modules/.bin/tsx --test scripts/catalog/core.test.ts
+npm run catalog -- apply catalog/core.yaml
