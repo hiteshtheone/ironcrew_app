@@ -1,0 +1,120 @@
+# Shared core workouts. Exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+workouts:
+  - name: Beginner Core
+    description: >
+      Equipment: bodyweight. Leave a few reps in reserve so the next set stays clean.
+      If the hips feel unsteady, use Bird Dog instead of Glute Bridge.
+      If holding a plank is too hard, use Crunch instead of Plank.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Brace the trunk, then do two easy sets of the first bridge. Stop if a joint hurts.
+      - exercise: Glute Bridge
+        sets: 3
+        reps: 10-15
+        rest: 75
+      - exercise: Bird Dog
+        sets: 3
+        reps: 8-10
+        rest: 60
+      - exercise: Crunch
+        sets: 2
+        reps: 10-15
+        rest: 45
+      - exercise: Reverse Crunch
+        sets: 2
+        reps: 10-12
+        rest: 45
+      - exercise: Plank
+        sets: 2
+        prescribed_duration_seconds: 20
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the hips. Stretch the abdominals and the lower back gently.
+
+  - name: Intermediate Core
+    description: >
+      Equipment: bodyweight and a medicine ball. Use a weight you can finish with one or two reps left.
+      If a push-up is too hard, use Glute Bridge instead of Push-Up.
+      If a medicine ball is unavailable, use Bicycle Crunch instead of Russian Twist.
+      If holding a plank is too hard, use Crunch instead of Plank.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Brace the trunk, then do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Push-Up
+        sets: 4
+        reps: 8-12
+        rest: 90
+      - exercise: Glute Bridge
+        sets: 3
+        reps: 10-15
+        rest: 75
+      - exercise: Russian Twist
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Bicycle Crunch
+        sets: 3
+        reps: 10-16
+        rest: 45
+      - exercise: Reverse Crunch
+        sets: 3
+        reps: 10-15
+        rest: 45
+      - exercise: Plank
+        sets: 3
+        prescribed_duration_seconds: 30
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the hips. Stretch the abdominals and the lower back gently.
+
+  - name: Advanced Core
+    description: >
+      Equipment: a pull-up bar, a medicine ball, and bodyweight.
+      Keep the listed rest, and leave one rep in reserve on the compounds.
+      If the pull-up bar is unavailable, use Reverse Crunch instead of Hanging Leg Raise.
+      If a diamond push-up is too hard, use Push-Up instead of Diamond Push-Up.
+      If a medicine ball is unavailable, use Bicycle Crunch instead of Russian Twist.
+      If holding a plank is too hard, use Crunch instead of Plank.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Brace the trunk, then build in with two easier sets of the first raise. Stop if a joint hurts.
+      - exercise: Hanging Leg Raise
+        sets: 5
+        reps: 6-10
+        rest: 120
+      - exercise: Diamond Push-Up
+        sets: 4
+        reps: 6-10
+        rest: 90
+      - exercise: Russian Twist
+        sets: 4
+        reps: 8-12
+        rest: 60
+      - exercise: Bicycle Crunch
+        sets: 3
+        reps: 12-16
+        rest: 45
+      - exercise: Reverse Crunch
+        sets: 3
+        reps: 12-15
+        rest: 45
+      - exercise: Crunch
+        sets: 3
+        reps: 12-15
+        rest: 45
+      - exercise: Plank
+        sets: 4
+        prescribed_duration_seconds: 45
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the hips. Stretch the abdominals and the lower back gently.

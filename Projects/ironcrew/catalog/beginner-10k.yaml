@@ -1,0 +1,466 @@
+# Shared beginner 10K program. Run exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+# Beginner Lower Body and Beginner Lower Body and Core come from the lower-body catalogs.
+# Workout names describe the session. The same workout can appear in more than one week.
+workouts:
+  - name: Easy Run 3 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Keep the effort easy enough to talk in full sentences.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 3000
+        instructions: Conversational pace for 3 km. Full sentences should still come easily.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 4 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Stay conversational the whole way.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 4000
+        instructions: Conversational pace for 4 km. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 5 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Five easy kilometers. Leave the harder effort for the quality day.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 45
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 5000
+        instructions: Conversational pace for 5 km. Full sentences should still come easily.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 5.5 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Stay easy enough to talk for the whole 5.5 km.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 5500
+        instructions: Conversational pace for 5.5 km. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 6.5 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Finish 6.5 km at a pace you could still hold a conversation.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 60
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 6500
+        instructions: Conversational pace for 6.5 km. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 7 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Stay conversational, especially in the last kilometer.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 65
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 7000
+        instructions: Conversational pace for 7 km. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 8 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Finish 8 km at a conversational pace.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 75
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 8000
+        instructions: Conversational pace for 8 km. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: Easy Run 9.5 km
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      9.5 km, still easy enough to talk for most of it.
+      If you are indoors, use Treadmill instead of Easy Run.
+    minutes: 85
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then loosen the ankles and hips. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 9500
+        instructions: Conversational pace for 9.5 km. Slow down if you cannot talk.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 4 x 400m Speed Bursts
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      The bursts are quicker than easy, not a sprint.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Speed Burst.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 1500
+        instructions: 1.5 easy kilometers so the bursts start warm.
+      - exercise: Speed Burst
+        sets: 4
+        prescribed_distance_meters: 400
+        rest: 120
+        instructions: Controlled faster effort for 400 meters, not a sprint. Walk or jog the rest.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 5 x 400m Speed Bursts
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Five controlled 400s. The extra repeat should still feel smooth.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Speed Burst.
+    minutes: 45
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 1500
+        instructions: 1.5 easy kilometers so the bursts start warm.
+      - exercise: Speed Burst
+        sets: 5
+        prescribed_distance_meters: 400
+        rest: 120
+        instructions: Controlled faster effort for 400 meters, not a sprint. Walk or jog the rest.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 3 x 400m Speed Bursts
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Three 400s keep the legs awake without adding much fatigue.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Speed Burst.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 1500
+        instructions: 1.5 easy kilometers so the bursts start warm.
+      - exercise: Speed Burst
+        sets: 3
+        prescribed_distance_meters: 400
+        rest: 120
+        instructions: Controlled faster effort for 400 meters, not a sprint. Walk or jog the rest.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 3 x 1 km Steady Intervals
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Three 1 km repeats at a steady pace you can repeat. Jog or walk the rest.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Steady Interval.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 1500
+        instructions: 1.5 easy kilometers so the intervals start warm.
+      - exercise: Steady Interval
+        sets: 3
+        prescribed_distance_meters: 1000
+        rest: 180
+        instructions: Hold one steady pace for the whole kilometer. Jog or walk the rest.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 4 x 1 km Steady Intervals
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Four 1 km repeats. Keep each one the same effort, and take the full rest.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Steady Interval.
+    minutes: 65
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 2500
+        instructions: 2.5 easy kilometers so the intervals start warm.
+      - exercise: Steady Interval
+        sets: 4
+        prescribed_distance_meters: 1000
+        rest: 180
+        instructions: Hold one steady pace for the whole kilometer. Jog or walk the rest.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 2 x 1 km Race Pace
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Two short kilometers at the effort you hope to hold on race day. Stop while you still feel controlled.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Race Pace.
+    minutes: 45
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 1500
+        instructions: 1.5 easy kilometers so the race-pace work starts warm.
+      - exercise: Race Pace
+        sets: 2
+        prescribed_distance_meters: 1000
+        rest: 180
+        instructions: Hold 10 km effort for 1 km. Jog or walk the rest. This is practice, not a race.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 6 x 100m Strides
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Short snappy strides keep your turnover without adding fatigue.
+      If you are indoors, use Treadmill instead of Easy Run.
+      If you are indoors, use Treadmill instead of Stride.
+    minutes: 35
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk for five minutes, then jog easily. Stop if a joint hurts.
+      - exercise: Easy Run
+        sets: 1
+        prescribed_distance_meters: 1500
+        instructions: 1.5 easy kilometers so the strides start loose.
+      - exercise: Stride
+        sets: 6
+        prescribed_distance_meters: 100
+        rest: 60
+        instructions: About 100 meters, tall and light, not a sprint. Walk until you feel fresh.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+  - name: 10 km Race
+    description: >
+      Equipment: running shoes and a road, track, or path.
+      Race day. Start controlled and hold a pace you can finish.
+      If you are indoors, use Treadmill instead of Race Pace.
+    minutes: 80
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Walk, then jog a few easy minutes. A couple of short strides are enough. Stop if a joint hurts.
+      - exercise: Race Pace
+        sets: 1
+        prescribed_distance_meters: 10000
+        instructions: Run the 10 km. Start controlled and hold a pace you can finish.
+      - type: cooldown
+        title: Cool down
+        instructions: Walk until your breathing settles. Stretch the calves and hips gently.
+
+programs:
+  - name: 8 Week 10K Beginner Running
+    description: >
+      An eight-week beginner plan to run a 10 km. Each week has three runs and two strength sessions: an easy run, Beginner Lower Body and Core, a quality run, Beginner Lower Body, and a weekend long run. Days 4 and 6 are rest.
+    status: active
+    estimated_duration_weeks: 8
+    phases:
+      - name: Base Building & Adaptation
+        description: >
+          Primary goal: establish a consistent running routine and gradually adapt your joints, tendons, and muscles to more weekly distance. Training focus: run primarily at an easy, conversational pace, and add short, controlled 400m speed bursts. Key milestone: comfortably complete a 6.5 km long run by the end of week 3.
+        weeks:
+          - week_number: 1
+            name: Week 1 — easy base
+            notes: Easy conversational running plus four controlled 400m bursts. The long run is 4 km.
+            days:
+              - day: 1
+                workout: Easy Run 3 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 4 x 400m Speed Bursts
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 4 km
+          - week_number: 2
+            name: Week 2 — extend the long run
+            notes: Keep the easy pace. The long run grows to 5.5 km. The bursts stay at four times 400 meters.
+            days:
+              - day: 1
+                workout: Easy Run 4 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 4 x 400m Speed Bursts
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 5.5 km
+          - week_number: 3
+            name: Week 3 — 6.5 km long run
+            notes: Milestone week. Finish with a comfortable 6.5 km long run, and add a fifth 400m burst.
+            days:
+              - day: 1
+                workout: Easy Run 5 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 5 x 400m Speed Bursts
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 6.5 km
+      - name: Endurance & Strength Building
+        description: >
+          Primary goal: extend your aerobic capacity and practice holding a steady pace when your legs feel tired. Training focus: week 4 is a cutback to absorb the first three weeks. Weeks 5 and 6 add 1 km steady intervals and longer weekend long runs. Key milestone: complete an 8 km long run at the end of week 6.
+        weeks:
+          - week_number: 4
+            name: Week 4 — cutback
+            notes: Cutback week. Shorter easy and long runs, and only three 400m bursts, so the base phase can sink in.
+            days:
+              - day: 1
+                workout: Easy Run 3 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 3 x 400m Speed Bursts
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 5 km
+          - week_number: 5
+            name: Week 5 — 1 km steady intervals
+            notes: Three 1 km steady intervals. The long run is 7 km.
+            days:
+              - day: 1
+                workout: Easy Run 5 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 3 x 1 km Steady Intervals
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 7 km
+          - week_number: 6
+            name: Week 6 — 8 km long run
+            notes: Four 1 km steady intervals. The milestone long run is 8 km.
+            days:
+              - day: 1
+                workout: Easy Run 5 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 4 x 1 km Steady Intervals
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 8 km
+      - name: Peak & Taper
+        description: >
+          Primary goal: reach peak fitness and shed accumulated fatigue so you arrive at the starting line fresh. Training focus: week 7 is the longest training run plus brief race-pace practice. Week 8 shortens the runs and keeps short, snappy strides. Key milestone: a 9.5 km long run in week 7, then the 10 km on day 7 of week 8.
+        weeks:
+          - week_number: 7
+            name: Week 7 — 9.5 km peak long run
+            notes: Longest training run of the plan, 9.5 km, plus two 1 km repeats at race pace.
+            days:
+              - day: 1
+                workout: Easy Run 4 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 2 x 1 km Race Pace
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: Easy Run 9.5 km
+          - week_number: 8
+            name: Week 8 — taper and 10 km
+            notes: The runs get shorter. Keep the strides snappy. Race the 10 km on day 7.
+            days:
+              - day: 1
+                workout: Easy Run 3 km
+              - day: 2
+                workout: Beginner Lower Body and Core
+              - day: 3
+                workout: 6 x 100m Strides
+              - day: 5
+                workout: Beginner Lower Body
+              - day: 7
+                workout: 10 km Race

@@ -840,6 +840,7 @@ export function ProgramsPanel({
                     </button>
                   ))}
                 </div>
+                {phase?.description ? <p className="mt-3 max-w-3xl text-sm text-slate-600">{phase.description}</p> : null}
                 {selected.isSystem ? null : addingPhase ? (
                   <AddPhaseForm pending={pending === "phase"} onCreate={createPhase} onCancel={() => setAddingPhase(false)} />
                 ) : selected.phases.length === 0 ? (
@@ -864,9 +865,9 @@ export function ProgramsPanel({
                         key={item.id}
                         type="button"
                         onClick={() => openProgram(selected.id, phase.id, item.id)}
-                        className={`rounded-xl px-3 py-1.5 text-sm ${item.id === week?.id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                        className={`rounded-xl px-3 py-1.5 text-left text-sm ${item.id === week?.id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"}`}
                       >
-                        Week {item.weekNumber}
+                        {item.name ?? `Week ${item.weekNumber}`}
                       </button>
                     ))}
                   </div>
@@ -878,6 +879,7 @@ export function ProgramsPanel({
               {week ? (
                 <div>
                   <h3 className="text-sm font-semibold">Week {week.weekNumber} workouts</h3>
+                  {week.notes ? <p className="mt-1 max-w-3xl text-sm text-slate-600">{week.notes}</p> : null}
                   <p className="mt-1 text-xs text-slate-500">Day 1 is the start date you choose when you publish.</p>
                   {data.workouts.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-500">Create a workout in Workouts before placing one on a day.</p>
