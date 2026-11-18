@@ -1,0 +1,141 @@
+# Shared lower-body and core workouts. Exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+workouts:
+  - name: Beginner Lower Body and Core
+    description: >
+      Equipment: bodyweight. Leave a few reps in reserve so the next set stays clean.
+      If a lunge is unsteady, use Glute Bridge instead of Lunge.
+      If holding a plank is too hard, use Crunch instead of Plank.
+    minutes: 40
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: March in place, then do two easy sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Lunge
+        sets: 3
+        reps: 8-12
+        rest: 75
+      - exercise: Glute Bridge
+        sets: 3
+        reps: 10-15
+        rest: 60
+      - exercise: Calf Raise
+        sets: 2
+        reps: 12-15
+        rest: 45
+      - exercise: Plank
+        sets: 2
+        prescribed_duration_seconds: 20
+        rest: 45
+      - exercise: Bird Dog
+        sets: 2
+        reps: 8-10
+        rest: 45
+      - exercise: Crunch
+        sets: 2
+        reps: 10-15
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Intermediate Lower Body and Core
+    description: >
+      Equipment: a barbell, a bench, and a pair of dumbbells. Use a weight you can finish with one or two reps left.
+      Squat and Calf Raise also work with bodyweight.
+      If the barbell is unavailable, use Glute Bridge instead of Hip Thrust.
+      If the bench is unavailable, use Glute Bridge instead of Hip Thrust and Lunge instead of Bulgarian Split Squat.
+      If neither a barbell nor dumbbells is available, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips, then do two easy sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Romanian Deadlift
+        sets: 3
+        reps: 8-10
+        rest: 90
+      - exercise: Bulgarian Split Squat
+        sets: 3
+        reps: 8-10
+        rest: 90
+      - exercise: Hip Thrust
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Calf Raise
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - exercise: Plank
+        sets: 3
+        prescribed_duration_seconds: 30
+        rest: 45
+      - exercise: Reverse Crunch
+        sets: 3
+        reps: 10-15
+        rest: 45
+      - exercise: Russian Twist
+        sets: 3
+        reps: 10-12
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
+
+  - name: Advanced Lower Body and Core
+    description: >
+      Equipment: a barbell, a bench, a pair of dumbbells, and a pull-up bar.
+      Keep the listed rest, and leave one rep in reserve on the compounds.
+      Squat and Calf Raise also work with bodyweight.
+      If the pull-up bar is unavailable, use Reverse Crunch instead of Hanging Leg Raise.
+      If the bench is unavailable, use Glute Bridge instead of Hip Thrust and Lunge instead of Bulgarian Split Squat.
+      If neither a barbell nor dumbbells is available, use Glute Bridge instead of Romanian Deadlift.
+    minutes: 70
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the hips, then build to the working weight with two lighter sets of the first squat. Stop if a joint hurts.
+      - exercise: Squat
+        sets: 5
+        reps: 4-6
+        rest: 150
+      - exercise: Romanian Deadlift
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Bulgarian Split Squat
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Hip Thrust
+        sets: 4
+        reps: 6-8
+        rest: 90
+      - exercise: Calf Raise
+        sets: 4
+        reps: 10-15
+        rest: 60
+      - exercise: Hanging Leg Raise
+        sets: 4
+        reps: 8-12
+        rest: 60
+      - exercise: Plank
+        sets: 3
+        prescribed_duration_seconds: 45
+        rest: 45
+      - exercise: Bicycle Crunch
+        sets: 3
+        reps: 12-16
+        rest: 45
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the legs. Stretch the hips, hamstrings, and calves gently.
