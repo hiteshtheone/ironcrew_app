@@ -56,3 +56,19 @@ finally:
 export DATABASE_URL='postgresql://...'
 npm run purge-system
 npm run purge-system -- --apply
+
+# Upper body workouts
+# catalog/upper-body.yaml holds Beginner, Intermediate, and Advanced Upper Body.
+# The file names exercises from devshell/seed_gym_exercises.py and does not create them.
+# From Projects/ironcrew, seed the exercises, then validate and apply the catalog.
+# Apply again to replace the blocks on those same shared workout names.
+# Trainer- and client-owned workouts and exercises stay untouched.
+# Validate does not need a database. Apply does.
+
+python -m pip install -e 'devshell[dev]'
+export DATABASE_URL='postgresql://...'
+PYTHONPATH=devshell python devshell/seed_gym_exercises.py --dry-run
+PYTHONPATH=devshell python devshell/seed_gym_exercises.py
+
+npm run catalog -- validate catalog/upper-body.yaml
+npm run catalog -- apply catalog/upper-body.yaml
