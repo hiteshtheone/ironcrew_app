@@ -118,3 +118,12 @@ npm run catalog -- apply catalog/beginner-10k.yaml
 npm run catalog -- validate catalog/beginner-5k.yaml
 ./node_modules/.bin/tsx --test scripts/catalog/beginner-5k.test.ts
 npm run catalog -- apply catalog/beginner-5k.yaml
+
+# catalog/general-fitness.yaml holds the 16 Week General Fitness program.
+# Strength and run workouts name exercises from devshell/seed_gym_exercises.py.
+# The file does not create exercises. Seed first, then validate, then apply.
+# Apply again to replace the blocks on those same shared workout names and rebuild the program phases.
+# Trainer- and client-owned workouts, exercises, and programs stay untouched.
+npm run catalog -- validate catalog/general-fitness.yaml
+./node_modules/.bin/tsx --test scripts/catalog/general-fitness.test.ts
+npm run catalog -- apply catalog/general-fitness.yaml
