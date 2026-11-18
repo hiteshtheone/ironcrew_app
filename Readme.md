@@ -17,17 +17,13 @@ Production needs every file in `Projects/ironcrew/db/migrations`, through `00002
 
 If `claim_invited_client` is missing, invited clients skip the claim and go through normal onboarding.
 
-## Seed the shared catalog
+# Seed shared exercises, workouts, and plans
+# Migrations do not insert the system exercise library or starter programs. After migrating, from `Projects/ironcrew`:
+# From Projects/ironcrew, after the migrations above. DATABASE_URL must already be set.
+# The script seeds exercises, validates every catalog, then applies workouts before plans.
+./scripts/seed-catalog.sh
 
-Migrations do not insert the system exercise library or starter programs. After migrating, from `Projects/ironcrew`:
-
-```sh
-export DATABASE_URL='postgresql://...'
-PYTHONPATH=devshell python devshell/seed_gym_exercises.py
-PYTHONPATH=devshell python devshell/create_beginner_10k.py
-```
-
-Both scripts update matching shared rows when they are run again. `npm run catalog -- apply <file-or-directory>` loads a YAML catalog. `scripts/catalog/example.yaml` is a sample, not the customer library.
+More details about seeding in projects' readme.
 
 Then sign in as a new account and confirm the starter program is offered during onboarding.
 
