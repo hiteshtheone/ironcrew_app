@@ -73,6 +73,11 @@ PYTHONPATH=devshell python devshell/seed_gym_exercises.py
 npm run catalog -- validate catalog/upper-body.yaml
 npm run catalog -- apply catalog/upper-body.yaml
 
+# catalog/upper-body-core.yaml holds Beginner, Intermediate, and Advanced Upper Body and Core.
+npm run catalog -- validate catalog/upper-body-core.yaml
+./node_modules/.bin/tsx --test scripts/catalog/upper-body-core.test.ts
+npm run catalog -- apply catalog/upper-body-core.yaml
+
 npm run catalog -- validate catalog/lower-body-core.yaml
 npm run catalog -- apply catalog/lower-body-core.yaml
 
