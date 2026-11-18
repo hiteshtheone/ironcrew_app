@@ -79,7 +79,9 @@ npm run catalog -- apply catalog/upper-body.yaml
 # From Projects/ironcrew, seed the exercises, then validate and apply the catalog.
 # Apply again to replace the blocks on those same shared workout names.
 # Trainer- and client-owned workouts and exercises stay untouched.
-# Validate does not need a database. Apply does.
+# Validate and the test do not need a database. Apply does.
+# The test reads catalog/lower-body.yaml and devshell/seed_gym_exercises.py.
+# It checks that the file creates no exercises and that every block name exists in the seed.
 
 python -m pip install -e 'devshell[dev]'
 export DATABASE_URL='postgresql://...'
@@ -87,4 +89,5 @@ PYTHONPATH=devshell python devshell/seed_gym_exercises.py --dry-run
 PYTHONPATH=devshell python devshell/seed_gym_exercises.py
 
 npm run catalog -- validate catalog/lower-body.yaml
+./node_modules/.bin/tsx --test scripts/catalog/lower-body.test.ts
 npm run catalog -- apply catalog/lower-body.yaml
