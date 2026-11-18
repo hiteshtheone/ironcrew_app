@@ -1,0 +1,41 @@
+# Shared upper-body workout. Exercise names must already exist from
+# devshell/seed_gym_exercises.py. This file does not create exercises.
+workouts:
+  - name: Upper Body
+    description: One push-and-pull session for chest, back, shoulders, and arms. Use a weight you can finish with one or two reps left.
+    minutes: 55
+    blocks:
+      - type: warmup
+        title: Warm up
+        instructions: Move the shoulders and do two easy sets of the first press. Stop if a joint hurts.
+      - exercise: Bench Press
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Bent-Over Row
+        sets: 4
+        reps: 6-8
+        rest: 120
+      - exercise: Overhead Press
+        sets: 3
+        reps: 8-10
+        rest: 90
+      - exercise: Lat Pulldown
+        sets: 3
+        reps: 8-12
+        rest: 90
+      - exercise: Standing Lateral Raise
+        sets: 3
+        reps: 12-15
+        rest: 60
+      - exercise: Dumbbell Curl
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - exercise: Cable Pushdown
+        sets: 3
+        reps: 10-12
+        rest: 60
+      - type: cooldown
+        title: Cool down
+        instructions: Shake out the arms. Stretch the chest and the lats gently.
