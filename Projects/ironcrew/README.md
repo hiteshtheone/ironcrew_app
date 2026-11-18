@@ -57,7 +57,7 @@ export DATABASE_URL='postgresql://...'
 npm run purge-system
 npm run purge-system -- --apply
 
-# Lower body, Core, Upper body workouts
+# Lower body, Core, Upper body, Full body workouts
 # catalog/upper-body.yaml holds Beginner, Intermediate, and Advanced Upper Body.
 # The file names exercises from devshell/seed_gym_exercises.py and does not create them.
 # From Projects/ironcrew, seed the exercises, then validate and apply the catalog.
@@ -79,3 +79,8 @@ npm run catalog -- apply catalog/lower-body-core.yaml
 npm run catalog -- validate catalog/lower-body.yaml
 ./node_modules/.bin/tsx --test scripts/catalog/lower-body.test.ts
 npm run catalog -- apply catalog/lower-body.yaml
+
+# catalog/full-body.yaml holds Beginner, Intermediate, and Advanced Full Body.
+npm run catalog -- validate catalog/full-body.yaml
+./node_modules/.bin/tsx --test scripts/catalog/full-body.test.ts
+npm run catalog -- apply catalog/full-body.yaml
