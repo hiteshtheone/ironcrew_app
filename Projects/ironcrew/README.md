@@ -98,3 +98,13 @@ npm run catalog -- apply catalog/full-body.yaml
 npm run catalog -- validate catalog/core.yaml
 ./node_modules/.bin/tsx --test scripts/catalog/core.test.ts
 npm run catalog -- apply catalog/core.yaml
+
+# catalog/beginner-10k.yaml holds the 8 Week 10K Beginner Running program.
+# Run workouts name Easy Run, Speed Burst, Steady Interval, Stride, and Race Pace from the seed.
+# Strength days name Beginner Lower Body and Beginner Lower Body and Core, so apply those catalogs first.
+# The file does not create exercises. Seed first, then validate, then apply.
+# Apply again to replace the blocks on those same shared workout names and rebuild the program phases.
+# Trainer- and client-owned workouts, exercises, and programs stay untouched.
+npm run catalog -- validate catalog/beginner-10k.yaml
+./node_modules/.bin/tsx --test scripts/catalog/beginner-10k.test.ts
+npm run catalog -- apply catalog/beginner-10k.yaml

@@ -120,12 +120,17 @@ def build_exercises() -> tuple[Exercise, ...]:
         Exercise("Cycling", "Low-impact pedalling exercise for cardiovascular endurance.", "Adjust the seat, pedal smoothly at a sustainable cadence, and increase resistance without rocking your hips.", "cardio", "stationary bike", "distance_time", ("quadriceps", "glutes", "hamstrings", "calves"), ("lower_body",)),
         Exercise("Jumping Jack", "Rhythmic full-body movement that elevates heart rate.", "Jump your feet outward while raising your arms overhead, then return both to the starting position and repeat.", "cardio", "bodyweight", reps, ("full_body", "shoulders", "calves"), ("full_body",)),
         Exercise("Rowing", "Full-body cardiovascular exercise performed on a rowing machine.", "Drive with your legs, lean back slightly, pull the handle toward your lower ribs, then return arms, torso, and legs in sequence.", "cardio", "rowing machine", "distance_time", ("upper_back", "lats", "quadriceps", "hamstrings", "biceps"), ("full_body",)),
+        Exercise("Easy Run", "Continuous run at a conversational pace.", "Settle into a pace where you can speak in full sentences, keep your shoulders relaxed, and stop if a joint hurts.", "cardio", "road or track", "distance_time", ("quadriceps", "hamstrings", "glutes", "calves"), ("lower_body",)),
+        Exercise("Speed Burst", "Short controlled faster repeat, about 400 meters.", "Run the repeat quicker than your easy pace without sprinting, then walk or jog until you can speak again.", "cardio", "road or track", "distance_time", ("quadriceps", "hamstrings", "glutes", "calves"), ("lower_body",)),
+        Exercise("Steady Interval", "Longer repeat held at a steady, comfortably hard pace.", "Settle into one even effort for the whole repeat, then jog or walk until your breathing settles.", "cardio", "road or track", "distance_time", ("quadriceps", "hamstrings", "glutes", "calves"), ("lower_body",)),
+        Exercise("Stride", "Short snappy run that keeps leg turnover without fatigue.", "Accelerate smoothly for about 100 meters, stay tall and light, then walk back to full recovery.", "cardio", "road or track", "distance_time", ("quadriceps", "hamstrings", "glutes", "calves"), ("lower_body",)),
+        Exercise("Race Pace", "Running at the effort you intend to hold for a 10K.", "Start controlled, hold a pace you could sustain for the race, and finish the repeat without sprinting.", "cardio", "road or track", "distance_time", ("quadriceps", "hamstrings", "glutes", "calves"), ("lower_body",)),
     )
 
 
 def validate_exercises(exercises: Sequence[Exercise]) -> None:
-    if len(exercises) != 44:
-        raise ValueError(f"expected 44 exercises, got {len(exercises)}")
+    if len(exercises) != 49:
+        raise ValueError(f"expected 49 exercises, got {len(exercises)}")
     names = [exercise.name for exercise in exercises]
     if len(names) != len(set(names)):
         raise ValueError("exercise names must be unique")
@@ -193,7 +198,7 @@ def seed_exercises(connection: Connection, exercises: Sequence[Exercise]) -> int
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Seed 44 shared gym exercises.")
+    parser = argparse.ArgumentParser(description="Seed 49 shared gym exercises.")
     parser.add_argument(
         "--dry-run",
         action="store_true",
