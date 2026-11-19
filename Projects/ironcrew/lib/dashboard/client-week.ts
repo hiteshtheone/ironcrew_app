@@ -36,6 +36,8 @@ export type ClientExercise = {
   id: string;
   exerciseId: string | null;
   name: string;
+  /** How to perform the movement. Null when the exercise has no instructions. */
+  instructions: string | null;
   detail: string | null;
   prescribedSets: number | null;
   /** Coach rep range. A single target is stored in both, or in whichever side was set. */

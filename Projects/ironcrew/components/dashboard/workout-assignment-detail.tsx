@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
 import {
   formatLongDate,
@@ -149,7 +150,10 @@ function ReadOnlyExecution({ workout }: { workout: ClientWorkout }) {
                     {index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{exercise.name}</p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="min-w-0 text-sm font-medium">{exercise.name}</p>
+                      <ExerciseDetailsButton name={exercise.name} instructions={exercise.instructions} />
+                    </div>
                     {muscles ? <p className="text-xs text-slate-500">{muscles}</p> : null}
                     <p className="text-xs text-slate-500">
                       {exercise.detail ? `Prescribed: ${exercise.detail}` : "No prescription"}

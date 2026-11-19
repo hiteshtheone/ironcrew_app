@@ -72,7 +72,7 @@ const WORKOUT_EXECUTION_COLUMNS = `
       prescribed_distance_meters,
       prescribed_height_cm,
       prescribed_heart_rate_bpm,
-      exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts )
+      exercises ( name, instructions, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts )
     )
   )
 `;
@@ -497,6 +497,7 @@ function normalizeExercise(
     id,
     exerciseId: stringField(block, "exercise_id"),
     name,
+    instructions: stringField(exercise, "instructions"),
     detail: prescriptionDetail(positiveNumber(block.prescribed_sets), repsMin, repsMax, {
       load,
       loadUnit: stringField(block, "load_unit"),
