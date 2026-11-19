@@ -3,7 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { valuesEqual } from "@/components/edit-save-actions";
 import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
 import { muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
 import {
@@ -43,12 +43,8 @@ export function WorkoutLog({
   const router = useRouter();
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
   const [note, setNote] = useState(workout.sessionNote ?? "");
-  const [noteBaseline, setNoteBaseline] = useState(workout.sessionNote ?? "");
   const [calories, setCalories] = useState(() => wholeNumberText(workout.calories));
-  const [caloriesBaseline, setCaloriesBaseline] = useState(() => wholeNumberText(workout.calories));
   const [heartRate, setHeartRate] = useState(() => wholeNumberText(workout.heartRateBpm));
-  const [heartRateBaseline, setHeartRateBaseline] = useState(() => wholeNumberText(workout.heartRateBpm));
-  const { editing: editingNote, startEditing: startNoteEdit, stopEditing: stopNoteEdit } = useEditMode(workout.id);
   const [blocks, setBlocks] = useState<DraftBlock[]>(() => workout.exercises.map(draftBlock));
   const [setBaselines, setSetBaselines] = useState<Record<string, DraftSet[]>>(() => baselineSetsFrom(workout.exercises.map(draftBlock)));
   const [loadedWorkoutId, setLoadedWorkoutId] = useState(workout.id);
@@ -59,11 +55,11 @@ export function WorkoutLog({
   const baselinesRef = useRef(setBaselines);
   const sessionRef = useRef({
     note,
-    noteBaseline,
+    noteBaseline: note,
     calories,
-    caloriesBaseline,
+    caloriesBaseline: calories,
     heartRate,
-    heartRateBaseline,
+    heartRateBaseline: heartRate,
   });
   const assignmentIdRef = useRef(workout.id);
   const saveQueue = useRef({ running: false, follow: null as SaveKind | null, focusId: null as string | null });
@@ -87,11 +83,8 @@ export function WorkoutLog({
     saveQueue.current = { running: false, follow: null, focusId: null };
     setLoadedWorkoutId(workout.id);
     setNote(nextNote);
-    setNoteBaseline(nextNote);
     setCalories(nextCalories);
-    setCaloriesBaseline(nextCalories);
     setHeartRate(nextHeartRate);
-    setHeartRateBaseline(nextHeartRate);
     setBlocks(nextBlocks);
     setSetBaselines(baselinesRef.current);
     setOpenBlockId(null);
@@ -113,8 +106,8 @@ export function WorkoutLog({
     setHeartRate(value);
   };
 
-  const requestNoteSave = () => {
-    if (!editingNote || !sessionIsDirty(sessionRef.current)) return;
+  const requestSessionSave = () => {
+    if (!sessionIsDirty(sessionRef.current)) return;
     setPendingNote(true);
     enqueue("note", null);
   };
@@ -144,7 +137,7 @@ export function WorkoutLog({
     const noteValue = includeSession ? session.note : session.noteBaseline;
     const caloriesValue = includeSession ? session.calories : session.caloriesBaseline;
     const heartRateValue = includeSession ? session.heartRate : session.heartRateBaseline;
-    const prepared = blocksToSave(blocksRef.current, baselinesRef.current, kind, focusId);
+    const prepared = blocksToSave(blocksRef.current, baselinesRef.current, focusId);
     if ("error" in prepared) {
       if (assignmentIdRef.current === startedFor) {
         setErrorByBlock((current) => ({ ...current, [prepared.blockId]: prepared.error }));
@@ -194,10 +187,6 @@ export function WorkoutLog({
           caloriesBaseline: caloriesValue,
           heartRateBaseline: heartRateValue,
         };
-        setNoteBaseline(noteValue);
-        setCaloriesBaseline(caloriesValue);
-        setHeartRateBaseline(heartRateValue);
-        stopNoteEdit();
       }
       if (body?.status) onLogged?.(body.status);
       router.refresh();
@@ -244,25 +233,25 @@ export function WorkoutLog({
           Workout note
           <textarea
             value={note}
-            disabled={!editingNote}
             onChange={(event) => changeNote(event.target.value)}
+            onBlur={requestSessionSave}
             rows={2}
             maxLength={10000}
             placeholder="How did this session go?"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
           />
         </label>
-        <div className="mt-3 flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="block text-sm font-medium text-slate-700">
             Calories
             <input
               type="text"
               inputMode="numeric"
               value={calories}
-              disabled={!editingNote}
               onChange={(event) => changeCalories(event.target.value)}
+              onBlur={requestSessionSave}
               placeholder="Optional"
-              className="mt-1 w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
@@ -271,39 +260,14 @@ export function WorkoutLog({
               type="text"
               inputMode="numeric"
               value={heartRate}
-              disabled={!editingNote}
               onChange={(event) => changeHeartRate(event.target.value)}
+              onBlur={requestSessionSave}
               placeholder="Optional"
-              className="mt-1 w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
             />
           </label>
+          {pendingNote ? <span className="pb-2 text-xs font-semibold text-slate-500">Saving…</span> : null}
         </div>
-        <EditSaveActions
-          className="mt-2 flex flex-wrap items-center gap-2"
-          editing={editingNote}
-          dirty={note !== noteBaseline || calories !== caloriesBaseline || heartRate !== heartRateBaseline}
-          pending={pendingNote}
-          saveLabel="Save"
-          pendingLabel="Saving…"
-          saveType="button"
-          onSave={requestNoteSave}
-          saveClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-          editClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-          onEdit={startNoteEdit}
-          onCancel={() => {
-            const session = sessionRef.current;
-            sessionRef.current = {
-              ...session,
-              note: session.noteBaseline,
-              calories: session.caloriesBaseline,
-              heartRate: session.heartRateBaseline,
-            };
-            setNote(session.noteBaseline);
-            setCalories(session.caloriesBaseline);
-            setHeartRate(session.heartRateBaseline);
-            stopNoteEdit();
-          }}
-        />
         {errorByBlock.note && <p className="mt-2 text-sm text-red-600">{errorByBlock.note}</p>}
       </div>
 
@@ -472,7 +436,6 @@ function blockIsDirty(blockId: string, blocks: DraftBlock[], baselines: Record<s
 function blocksToSave(
   live: DraftBlock[],
   baselines: Record<string, DraftSet[]>,
-  kind: SaveKind,
   focusId: string | null,
 ): { blocks: DraftBlock[] } | { error: string; blockId: string } {
   const blocks: DraftBlock[] = [];
@@ -482,7 +445,7 @@ function blocksToSave(
       blocks.push(block);
       continue;
     }
-    if (kind === "note" || block.id === focusId) return { error: parsed.error, blockId: block.id };
+    if (block.id === focusId) return { error: parsed.error, blockId: block.id };
     blocks.push({ ...block, sets: baselines[block.id] ?? block.sets });
   }
   return { blocks };
