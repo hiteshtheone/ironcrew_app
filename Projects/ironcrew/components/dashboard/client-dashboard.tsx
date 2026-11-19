@@ -405,7 +405,7 @@ function ClientWeek({
             </section>
           </div>
 
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <section id="workout-of-the-day" className="mt-6 scroll-mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-bold">
               {selectedDay?.isToday ? "Workout of the day" : `${selectedDay?.weekday ?? "Selected"} workout`}
             </h2>

@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { StepActions, StepCard } from "@/components/onboarding/step-layout";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { StarterProgram } from "@/lib/onboarding/load-onboarding";
 import { rankStarterPrograms } from "@/lib/onboarding/starter-programs";
 import { todayIn } from "@/lib/onboarding/timezone";
@@ -10,8 +12,8 @@ import type { GoalType } from "@/lib/plans/constants";
 import { cn } from "@/lib/utils";
 
 /**
- * Trainers copy a system program into their library; clients start one for
- * themselves from today.
+ * Trainers copy a system program into their library. Clients start one for
+ * themselves on a date they choose, and week 1 is published from that day.
  */
 export function StarterProgramStep({
   mode,
@@ -34,6 +36,7 @@ export function StarterProgramStep({
   const [selectedId, setSelectedId] = useState<string | null>(
     ranked.find((entry) => entry.suggested)?.program.id ?? null,
   );
+  const [startsOn, setStartsOn] = useState(() => todayIn(timezone));
   const [error, setError] = useState<string | null>(null);
   const [overlap, setOverlap] = useState(false);
   const [pending, setPending] = useState(false);
@@ -56,10 +59,11 @@ export function StarterProgramStep({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              starts_on: todayIn(timezone),
+              starts_on: startsOn,
               goal_title: null,
               goal_type: goalType,
               confirmOverlap: overlap,
+              publish_first_week: true,
             }),
           });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -83,7 +87,7 @@ export function StarterProgramStep({
       description={
         isTrainer
           ? "Copy a ready-made program to edit and assign, or start from a blank one."
-          : "Suggested for your goal. It starts today and fills your calendar."
+          : "Suggested for your goal. Choose when week 1 starts. Day 1 of the program lands on that date."
       }
     >
       <form onSubmit={submit} className="flex flex-col gap-4">
@@ -129,6 +133,21 @@ export function StarterProgramStep({
             })}
           </div>
         )}
+        {!isTrainer && selectedId ? (
+          <div className="grid gap-2">
+            <Label htmlFor="program-start-date">Start date</Label>
+            <Input
+              id="program-start-date"
+              type="date"
+              required
+              value={startsOn}
+              onChange={(event) => setStartsOn(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Week 1 is published from this day. Day 1 of the program lands on this date.
+            </p>
+          </div>
+        ) : null}
         {error && <p className="text-sm text-red-500">{error}</p>}
         <StepActions
           onBack={onBack}

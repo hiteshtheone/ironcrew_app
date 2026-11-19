@@ -44,6 +44,15 @@ test("dismissing hides the checklist even with open items", () => {
   assert.equal(isChecklistVisible(trainerChecklist(newTrainer), "2026-11-13T07:00:00Z"), false);
 });
 
+test("logging the first workout opens the workout of the day", () => {
+  const workout = clientChecklist({
+    hasGoal: true,
+    hasStartedProgram: true,
+    hasLoggedWorkout: false,
+  }).find((item) => item.id === "workout");
+  assert.equal(workout?.href, "/dashboard#workout-of-the-day");
+});
+
 test("a client goal is only done when a goal exists", () => {
   const facts = { hasGoal: false, hasStartedProgram: true, hasLoggedWorkout: true };
   const open = clientChecklist(facts).filter((item) => !item.done).map((item) => item.id);

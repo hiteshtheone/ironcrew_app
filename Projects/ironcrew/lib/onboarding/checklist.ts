@@ -81,7 +81,7 @@ export function clientChecklist(facts: ClientChecklistFacts): ChecklistItem[] {
       label: "Log your first workout",
       detail: "Record sets from a scheduled workout.",
       done: facts.hasLoggedWorkout,
-      href: "/dashboard?section=workouts",
+      href: "/dashboard#workout-of-the-day",
     },
   ];
 }
