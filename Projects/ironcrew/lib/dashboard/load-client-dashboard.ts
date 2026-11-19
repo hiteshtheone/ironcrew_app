@@ -56,7 +56,9 @@ const WORKOUT_EXECUTION_COLUMNS = `
   ),
   workouts (
     name,
+    owner_client_id,
     estimated_duration_minutes,
+    program_workouts ( id ),
     workout_blocks (
       id,
       exercise_id,
@@ -79,6 +81,7 @@ const WORKOUT_EXECUTION_COLUMNS = `
 
 const ASSIGNMENT_COLUMNS = `
   id,
+  client_id,
   scheduled_for,
   status,
   ${WORKOUT_SOURCE_COLUMNS},
@@ -416,6 +419,8 @@ function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLogge
   const workout = asRecord(firstRelation(record.workouts));
   const source = workoutSourceFromRow(record);
   const session = asRecord(firstRelation(record.workout_sessions));
+  const ownerClientId = stringField(workout, "owner_client_id");
+  const clientId = stringField(record, "client_id");
   const setsByBlock = loggedSetsByBlock(session?.exercise_results);
   const blocks = relationList(workout?.workout_blocks)
     .map((block) => asRecord(block))
@@ -429,6 +434,8 @@ function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLogge
     programId: source.programId ?? null,
     programName: source.programName,
     givenBy: source.givenBy,
+    ownedByClient: ownerClientId != null && ownerClientId === clientId,
+    onProgram: relationList(workout?.program_workouts).length > 0,
     status,
     sessionNote: stringField(session, "client_feedback"),
     calories: nonNegativeNumber(session?.calories),

@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 
 import { valuesEqual } from "@/components/edit-save-actions";
 import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
+import { AddExercise } from "@/components/dashboard/live-workout";
 import { muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
+import { canEditLiveWorkout, mergeDraftBlocks } from "@/lib/dashboard/live-workout";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 import {
   draftSets,
   fieldsFromCoach,
@@ -35,12 +38,18 @@ const MAX_SETS = MAX_PREFILL_SETS;
 
 export function WorkoutLog({
   workout,
+  exercises = [],
   onLogged,
+  onStructureChange,
 }: {
   workout: ClientWorkout;
+  exercises?: ExerciseOption[];
   onLogged?: (status: string) => void;
+  /** Reloads a client-fetched assignment after an exercise is added or removed. */
+  onStructureChange?: () => void;
 }) {
   const router = useRouter();
+  const canEdit = canEditLiveWorkout(workout);
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
   const [note, setNote] = useState(workout.sessionNote ?? "");
   const [calories, setCalories] = useState(() => wholeNumberText(workout.calories));
@@ -48,8 +57,11 @@ export function WorkoutLog({
   const [blocks, setBlocks] = useState<DraftBlock[]>(() => workout.exercises.map(draftBlock));
   const [setBaselines, setSetBaselines] = useState<Record<string, DraftSet[]>>(() => baselineSetsFrom(workout.exercises.map(draftBlock)));
   const [loadedWorkoutId, setLoadedWorkoutId] = useState(workout.id);
+  const structureKey = workout.exercises.map((exercise) => exercise.id).join("\n");
+  const [loadedStructure, setLoadedStructure] = useState(structureKey);
   const [pendingNote, setPendingNote] = useState(false);
   const [savingBlockIds, setSavingBlockIds] = useState<string[]>([]);
+  const [removingBlockId, setRemovingBlockId] = useState<string | null>(null);
   const [errorByBlock, setErrorByBlock] = useState<Record<string, string>>({});
   const blocksRef = useRef(blocks);
   const baselinesRef = useRef(setBaselines);
@@ -87,10 +99,28 @@ export function WorkoutLog({
     setHeartRate(nextHeartRate);
     setBlocks(nextBlocks);
     setSetBaselines(baselinesRef.current);
+    setLoadedStructure(structureKey);
     setOpenBlockId(null);
     setPendingNote(false);
     setSavingBlockIds([]);
+    setRemovingBlockId(null);
     setErrorByBlock({});
+  } else if (structureKey !== loadedStructure) {
+    const incoming = workout.exercises.map(draftBlock);
+    const nextBlocks = mergeDraftBlocks(blocksRef.current, incoming);
+    const copied = baselineSetsFrom(nextBlocks);
+    const nextBaselines: Record<string, DraftSet[]> = {};
+    for (const block of nextBlocks) {
+      nextBaselines[block.id] = baselinesRef.current[block.id] ?? copied[block.id];
+    }
+    const previousIds = new Set(blocksRef.current.map((block) => block.id));
+    const added = nextBlocks.filter((block) => !previousIds.has(block.id));
+    blocksRef.current = nextBlocks;
+    baselinesRef.current = nextBaselines;
+    setLoadedStructure(structureKey);
+    setBlocks(nextBlocks);
+    setSetBaselines(nextBaselines);
+    if (added.length === 1) setOpenBlockId(added[0].id);
   }
 
   const changeNote = (value: string) => {
@@ -226,6 +256,48 @@ export function WorkoutLog({
     setSavingBlockIds([]);
   }
 
+  function refreshStructure() {
+    router.refresh();
+    onStructureChange?.();
+  }
+
+  function dropBlock(blockId: string) {
+    const next = blocksRef.current.filter((block) => block.id !== blockId);
+    const nextBaselines = { ...baselinesRef.current };
+    delete nextBaselines[blockId];
+    blocksRef.current = next;
+    baselinesRef.current = nextBaselines;
+    setBlocks(next);
+    setSetBaselines(nextBaselines);
+    setOpenBlockId((current) => (current === blockId ? null : current));
+  }
+
+  function removeExercise(blockId: string) {
+    if (removingBlockId) return;
+    setRemovingBlockId(blockId);
+    setErrorByBlock((current) => {
+      const next = { ...current };
+      delete next[blockId];
+      return next;
+    });
+    void fetch(`/api/workout-assignments/${workout.id}/blocks/${blockId}`, { method: "DELETE" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "Couldn't remove that exercise");
+        dropBlock(blockId);
+        refreshStructure();
+      })
+      .catch((caught: unknown) => {
+        setErrorByBlock((current) => ({
+          ...current,
+          [blockId]: caught instanceof Error ? caught.message : "Couldn't remove that exercise",
+        }));
+      })
+      .finally(() => {
+        setRemovingBlockId(null);
+      });
+  }
+
   return (
     <div className="mt-4 space-y-4">
       <div>
@@ -272,7 +344,9 @@ export function WorkoutLog({
       </div>
 
       {blocks.length === 0 ? (
-        <p className="text-sm text-slate-500">No blocks listed for this workout.</p>
+        <p className="text-sm text-slate-500">
+          {canEdit ? "No exercises yet. Add the one you are doing." : "No blocks listed for this workout."}
+        </p>
       ) : (
         <ol className="divide-y divide-slate-100">
           {blocks.map((block, blockIndex) => {
@@ -295,7 +369,19 @@ export function WorkoutLog({
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {saving ? <span className="text-xs font-semibold text-slate-500">Saving…</span> : null}
+                    {saving || removingBlockId === block.id ? (
+                      <span className="text-xs font-semibold text-slate-500">{removingBlockId === block.id ? "Removing…" : "Saving…"}</span>
+                    ) : null}
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        disabled={removingBlockId !== null}
+                        onClick={() => removeExercise(block.id)}
+                        className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => setOpenBlockId(open ? null : block.id)}
@@ -352,6 +438,7 @@ export function WorkoutLog({
           })}
         </ol>
       )}
+      {canEdit ? <AddExercise assignmentId={workout.id} exercises={exercises} onAdded={refreshStructure} /> : null}
     </div>
   );
 
