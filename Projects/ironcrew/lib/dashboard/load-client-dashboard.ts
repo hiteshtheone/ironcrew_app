@@ -4,7 +4,12 @@ import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { databaseErrorMessage } from "@/lib/api/route-utils";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 import { bodyPartsFromList, muscleFromField, musclesFromList } from "@/lib/exercises/muscle-group";
-import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
+import {
+  isTrackingType,
+  LEGACY_TRACKING_PARAMETERS,
+  parametersFor,
+  timeOnlyBlockParameters,
+} from "@/lib/exercises/tracking";
 import {
   type ClientDashboardData,
   type ClientExercise,
@@ -480,7 +485,7 @@ function normalizeExercise(
   const name = stringField(exercise, "name") || stringField(block, "title") || labelForBlock(stringField(block, "block_type"));
   if (!name) return null;
 
-  const parameters = trackingParametersFor(exercise);
+  const parameters = trackingParametersFor(stringField(block, "block_type"), exercise);
   const repsMin = parameters.includes("reps") ? positiveNumber(block.prescribed_reps_min) : null;
   const repsMax = parameters.includes("reps") ? positiveNumber(block.prescribed_reps_max) : null;
   const load = parameters.includes("weight") ? nonNegativeNumber(block.prescribed_load) : null;
@@ -518,7 +523,9 @@ function normalizeExercise(
   };
 }
 
-function trackingParametersFor(exercise: Record<string, unknown> | null) {
+function trackingParametersFor(blockType: string | null, exercise: Record<string, unknown> | null) {
+  const timeOnly = timeOnlyBlockParameters(blockType);
+  if (timeOnly) return timeOnly;
   if (!exercise) return [...LEGACY_TRACKING_PARAMETERS];
   const trackingType = stringField(exercise, "tracking_type");
   return parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, exercise.tracking_parameters);
