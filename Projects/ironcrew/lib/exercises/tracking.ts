@@ -88,3 +88,9 @@ export function parametersFor(
 export function tracks(parameters: readonly TrackingParameter[], parameter: TrackingParameter) {
   return parameters.includes(parameter);
 }
+
+/** Warm-up and cool-down record time. Other block types keep the caller's list. */
+export function timeOnlyBlockParameters(blockType: string | null | undefined): TrackingParameter[] | null {
+  if (blockType === "warmup" || blockType === "cooldown") return ["time"];
+  return null;
+}

@@ -6,7 +6,7 @@ import { DeleteControl, EditSaveActions, useEditMode, valuesEqual } from "@/comp
 import { exerciseSummary } from "@/components/dashboard/library-details";
 import { libraryItemLabel, type ExerciseOption, type LibraryWorkout } from "@/lib/dashboard/load-trainer-programs";
 import { loadUnitOrDefault } from "@/lib/dashboard/workout-prefill";
-import { tracks, type TrackingParameter } from "@/lib/exercises/tracking";
+import { timeOnlyBlockParameters, tracks, type TrackingParameter } from "@/lib/exercises/tracking";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPES, isBlockType, type BlockType } from "@/lib/plans/constants";
 
 const fieldClass =
@@ -494,8 +494,10 @@ function kilometersToMeters(value: string) {
   return Math.round(kilometers * 1000 * 100) / 100;
 }
 
-/** Exercise blocks follow the selected exercise. Other blocks keep reps and weight. */
+/** Exercise blocks follow the selected exercise. Warm-up and cool-down record time. Other blocks keep reps and weight. */
 function prescriptionParameters(block: BlockDraft, exercises: ExerciseOption[]): TrackingParameter[] | null {
+  const timeOnly = timeOnlyBlockParameters(block.blockType);
+  if (timeOnly) return timeOnly;
   if (block.blockType !== "exercise") return ["reps", "weight"];
   if (!block.exerciseId) return [];
   return exercises.find((exercise) => exercise.id === block.exerciseId)?.trackingParameters ?? [];
