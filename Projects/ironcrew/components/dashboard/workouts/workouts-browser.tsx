@@ -9,6 +9,7 @@ import { WorkoutList, WorkoutListSkeleton } from "@/components/dashboard/workout
 import { WorkoutsEmptyState } from "@/components/dashboard/workouts/workouts-empty-state";
 import { WorkoutsToolbar } from "@/components/dashboard/workouts/workouts-toolbar";
 import { PAGE_SIZE, rangeLabel, totalPagesFor, type WorkoutPage } from "@/lib/dashboard/workout-filters";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 
 type FetchResult = {
   /** Identifies the request this result belongs to (endpoint + query + retry token). */
@@ -23,6 +24,7 @@ export function WorkoutsBrowser({
   endpoint,
   emptyMessage,
   mode,
+  exercises = [],
 }: {
   /** Path without a query string, for example `/api/me/workouts`. */
   endpoint: string;
@@ -30,6 +32,8 @@ export function WorkoutsBrowser({
   emptyMessage: string;
   /** Client can log sets. Trainer sees the same detail read-only. */
   mode: "client" | "trainer";
+  /** Exercises the client can add while training. */
+  exercises?: ExerciseOption[];
 }) {
   const { filters, apiQuery, activeFilters, setFilter, setSort, setPage, clearFilter, clearAll } = useWorkoutFilters();
   const [result, setResult] = useState<FetchResult | null>(null);
@@ -117,7 +121,7 @@ export function WorkoutsBrowser({
             {payload.total === 0 ? (
               <WorkoutsEmptyState hasActiveFilters={hasActiveFilters} onClearAll={clearAll} emptyMessage={emptyMessage} />
             ) : (
-              <WorkoutList workouts={payload.workouts} mode={mode} />
+              <WorkoutList workouts={payload.workouts} mode={mode} exercises={exercises} />
             )}
           </div>
         )}

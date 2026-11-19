@@ -74,6 +74,10 @@ export type ClientWorkout = {
   programName: string | null;
   /** "Self" when the client scheduled it, otherwise the trainer's name. */
   givenBy: string;
+  /** True when this client owns the workout library row. */
+  ownedByClient: boolean;
+  /** True when the workout is placed on a program, so its exercises stay fixed. */
+  onProgram: boolean;
   exercises: ClientExercise[];
 };
 

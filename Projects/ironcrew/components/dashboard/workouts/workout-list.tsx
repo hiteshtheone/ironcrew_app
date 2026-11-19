@@ -5,15 +5,18 @@ import { ChevronRight } from "lucide-react";
 
 import { WorkoutAssignmentDetail } from "@/components/dashboard/workout-assignment-detail";
 import { formatLongDate, isAssignmentStatus, statusLabel } from "@/lib/dashboard/client-week";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import type { WorkoutRow } from "@/lib/dashboard/workout-filters";
 
 export function WorkoutList({
   workouts,
   mode,
+  exercises = [],
 }: {
   workouts: WorkoutRow[];
   mode: "client" | "trainer";
+  exercises?: ExerciseOption[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -42,7 +45,7 @@ export function WorkoutList({
               </div>
               <StatusPill status={workout.status} />
             </button>
-            {open ? <WorkoutAssignmentDetail assignmentId={workout.id} mode={mode} /> : null}
+            {open ? <WorkoutAssignmentDetail assignmentId={workout.id} mode={mode} exercises={exercises} /> : null}
           </li>
         );
       })}

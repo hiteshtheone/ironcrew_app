@@ -25,6 +25,7 @@ import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProgramsPanel } from "@/components/dashboard/programs-panel";
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+import { StartWorkout } from "@/components/dashboard/live-workout";
 import { AssignmentFacts } from "@/components/dashboard/workout-assignment-detail";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
 import {
@@ -39,7 +40,7 @@ import {
   type ClientWorkout,
 } from "@/lib/dashboard/client-week";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import { libraryItemLabel, type TrainerProgramsData, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import type { ChecklistItem } from "@/lib/onboarding/checklist";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
@@ -205,13 +206,14 @@ function ClientShell({
           <ClientWeek
             data={data}
             workouts={programs?.kind === "ready" ? programs.workouts : []}
+            exercises={programs?.kind === "ready" ? programs.exercises : []}
             checklist={checklist}
             homeNonce={homeNonce}
           />
         ) : section === "settings" ? (
           <MyInfoForm />
         ) : section === "workouts" ? (
-          <ClientWorkouts data={data} />
+          <ClientWorkouts data={data} exercises={programs?.kind === "ready" ? programs.exercises : []} />
         ) : section === "programs" ? (
           programs ? (
             <ProgramsPanel
@@ -225,7 +227,12 @@ function ClientShell({
         ) : section === "progress" ? (
           <ClientProgress data={data} />
         ) : section === "calendar" ? (
-          <MonthCalendar today={data.today} endpoint="/api/me/calendar" enabled={data.kind === "ready"} />
+          <MonthCalendar
+            today={data.today}
+            endpoint="/api/me/calendar"
+            enabled={data.kind === "ready"}
+            exercises={programs?.kind === "ready" ? programs.exercises : []}
+          />
         ) : (
           <EmptySection title={sectionTitle[section]} />
         )}
@@ -237,11 +244,13 @@ function ClientShell({
 function ClientWeek({
   data,
   workouts,
+  exercises,
   checklist,
   homeNonce,
 }: {
   data: Exclude<ClientDashboardData, { kind: "error" }>;
   workouts: WorkoutOption[];
+  exercises: ExerciseOption[];
   checklist: ChecklistItem[] | null;
   /** Bumps when Dashboard is opened again, which collapses the workout list. */
   homeNonce: number;
@@ -371,7 +380,7 @@ function ClientWeek({
               <p className="mt-1 text-sm text-slate-500">Monday through Sunday</p>
               {days.every((day) => day.workouts.length === 0) ? (
                 <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Nothing is on your calendar this week. Add a workout from your library, or publish a program week.
+                  Nothing is on your calendar this week. Start a workout, add one from your library, or publish a program week.
                 </p>
               ) : null}
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
@@ -464,6 +473,7 @@ function ClientWeek({
                           <h3 className="mt-5 text-sm font-semibold text-slate-900">Execution</h3>
                           <WorkoutLog
                             workout={workout}
+                            exercises={exercises}
                             onLogged={(status) => {
                               if (status === "in_progress" && workout.status === "scheduled") {
                                 setStatusById((current) => ({ ...current, [workout.id]: "in_progress" }));
@@ -478,7 +488,13 @@ function ClientWeek({
               </div>
             )}
             {selectedDay ? (
-              <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+              <div className="mt-6 flex flex-wrap items-start gap-x-10 gap-y-4 border-t border-slate-100 pt-5">
+                <StartWorkout
+                  date={selectedDay.date}
+                  onStarted={(assignmentId) => setExpandedIds({ [assignmentId]: true })}
+                />
+                <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+              </div>
             ) : null}
           </section>
         </>
@@ -517,7 +533,7 @@ function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOp
   };
 
   return (
-    <div className="mt-6 border-t border-slate-100 pt-5">
+    <div>
       <button
         type="button"
         aria-expanded={open}
