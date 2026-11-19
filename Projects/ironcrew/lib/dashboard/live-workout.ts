@@ -1,5 +1,8 @@
 import { formatLongDate } from "@/lib/dashboard/client-week";
-import { asTrimmedString, isIsoDate, isRecord, isUuid } from "@/lib/api/route-utils";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const LIVE_WORKOUT_NAME_MAX = 160;
 
@@ -94,4 +97,25 @@ export function exerciseUsableForLiveWorkout(
 export function mergeDraftBlocks<T extends { id: string }>(current: T[], incoming: T[]): T[] {
   const currentById = new Map(current.map((block) => [block.id, block]));
   return incoming.map((block) => currentById.get(block.id) ?? block);
+}
+
+function isUuid(value: string) {
+  return UUID_PATTERN.test(value);
+}
+
+function isIsoDate(value: string) {
+  if (!DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function asTrimmedString(value: unknown) {
+  if (value == null) return null;
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
