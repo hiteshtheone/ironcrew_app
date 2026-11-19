@@ -6,6 +6,7 @@ export const ACTIVE_PROGRAM_EXISTS = "ACTIVE_PROGRAM_EXISTS";
 export type ActiveProgramSource = "trainer" | "self";
 
 export type ActiveProgramSummary = {
+  id: string;
   name: string;
   source: ActiveProgramSource;
 };
@@ -21,17 +22,19 @@ export async function loadActivePrograms(
 ): Promise<ActiveProgramSummary[]> {
   const { data } = await supabase
     .from("program_assignments")
-    .select("assigned_by_client_id, programs(name)")
+    .select("program_id, assigned_by_client_id, programs(name)")
     .eq("client_id", clientId)
     .in("status", ["scheduled", "in_progress"])
     .order("starts_on", { ascending: false });
 
-  return (data ?? []).map((row) => {
+  return (data ?? []).flatMap((row) => {
+    const id = typeof row.program_id === "string" ? row.program_id : null;
+    if (!id) return [];
     const source: ActiveProgramSource = row.assigned_by_client_id ? "self" : "trainer";
     const relation = Array.isArray(row.programs) ? row.programs[0] : row.programs;
     const name = typeof relation?.name === "string" && relation.name ? relation.name : null;
     // A trainer cannot read a client's self-made program, so fall back to a label.
-    return { name: name ?? "Self-made program", source };
+    return [{ id, name: name ?? "Self-made program", source }];
   });
 }
 

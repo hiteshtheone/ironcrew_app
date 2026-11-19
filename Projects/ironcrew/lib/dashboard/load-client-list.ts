@@ -378,10 +378,14 @@ function activePlan(client: Record<string, unknown>) {
   // Only trainer-assigned programs drive the plan card: a trainer cannot read
   // or edit a program the client built for themselves.
   const active = assignments.find((assignment) => !assignment.selfMade) ?? null;
-  const activePrograms: ActiveProgramSummary[] = assignments.map((assignment) => ({
-    name: assignment.programName ?? (assignment.selfMade ? "Self-made program" : "Assigned program"),
-    source: assignment.selfMade ? "self" : "trainer",
-  }));
+  const activePrograms: ActiveProgramSummary[] = assignments.flatMap((assignment) => {
+    if (!assignment.programId) return [];
+    return [{
+      id: assignment.programId,
+      name: assignment.programName ?? (assignment.selfMade ? "Self-made program" : "Assigned program"),
+      source: assignment.selfMade ? "self" : "trainer",
+    }];
+  });
   const linkedGoal = active?.goalId ? goals.find((goal) => goal.id === active.goalId) : null;
   const goal = linkedGoal ?? goals.find((item) => item.status === "active") ?? null;
 

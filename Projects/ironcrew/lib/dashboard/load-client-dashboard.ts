@@ -203,7 +203,7 @@ export async function loadClientDashboard(
         .order("scheduled_for", { ascending: true }),
       supabase
         .from("program_assignments")
-        .select("assigned_by_client_id, programs(name)")
+        .select("program_id, assigned_by_client_id, programs(name)")
         .eq("client_id", client.id)
         .in("status", ["scheduled", "in_progress"])
         .order("starts_on", { ascending: false }),
@@ -426,6 +426,7 @@ function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLogge
     id,
     name: stringField(workout, "name") || "Workout",
     durationMinutes: positiveNumber(workout?.estimated_duration_minutes),
+    programId: source.programId ?? null,
     programName: source.programName,
     givenBy: source.givenBy,
     status,
@@ -533,13 +534,14 @@ function trackingParametersFor(blockType: string | null, exercise: Record<string
 }
 
 function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {
-  return relationList(rows)
-    .map((row) => {
-      const record = asRecord(row);
-      const program = asRecord(firstRelation(record?.programs));
-      const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
-      return { name: stringField(program, "name") ?? "Program", source };
-    });
+  return relationList(rows).flatMap((row) => {
+    const record = asRecord(row);
+    const id = stringField(record, "program_id");
+    if (!id) return [];
+    const program = asRecord(firstRelation(record?.programs));
+    const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
+    return [{ id, name: stringField(program, "name") ?? "Program", source }];
+  });
 }
 
 function clientNameFrom(record: Record<string, unknown> | null) {

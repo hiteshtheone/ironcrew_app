@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
@@ -92,7 +93,15 @@ export function AssignmentFacts({
       {scheduledFor ? <Fact label="Scheduled" value={formatLongDate(scheduledFor)} /> : null}
       <Fact label="Status" value={statusLabel(workout.status)} />
       <Fact label="Duration" value={workout.durationMinutes ? `${workout.durationMinutes} min` : "—"} />
-      <Fact label="Program" value={workout.programName ?? "No program"} />
+      <Fact
+        label="Program"
+        value={workout.programName ?? "No program"}
+        href={
+          workout.programId
+            ? `/dashboard?section=programs&program=${encodeURIComponent(workout.programId)}`
+            : undefined
+        }
+      />
       <Fact label="Assigned by" value={workout.givenBy} />
       {clientName ? <Fact label="Client" value={clientName} /> : null}
     </dl>
@@ -181,11 +190,19 @@ function ReadOnlyExecution({ workout }: { workout: ClientWorkout }) {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <div>
       <dt className="text-xs font-semibold text-slate-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-slate-900">{value}</dd>
+      <dd className="mt-0.5 font-medium text-slate-900">
+        {href ? (
+          <Link href={href} className="underline-offset-2 hover:underline">
+            {value}
+          </Link>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }

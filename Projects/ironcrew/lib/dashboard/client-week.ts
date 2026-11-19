@@ -71,6 +71,8 @@ export type ClientWorkout = {
   /** Average heart rate in bpm for this session. Null when the client left it blank. */
   heartRateBpm: number | null;
   /** Program this session was published from. Null for a one-off workout. */
+  programId: string | null;
+  /** Name of that program. Null for a one-off workout. */
   programName: string | null;
   /** "Self" when the client scheduled it, otherwise the trainer's name. */
   givenBy: string;

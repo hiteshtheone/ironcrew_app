@@ -5,6 +5,7 @@
 export const WORKOUT_SOURCE_COLUMNS = `
   assigned_by_client_id,
   program_assignments (
+    program_id,
     programs ( name )
   ),
   trainers!workout_assignments_assigned_by_trainer_id_fkey (
@@ -15,6 +16,8 @@ export const WORKOUT_SOURCE_COLUMNS = `
 `;
 
 export type WorkoutSource = {
+  /** Null when the workout was scheduled on its own, or when the caller only has the name. */
+  programId?: string | null;
   /** Null when the workout was scheduled on its own, outside a program. */
   programName: string | null;
   /** "Self" when the client scheduled it, otherwise the trainer's name. */
@@ -35,6 +38,7 @@ export function workoutSourceFromRow(row: Record<string, unknown> | null | undef
   const hiddenName = assignment ? (selfAssigned ? "Self-made program" : "Assigned program") : null;
 
   return {
+    programId: stringField(assignment, "program_id"),
     programName: stringField(program, "name") ?? hiddenName,
     givenBy: selfAssigned ? "Self" : trainerName(trainer),
   };

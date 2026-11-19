@@ -362,7 +362,7 @@ function ClientWeek({
             <Metric href={`${pathname}?section=workouts&when=this_week`} onNavigate={() => openView("section=workouts&when=this_week")} label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
             <Metric href={`${pathname}?section=workouts&when=this_week&status=finished`} onNavigate={() => openView("section=workouts&when=this_week&status=finished")} label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
             <Metric href={`${pathname}?section=workouts&when=this_week&status=unfinished`} onNavigate={() => openView("section=workouts&when=this_week&status=unfinished")} label="Remaining" value={String(remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
-            <Metric href={`${pathname}?section=programs`} onNavigate={() => openView("section=programs")} label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
+            <Metric href={`${pathname}?${programQuery(data.activePrograms)}`} onNavigate={() => openView(programQuery(data.activePrograms))} label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
@@ -398,9 +398,29 @@ function ClientWeek({
                 <div className="h-full rounded-full bg-emerald-400" style={{ width: `${completion}%` }} />
               </div>
               <p className="mt-5 text-sm text-slate-300">
-                {data.activePrograms.length > 0
-                  ? `Following ${data.activePrograms.map((program) => program.name).join(", ")}`
-                  : "No active program"}
+                {data.activePrograms.length > 0 ? (
+                  <>
+                    Following{" "}
+                    {data.activePrograms.map((program, index) => (
+                      <span key={program.id}>
+                        {index > 0 ? ", " : null}
+                        <a
+                          href={`${pathname}?${programQuery([program])}`}
+                          onClick={(event) => {
+                            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                            event.preventDefault();
+                            openView(programQuery([program]));
+                          }}
+                          className="font-medium text-white underline-offset-2 hover:underline"
+                        >
+                          {program.name}
+                        </a>
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  "No active program"
+                )}
               </p>
             </section>
           </div>
@@ -576,6 +596,13 @@ function WorkoutCompletion({ workout }: { workout: ClientWorkout }) {
       </div>
     </div>
   );
+}
+
+/** Opens My programs on the program shown on the card. The list is newest first. */
+function programQuery(programs: ActiveProgramSummary[]) {
+  const program = programs[0];
+  if (!program) return "section=programs";
+  return `section=programs&program=${encodeURIComponent(program.id)}`;
 }
 
 function programSummary(programs: ActiveProgramSummary[]) {
