@@ -10,7 +10,7 @@ import {
   type WorkoutBlock,
 } from "@/lib/dashboard/load-trainer-programs";
 import { MUSCLE_LABELS } from "@/lib/exercises/muscle-group";
-import { TRACKING_PARAMETER_LABELS, TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
+import { timeOnlyBlockParameters, TRACKING_PARAMETER_LABELS, TRACKING_TYPE_LABELS } from "@/lib/exercises/tracking";
 import { BLOCK_TYPE_LABELS, isBlockType } from "@/lib/plans/constants";
 
 export type LibraryDetail =
@@ -26,7 +26,15 @@ export function exerciseSummary(exercise: ExerciseOption) {
 
 export function blockSummary(block: WorkoutBlock) {
   const name = block.exerciseName || block.title || blockTypeName(block.blockType);
-  const detail = prescriptionDetail(block.sets, block.repsMin, block.repsMax, {
+  const detail = blockPrescription(block);
+  return detail ? `${name} · ${detail}` : name;
+}
+
+function blockPrescription(block: WorkoutBlock) {
+  if (timeOnlyBlockParameters(block.blockType)) {
+    return prescriptionDetail(block.sets, null, null, { durationSeconds: block.durationSeconds });
+  }
+  return prescriptionDetail(block.sets, block.repsMin, block.repsMax, {
     load: block.load,
     loadUnit: block.loadUnit,
     durationSeconds: block.durationSeconds,
@@ -34,7 +42,6 @@ export function blockSummary(block: WorkoutBlock) {
     heightCm: block.heightCm,
     heartRateBpm: block.heartRateBpm,
   });
-  return detail ? `${name} · ${detail}` : name;
 }
 
 /** Duration and the first exercise names, for the workouts list. */
@@ -216,14 +223,7 @@ function WorkoutDetailBody({
             const exercise = block.exerciseId
               ? exercises.find((item) => item.id === block.exerciseId) ?? null
               : null;
-            const prescribed = prescriptionDetail(block.sets, block.repsMin, block.repsMax, {
-              load: block.load,
-              loadUnit: block.loadUnit,
-              durationSeconds: block.durationSeconds,
-              distanceMeters: block.distanceMeters,
-              heightCm: block.heightCm,
-              heartRateBpm: block.heartRateBpm,
-            });
+            const prescribed = blockPrescription(block);
             return (
               <li key={block.id} className="py-3 first:pt-0 last:pb-0">
                 <p className="text-sm font-medium text-slate-900">

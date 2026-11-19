@@ -15,6 +15,7 @@ import {
   isTrackingType,
   LEGACY_TRACKING_PARAMETERS,
   parametersFor,
+  timeOnlyBlockParameters,
   type TrackingParameter,
 } from "@/lib/exercises/tracking";
 
@@ -71,6 +72,7 @@ export async function PUT(request: Request, context: RouteContext) {
         workout_blocks (
           id,
           exercise_id,
+          block_type,
           exercises ( tracking_type, tracking_parameters )
         )
       )
@@ -358,7 +360,7 @@ function blocksForAssignment(assignment: { workouts: unknown }) {
     const exerciseId = asTrimmedString(block.exercise_id);
     blocks.set(id, {
       exerciseId: exerciseId ?? null,
-      parameters: parametersForBlock(block.exercises),
+      parameters: parametersForBlock(asTrimmedString(block.block_type) ?? null, block.exercises),
     });
   }
   return blocks;
@@ -369,7 +371,9 @@ type BlockTracking = {
   parameters: TrackingParameter[];
 };
 
-function parametersForBlock(exercise: unknown): TrackingParameter[] {
+function parametersForBlock(blockType: string | null, exercise: unknown): TrackingParameter[] {
+  const timeOnly = timeOnlyBlockParameters(blockType);
+  if (timeOnly) return timeOnly;
   const record = firstRelation(exercise);
   if (!isRecord(record)) return [...LEGACY_TRACKING_PARAMETERS];
   const trackingType = asTrimmedString(record.tracking_type);
