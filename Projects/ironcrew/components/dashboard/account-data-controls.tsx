@@ -23,7 +23,7 @@ export function AccountDataControls() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "ironwill-fitness-data.json";
+      link.download = "sema-fitness-data.json";
       link.click();
       URL.revokeObjectURL(url);
     } catch (caught: unknown) {
