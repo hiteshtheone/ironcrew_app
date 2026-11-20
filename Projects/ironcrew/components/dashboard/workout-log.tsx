@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { valuesEqual } from "@/components/edit-save-actions";
 import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
 import { AddExercise } from "@/components/dashboard/live-workout";
-import { muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
+import { isClientAssignmentStatus, muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
 import { canEditLiveWorkout, mergeDraftBlocks } from "@/lib/dashboard/live-workout";
 import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 import {
@@ -62,6 +62,8 @@ export function WorkoutLog({
   const [pendingNote, setPendingNote] = useState(false);
   const [savingBlockIds, setSavingBlockIds] = useState<string[]>([]);
   const [removingBlockId, setRemovingBlockId] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
   const [errorByBlock, setErrorByBlock] = useState<Record<string, string>>({});
   const blocksRef = useRef(blocks);
   const baselinesRef = useRef(setBaselines);
@@ -298,6 +300,29 @@ export function WorkoutLog({
       });
   }
 
+  const finishWorkout = () => {
+    if (finishing || workout.status === "completed" || !isClientAssignmentStatus(workout.status)) return;
+    setFinishing(true);
+    setFinishError(null);
+    void fetch(`/api/workout-assignments/${workout.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "completed" }),
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "Couldn't finish this workout");
+        onLogged?.("completed");
+        router.refresh();
+      })
+      .catch((caught: unknown) => {
+        setFinishError(caught instanceof Error ? caught.message : "Couldn't finish this workout");
+      })
+      .finally(() => {
+        setFinishing(false);
+      });
+  };
+
   return (
     <div className="mt-4 space-y-4">
       <div>
@@ -439,6 +464,19 @@ export function WorkoutLog({
         </ol>
       )}
       {canEdit ? <AddExercise assignmentId={workout.id} exercises={exercises} onAdded={refreshStructure} /> : null}
+      {isClientAssignmentStatus(workout.status) ? (
+        <div>
+          <button
+            type="button"
+            disabled={finishing || workout.status === "completed"}
+            onClick={finishWorkout}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {finishing ? "Finishing..." : "Finish"}
+          </button>
+          {finishError ? <p className="mt-2 text-sm text-red-600">{finishError}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 

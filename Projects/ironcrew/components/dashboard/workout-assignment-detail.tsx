@@ -145,7 +145,14 @@ function WorkoutDetailBody({
       />
       <h3 className="mt-5 text-sm font-semibold text-slate-900">Execution</h3>
       {mode === "client" ? (
-        <WorkoutLog workout={detail.workout} exercises={exercises} onStructureChange={onStructureChange} />
+        <WorkoutLog
+          workout={detail.workout}
+          exercises={exercises}
+          onStructureChange={onStructureChange}
+          onLogged={(status) => {
+            if (status === "completed") onStructureChange();
+          }}
+        />
       ) : (
         <ReadOnlyExecution workout={detail.workout} />
       )}

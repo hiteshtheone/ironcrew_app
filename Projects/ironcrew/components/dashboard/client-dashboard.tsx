@@ -506,8 +506,9 @@ function ClientWeek({
                             workout={workout}
                             exercises={exercises}
                             onLogged={(status) => {
-                              if (status === "in_progress" && workout.status === "scheduled") {
-                                setStatusById((current) => ({ ...current, [workout.id]: "in_progress" }));
+                              if (!isClientAssignmentStatus(status)) return;
+                              if (status === "completed" || (status === "in_progress" && workout.status === "scheduled")) {
+                                setStatusById((current) => ({ ...current, [workout.id]: status }));
                               }
                             }}
                           />
