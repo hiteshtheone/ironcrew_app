@@ -8,13 +8,16 @@ import { defaultLiveWorkoutName } from "@/lib/dashboard/live-workout";
 
 export function StartWorkout({
   date,
+  open,
+  onOpenChange,
   onStarted,
 }: {
   date: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onStarted: (assignmentId: string) => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState(() => defaultLiveWorkoutName(date));
   const [namedFor, setNamedFor] = useState(date);
   const [pending, setPending] = useState(false);
@@ -38,7 +41,7 @@ export function StartWorkout({
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as { error?: string; id?: string } | null;
         if (!response.ok || !payload?.id) throw new Error(payload?.error || "Couldn't start this workout");
-        setOpen(false);
+        onOpenChange(false);
         onStarted(payload.id);
         router.refresh();
       })
@@ -55,7 +58,7 @@ export function StartWorkout({
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => onOpenChange(!open)}
         className="order-1 w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950"
       >
         Start New

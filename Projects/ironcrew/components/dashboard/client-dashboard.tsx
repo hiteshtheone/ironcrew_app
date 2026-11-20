@@ -253,6 +253,7 @@ function ClientWeek({
   const [expandedIds, setExpandedIds] = useState<Record<string, true>>({});
   const [expandedForDate, setExpandedForDate] = useState(today);
   const [seenHomeNonce, setSeenHomeNonce] = useState(homeNonce);
+  const [workoutAction, setWorkoutAction] = useState<"start" | "existing" | null>(null);
 
   const days =
     data.kind === "ready"
@@ -277,6 +278,7 @@ function ClientWeek({
     setExpandedForDate(selectedDateKey);
     setSeenHomeNonce(homeNonce);
     setExpandedIds({});
+    setWorkoutAction(null);
   }
 
   const openView = (query: string) => {
@@ -426,8 +428,29 @@ function ClientWeek({
             <h2 className="text-lg font-bold">
               {selectedDay?.isToday ? "Workout of the day" : `${selectedDay?.weekday ?? "Selected"} workout`}
             </h2>
-            {selectedWorkouts.length === 0 ? (
-              <div className="mt-4">
+            {selectedDay ? (
+              <div className="mt-4 rounded-2xl bg-slate-950 p-4 text-white">
+                <h3 className="text-sm font-semibold">Workout</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <StartWorkout
+                    date={selectedDay.date}
+                    open={workoutAction === "start"}
+                    onOpenChange={(open) => setWorkoutAction(open ? "start" : null)}
+                    onStarted={(assignmentId) => setExpandedIds({ [assignmentId]: true })}
+                  />
+                  <ScheduleWorkout
+                    date={selectedDay.date}
+                    workouts={workouts}
+                    open={workoutAction === "existing"}
+                    onOpenChange={(open) => setWorkoutAction(open ? "existing" : null)}
+                  />
+                </div>
+              </div>
+            ) : null}
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-slate-900">Workout logs</h3>
+              {selectedWorkouts.length === 0 ? (
+              <div className="mt-3">
                 <p className="text-sm text-slate-500">
                   {selectedDay?.isToday
                     ? "Rest day. Nothing is scheduled for today."
@@ -440,7 +463,7 @@ function ClientWeek({
                 )}
               </div>
             ) : (
-              <div className="mt-5 space-y-4">
+              <div className="mt-4 space-y-4">
                 {selectedWorkouts.map((workout) => {
                   const expanded = Boolean(expandedIds[workout.id]);
                   return (
@@ -495,18 +518,7 @@ function ClientWeek({
                 })}
               </div>
             )}
-            {selectedDay ? (
-              <div className="mt-6 rounded-2xl bg-slate-950 p-4 text-white">
-                <h3 className="text-sm font-semibold">Workout</h3>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <StartWorkout
-                    date={selectedDay.date}
-                    onStarted={(assignmentId) => setExpandedIds({ [assignmentId]: true })}
-                  />
-                  <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
-                </div>
-              </div>
-            ) : null}
+            </div>
           </section>
         </>
       )}
@@ -514,9 +526,18 @@ function ClientWeek({
   );
 }
 
-function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOption[] }) {
+function ScheduleWorkout({
+  date,
+  workouts,
+  open,
+  onOpenChange,
+}: {
+  date: string;
+  workouts: WorkoutOption[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -532,7 +553,7 @@ function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOp
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         if (!response.ok) throw new Error(payload?.error || "Couldn't add this workout");
-        setOpen(false);
+        onOpenChange(false);
         router.refresh();
       })
       .catch((caught: unknown) => {
@@ -548,7 +569,7 @@ function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOp
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => onOpenChange(!open)}
         className="order-2 w-full rounded-xl border border-white/40 px-4 py-2 text-sm font-semibold text-white"
       >
         Do Existing
