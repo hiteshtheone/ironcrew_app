@@ -92,15 +92,6 @@ export function ClientDashboard({
   return <ClientShell data={data} programs={programs} checklist={checklist} />;
 }
 
-function getInitials(fullName: string) {
-  return fullName
-    .trim()                 // Remove leading/trailing spaces
-    .split(/\s+/)           // Split by any number of spaces
-    .map(word => word[0])   // Get the first character of each word
-    .join('')               // Combine them
-    .toUpperCase();         // Make it uppercase
-}
-
 function isClientSection(value: string | null): value is ClientSection {
   return CLIENT_SECTIONS.some((section) => section === value);
 }
@@ -118,7 +109,6 @@ function ClientShell({
   const searchParams = useSearchParams();
   const [navOpen, setNavOpen] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
-  const brandName = data.kind === "ready" ? data.trainer_business_name : "Trainer";
 
   // The active section lives in the URL (`?section=workouts`) so views are deep-linkable.
   const sectionParam = searchParams.get("section");
@@ -138,8 +128,6 @@ function ClientShell({
     window.history.pushState(null, "", `${pathname}${query ? `?${query}` : ""}`);
   };
 
-  const trainer_logo = getInitials(brandName)
-
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-slate-950">
       {navOpen ? (
@@ -151,9 +139,9 @@ function ClientShell({
         />
       ) : null}
       <aside className={`fixed inset-y-0 z-50 w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 ${navOpen ? "flex" : "hidden lg:flex"}`}>
-        <button type="button" onClick={() => openSection("dashboard")} className="flex items-center gap-3 px-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">{trainer_logo}</span>
-          <span className="text-lg font-semibold tracking-tight">{brandName}</span>
+        <button type="button" onClick={() => openSection("dashboard")} className="flex min-w-0 items-center gap-3 px-3">
+          <img src="/icon.png" alt="SEMA Fitness" width={36} height={36} className="size-9 shrink-0 rounded-[22%]" />
+          <span className="truncate text-lg font-semibold tracking-tight">{data.firstName}</span>
         </button>
         <nav className="mt-10 space-y-1">
           {navigation.map(({ id, label, icon: Icon }) => (
