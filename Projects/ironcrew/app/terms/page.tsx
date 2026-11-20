@@ -29,7 +29,7 @@ export default function TermsPage() {
     <main className="mx-auto w-full max-w-2xl px-6 py-12 md:py-16">
       <h1 className="text-3xl font-bold tracking-tight">Terms and Conditions</h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        These terms cover training with Ironwill Fitness. By continuing, you agree to them.
+        These terms cover training with SEMA. By continuing, you agree to them.
         How account data is stored, exported, and deleted is in the{" "}
         <Link href="/privacy" className="font-medium underline underline-offset-2">
           Privacy Policy

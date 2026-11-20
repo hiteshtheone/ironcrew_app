@@ -9,33 +9,33 @@ const defaultUrl = siteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  applicationName: "Ironwill Fitness",
-  title: "Ironwill Fitness - Grow stronger everyday",
-  description: "Track growth for more growth.",
+  applicationName: "SEMA",
+  title: "SEMA",
+  description: "Strength, Endurance, Mobility, and Agility.",
   openGraph: {
-    title: "Ironwill Fitness - Grow stronger everyday",
-    description: "Track growth for more growth.",
-    siteName: "Ironwill Fitness",
+    title: "SEMA",
+    description: "Strength, Endurance, Mobility, and Agility.",
+    siteName: "SEMA",
     type: "website",
     images: [
       {
         url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "Ironwill Fitness",
+        alt: "SEMA",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ironwill Fitness - Grow stronger everyday",
-    description: "Track growth for more growth.",
+    title: "SEMA",
+    description: "Strength, Endurance, Mobility, and Agility.",
     images: [
       {
         url: "/twitter-image.png",
         width: 1200,
         height: 630,
-        alt: "Ironwill Fitness",
+        alt: "SEMA",
       },
     ],
   },

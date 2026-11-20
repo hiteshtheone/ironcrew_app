@@ -1,4 +1,4 @@
-# Ironwill Fitness database
+# SEMA database
 
 Do not commit database passwords or connection strings.
 

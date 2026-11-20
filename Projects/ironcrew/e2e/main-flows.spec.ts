@@ -65,7 +65,7 @@ test("a new trainer finishes onboarding and reaches the dashboard", async ({ pag
 
   try {
     await signIn(page, email, password);
-    await expect(page.getByRole("heading", { name: "Welcome to IronCrew" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome to SEMA" })).toBeVisible();
     await page.getByRole("radio", { name: /Trainer/ }).click();
     await page.getByLabel("First name").fill("E2E");
     await page.locator("#terms-agreement").check();

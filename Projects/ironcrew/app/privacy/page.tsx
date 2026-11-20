@@ -12,7 +12,7 @@ const SECTIONS = [
   },
   {
     title: "Who can see it",
-    body: "You can see your own account. A trainer can see the clients they coach, including those clients' goals and workout logs. Another trainer cannot. Ironwill Fitness does not sell personal information and does not show ads.",
+    body: "You can see your own account. A trainer can see the clients they coach, including those clients' goals and workout logs. Another trainer cannot. SEMA does not sell personal information and does not show ads.",
   },
   {
     title: "This release is free",
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
     <main className="mx-auto w-full max-w-2xl px-6 py-12 md:py-16">
       <h1 className="text-3xl font-bold tracking-tight">Privacy Policy</h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        This policy covers Ironwill Fitness. Training risks are in the{" "}
+        This policy covers SEMA. Training risks are in the{" "}
         <Link href="/terms" className="font-medium underline underline-offset-2">
           Terms and Conditions
         </Link>

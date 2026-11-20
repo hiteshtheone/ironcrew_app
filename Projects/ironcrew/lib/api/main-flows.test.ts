@@ -385,7 +385,7 @@ test("account export is a download and delete signs the caller out", async () =>
     exportRoute.GET(),
   );
   assert.equal(exported.status, 200);
-  assert.match(exported.headers.get("content-disposition") ?? "", /ironwill-fitness-data.json/);
+  assert.match(exported.headers.get("content-disposition") ?? "", /sema-data.json/);
 
   const removed = createFake({ user, results: [{ data: null }] });
   const deleted = await use(removed, () => accountRoute.DELETE());
