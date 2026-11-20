@@ -9,33 +9,33 @@ const defaultUrl = siteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  applicationName: "SEMA",
-  title: "SEMA",
+  applicationName: "SEMA Fitness",
+  title: "SEMA Fitness",
   description: "Strength, Endurance, Mobility, and Agility.",
   openGraph: {
-    title: "SEMA",
+    title: "SEMA Fitness",
     description: "Strength, Endurance, Mobility, and Agility.",
-    siteName: "SEMA",
+    siteName: "SEMA Fitness",
     type: "website",
     images: [
       {
         url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "SEMA",
+        alt: "SEMA Fitness",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SEMA",
+    title: "SEMA Fitness",
     description: "Strength, Endurance, Mobility, and Agility.",
     images: [
       {
         url: "/twitter-image.png",
         width: 1200,
         height: 630,
-        alt: "SEMA",
+        alt: "SEMA Fitness",
       },
     ],
   },

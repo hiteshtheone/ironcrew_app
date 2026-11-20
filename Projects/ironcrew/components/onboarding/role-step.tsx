@@ -88,7 +88,7 @@ export function RoleStep({
   return (
     <StepCard
       position={{ current: 1, total }}
-      title="Welcome to SEMA"
+      title="Welcome to SEMA Fitness"
       description="Tell us how you will be using the app."
     >
       <form onSubmit={handleSubmit}>

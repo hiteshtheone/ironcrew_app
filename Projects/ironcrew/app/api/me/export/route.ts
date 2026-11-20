@@ -12,7 +12,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "application/json",
-      "Content-Disposition": 'attachment; filename="sema-data.json"',
+      "Content-Disposition": 'attachment; filename="sema-fitness-data.json"',
       "Cache-Control": "no-store",
     },
   });

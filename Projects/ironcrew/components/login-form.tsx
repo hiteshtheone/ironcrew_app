@@ -50,7 +50,7 @@ export function LoginForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <img src="/icon.png" alt="SEMA" width={72} height={72} className="size-[72px] rounded-[22%]" />
+          <img src="/icon.png" alt="SEMA Fitness" width={72} height={72} className="size-[72px] rounded-[22%]" />
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
             Enter your email below to login to your account
