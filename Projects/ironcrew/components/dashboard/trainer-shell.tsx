@@ -17,6 +17,7 @@ import {
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { HeaderLogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+import { firstNameFrom } from "@/lib/dashboard/client-week";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
 
 export type TrainerSection =
@@ -56,6 +57,7 @@ export function TrainerShell({
   const [navOpen, setNavOpen] = useState(false);
   const requested = searchParams.get("section");
   const section: TrainerSection = isTrainerSection(requested) ? requested : "dashboard";
+  const firstName = firstNameFrom(profile.fullName);
 
   const openSection = (id: TrainerSection) => {
     setNavOpen(false);
@@ -95,9 +97,9 @@ export function TrainerShell({
         />
       ) : null}
       <aside className={`fixed inset-y-0 z-50 w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 ${navOpen ? "flex" : "hidden lg:flex"}`}>
-        <button type="button" onClick={() => openSection("dashboard")} className="flex items-center gap-3 px-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-slate-950 text-sm font-bold text-white">T</span>
-          <span className="text-lg font-semibold tracking-tight">Trainer</span>
+        <button type="button" onClick={() => openSection("dashboard")} className="flex min-w-0 items-center gap-3 px-3">
+          <img src="/icon.png" alt="SEMA Fitness" width={36} height={36} className="size-9 shrink-0 rounded-[22%]" />
+          <span className="truncate text-lg font-semibold tracking-tight">{firstName}</span>
         </button>
 
         <nav className="mt-10 space-y-1">
