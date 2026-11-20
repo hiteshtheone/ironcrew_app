@@ -10,11 +10,11 @@ const defaultUrl = siteUrl();
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   applicationName: "SEMA Fitness",
-  title: "SEMA Fitness",
-  description: "Strength, Endurance, Mobility, and Agility.",
+  title: "SEMA Fitness - Grow better everyday",
+  description: "All around fitness come from SEMA - Strength, Endurance, Mobility, and Agility.",
   openGraph: {
-    title: "SEMA Fitness",
-    description: "Strength, Endurance, Mobility, and Agility.",
+    title: "SEMA Fitness - Grow better everyday",
+    description: "All around fitness come from SEMA - Strength, Endurance, Mobility, and Agility.",
     siteName: "SEMA Fitness",
     type: "website",
     images: [
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SEMA Fitness",
-    description: "Strength, Endurance, Mobility, and Agility.",
+    title: "SEMA Fitness - Grow better everyday",
+    description: "All around fitness come from SEMA - Strength, Endurance, Mobility, and Agility.",
     images: [
       {
         url: "/twitter-image.png",
