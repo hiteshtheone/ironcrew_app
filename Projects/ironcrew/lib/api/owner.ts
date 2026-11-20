@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { databaseErrorMessage, jsonError } from "@/lib/api/route-utils";
+import { databaseErrorMessage, jsonError, type ApiFailure } from "@/lib/api/route-utils";
 
 export type OwnerColumns =
   | { trainer_id: string; owner_client_id?: undefined }
@@ -13,7 +13,10 @@ export type OwnerColumns =
  * This only decides which column to write. Row-level security remains the
  * authority: a mismatched owner is rejected by the database.
  */
-export async function resolveOwner(supabase: SupabaseClient, userId: string) {
+export async function resolveOwner(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ApiFailure | { owner: OwnerColumns }> {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")

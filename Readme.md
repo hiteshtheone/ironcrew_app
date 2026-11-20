@@ -29,24 +29,39 @@ Then sign in as a new account and confirm the starter program is offered during 
 
 ## Tests
 
-From `Projects/ironcrew`. None of these need a database password.
+From `Projects/ironcrew`. `npm test` and pytest need no environment variables. The browser tests need a real Supabase project and skip any case whose variables are missing. Do not commit those values.
+
+### App tests
 
 ```sh
+npm install
 npm test
 ```
 
-That runs the domain, component, catalog, API, and database tests. The database tests apply `db/migrations` in memory. They do not use a Supabase project.
+Domain helpers, React components, the exercise catalog, API routes, and the database functions. The database cases apply `db/migrations` in memory. No `DATABASE_URL` and no Supabase keys.
+
+### Browser tests
+
+Install Chromium once. Playwright launches the app at `http://127.0.0.1:3000` and sets `NEXT_PUBLIC_SITE_URL` itself.
 
 ```sh
+npx playwright install chromium
 npm run test:e2e
 ```
 
-That opens the app in a browser. A case is skipped when the environment variable it needs is unset:
+| Variable | What it is |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project API URL, such as `https://<project-ref>.supabase.co`. The app uses it for Auth. Both values must be set or every browser case skips. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable (anon) key from Project Settings, API. The browser sends it with Auth requests. This is not the service role key. |
+| `E2E_TRAINER_EMAIL` | Email of an existing trainer who has already finished onboarding. The test signs in and expects Clients and Programs. |
+| `E2E_TRAINER_PASSWORD` | Password for that trainer. |
+| `E2E_CLIENT_EMAIL` | Email of an existing client who has already finished onboarding. The test signs in and expects this week's workouts. |
+| `E2E_CLIENT_PASSWORD` | Password for that client. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret service role key from Project Settings, API. The onboarding case creates a confirmed user, walks through trainer setup, then deletes that user. Keep it out of the browser and out of git. |
 
-- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for the login redirect and a rejected password
-- `E2E_TRAINER_EMAIL` and `E2E_TRAINER_PASSWORD` for the trainer dashboard
-- `E2E_CLIENT_EMAIL` and `E2E_CLIENT_PASSWORD` for the client dashboard
-- `SUPABASE_SERVICE_ROLE_KEY` to create and delete the throwaway onboarding user
+Login and a rejected password run when the two `NEXT_PUBLIC_SUPABASE_*` variables are set. The trainer case also needs `E2E_TRAINER_EMAIL` and `E2E_TRAINER_PASSWORD`. The client case also needs `E2E_CLIENT_EMAIL` and `E2E_CLIENT_PASSWORD`. Onboarding also needs `SUPABASE_SERVICE_ROLE_KEY`.
+
+### Shell tests
 
 ```sh
 cd devshell
@@ -54,9 +69,9 @@ python -m pip install -e '.[dev]'
 python -m pytest
 ```
 
-The shell tests use SQLite. They do not read `DATABASE_URL`.
+Dev shell, seed, and catalog helpers. They use a temporary SQLite file. Leave `DATABASE_URL` unset. The tests that open a database supply their own SQLite URL.
 
-CI runs `npm test`, `npm run lint`, `next build`, and `python -m pytest` on every push and pull request. The browser job runs only when the `E2E_TRAINER_EMAIL` repository secret is set. The other secret names are `E2E_TRAINER_PASSWORD`, `E2E_CLIENT_EMAIL`, `E2E_CLIENT_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+CI runs `npm test`, `npm run lint`, `next build`, and pytest on every push and pull request. Playwright runs in CI only when the repository secret `E2E_TRAINER_EMAIL` is set. The other secret names are the variables in the table above.
 
 ## App hosting
 

@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { databaseErrorMessage, jsonError } from "@/lib/api/route-utils";
+import { databaseErrorMessage, jsonError, type ApiFailure } from "@/lib/api/route-utils";
 import { resolveTimeZone } from "@/lib/dashboard/client-week";
 
-export async function requireClientAccount(supabase: SupabaseClient, userId: string) {
+export async function requireClientAccount(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<ApiFailure | { clientId: string; timeZone: string }> {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, timezone")

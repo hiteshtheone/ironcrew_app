@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { requireClientAccount } from "@/lib/api/signed-in-client";
-import { databaseErrorMessage, isIsoDate, jsonError, requireUser } from "@/lib/api/route-utils";
+import { databaseErrorMessage, isIsoDate, jsonError, requireUser, type ApiFailure } from "@/lib/api/route-utils";
 import {
   buildClientProgress,
   type ProgressAssignment,
@@ -42,7 +42,7 @@ async function loadAssignments(
   clientId: string,
   rangeStart: string,
   rangeEnd: string,
-) {
+): Promise<ApiFailure | { assignments: ProgressAssignment[]; sets: ProgressSet[]; sessions: ProgressSession[] }> {
   const assignments: ProgressAssignment[] = [];
   const sets: ProgressSet[] = [];
   const sessions: ProgressSession[] = [];

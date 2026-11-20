@@ -1,6 +1,10 @@
+import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+
+export type ApiFailure = { error: NextResponse };
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -40,7 +44,7 @@ export function asOptionalNumber(value: unknown) {
   return undefined;
 }
 
-export async function readJson(request: Request) {
+export async function readJson(request: Request): Promise<ApiFailure | { body: unknown }> {
   try {
     return { body: (await request.json()) as unknown };
   } catch {
@@ -48,7 +52,7 @@ export async function readJson(request: Request) {
   }
 }
 
-export async function requireUser() {
+export async function requireUser(): Promise<ApiFailure | { supabase: ServerClient; user: User }> {
   const supabase = await createClient();
   const {
     data: { user },

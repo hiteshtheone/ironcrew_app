@@ -1,13 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { liveWorkoutBlockDenial } from "@/lib/dashboard/live-workout";
-import { databaseErrorMessage, jsonError } from "@/lib/api/route-utils";
+import { databaseErrorMessage, jsonError, type ApiFailure } from "@/lib/api/route-utils";
 
 export async function authorizeLiveWorkoutEdit(
   supabase: SupabaseClient,
   callerClientId: string,
   assignmentId: string,
-) {
+): Promise<ApiFailure | { workoutId: string }> {
   const { data, error } = await supabase
     .from("workout_assignments")
     .select("id, client_id, assigned_by_client_id, workout_id, workouts(owner_client_id)")

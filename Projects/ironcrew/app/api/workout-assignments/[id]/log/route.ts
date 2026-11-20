@@ -10,6 +10,7 @@ import {
   jsonError,
   readJson,
   requireUser,
+  type ApiFailure,
 } from "@/lib/api/route-utils";
 import {
   isTrackingType,
@@ -266,7 +267,7 @@ async function markInProgress(
   assignmentId: string,
   currentStatus: string | null,
   hasLoggedSets: boolean,
-) {
+): Promise<ApiFailure | { status: string | null }> {
   if (!hasLoggedSets || currentStatus !== "scheduled") return { status: currentStatus };
 
   const { data, error } = await supabase
@@ -296,7 +297,7 @@ async function ensureSession(
     calories: number | null;
     heartRateBpm: number | null;
   },
-) {
+): Promise<ApiFailure | { id: string }> {
   if (!input.clientId || !input.workoutId) return { error: jsonError("Workout assignment not found", 404) };
 
   const { data: existing, error: existingError } = await supabase
