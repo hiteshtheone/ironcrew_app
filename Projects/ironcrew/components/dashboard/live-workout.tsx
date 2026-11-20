@@ -51,18 +51,18 @@ export function StartWorkout({
   };
 
   return (
-    <div>
+    <div className="contents">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
+        className="order-1 w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-950"
       >
-        Start new workout
+        Start New
       </button>
       {open ? (
         <form
-          className="mt-3 flex flex-wrap items-end gap-3"
+          className="order-3 col-span-2 mt-1 flex flex-wrap items-end gap-3 rounded-xl bg-white p-3"
           onSubmit={(event) => {
             event.preventDefault();
             start();
@@ -85,9 +85,9 @@ export function StartWorkout({
           >
             {pending ? "Starting..." : "Start"}
           </button>
+          {error ? <p className="w-full text-sm text-red-600">{error}</p> : null}
         </form>
       ) : null}
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }

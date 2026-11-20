@@ -661,11 +661,11 @@ function ValueRow({
   onBlur?: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <span className="w-28 shrink-0 self-end pb-2 text-[11px] font-semibold whitespace-nowrap text-slate-500">{title}</span>
+    <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap [&>:last-child:nth-child(2)]:col-span-2 sm:[&>:last-child:nth-child(2)]:col-auto">
+      <span className="col-span-2 text-[11px] font-semibold whitespace-nowrap text-slate-500 sm:w-28 sm:shrink-0 sm:self-end sm:pb-2">{title}</span>
       {tracks(parameters, "weight") ? (
         <>
-          <Field label="Weight" className="w-24">
+          <Field label="Weight" className="w-full sm:w-24">
             <input
               type="text"
               inputMode="decimal"
@@ -677,7 +677,7 @@ function ValueRow({
               className={fieldClass}
             />
           </Field>
-          <Field label="Unit" className="w-20">
+          <Field label="Unit" className="w-full sm:w-20">
             <select
               disabled={disabled}
               value={values.loadUnit}
@@ -691,7 +691,7 @@ function ValueRow({
         </>
       ) : null}
       {tracks(parameters, "reps") ? (
-        <Field label="Reps" className="w-20">
+        <Field label="Reps" className="w-full sm:w-20">
           <input
             type="text"
             inputMode="numeric"
@@ -705,7 +705,7 @@ function ValueRow({
         </Field>
       ) : null}
       {tracks(parameters, "time") ? (
-        <Field label="Time (sec)" className="w-24">
+        <Field label="Time (sec)" className="w-full sm:w-24">
           <input
             type="text"
             inputMode="numeric"
@@ -719,7 +719,7 @@ function ValueRow({
         </Field>
       ) : null}
       {tracks(parameters, "distance") ? (
-        <Field label="Distance (km)" className="w-28">
+        <Field label="Distance (km)" className="w-full sm:w-28">
           <input
             type="text"
             inputMode="decimal"
@@ -733,7 +733,7 @@ function ValueRow({
         </Field>
       ) : null}
       {tracks(parameters, "height") ? (
-        <Field label="Height (cm)" className="w-24">
+        <Field label="Height (cm)" className="w-full sm:w-24">
           <input
             type="text"
             inputMode="decimal"
@@ -747,7 +747,7 @@ function ValueRow({
         </Field>
       ) : null}
       {tracks(parameters, "heart_rate") ? (
-        <Field label="Heart rate (bpm)" className="w-28">
+        <Field label="Heart rate (bpm)" className="w-full sm:w-28">
           <input
             type="text"
             inputMode="numeric"

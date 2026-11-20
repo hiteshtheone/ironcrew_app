@@ -496,12 +496,15 @@ function ClientWeek({
               </div>
             )}
             {selectedDay ? (
-              <div className="mt-6 flex flex-wrap items-start gap-x-10 gap-y-4 border-t border-slate-100 pt-5">
-                <StartWorkout
-                  date={selectedDay.date}
-                  onStarted={(assignmentId) => setExpandedIds({ [assignmentId]: true })}
-                />
-                <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+              <div className="mt-6 rounded-2xl bg-slate-950 p-4 text-white">
+                <h3 className="text-sm font-semibold">Workout</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <StartWorkout
+                    date={selectedDay.date}
+                    onStarted={(assignmentId) => setExpandedIds({ [assignmentId]: true })}
+                  />
+                  <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+                </div>
               </div>
             ) : null}
           </section>
@@ -541,43 +544,45 @@ function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOp
   };
 
   return (
-    <div>
+    <div className="contents">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold"
+        className="order-2 w-full rounded-xl border border-white/40 px-4 py-2 text-sm font-semibold text-white"
       >
-        Add workout
+        Do Existing
       </button>
       {open ? (
-        workouts.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">
-            No workouts in your library yet.{" "}
-            <Link href="/dashboard?section=programs" className="font-semibold text-slate-800 underline">
-              Add one under My programs
-            </Link>{" "}
-            first.
-          </p>
-        ) : (
-          <ul className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
-            {workouts.map((workout) => (
-              <li key={workout.id}>
-                <button
-                  type="button"
-                  disabled={pendingId !== null}
-                  onClick={() => add(workout.id)}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <span>{libraryItemLabel(workout.name, workout.isSystem)}</span>
-                  {pendingId === workout.id ? <span className="shrink-0 text-xs text-slate-500">Adding...</span> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )
+        <div className="order-4 col-span-2 mt-1 rounded-xl bg-white p-3 text-slate-900">
+          {workouts.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No workouts in your library yet.{" "}
+              <Link href="/dashboard?section=programs" className="font-semibold text-slate-800 underline">
+                Add one under My programs
+              </Link>{" "}
+              first.
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {workouts.map((workout) => (
+                <li key={workout.id}>
+                  <button
+                    type="button"
+                    disabled={pendingId !== null}
+                    onClick={() => add(workout.id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    <span>{libraryItemLabel(workout.name, workout.isSystem)}</span>
+                    {pendingId === workout.id ? <span className="shrink-0 text-xs text-slate-500">Adding...</span> : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        </div>
       ) : null}
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }
