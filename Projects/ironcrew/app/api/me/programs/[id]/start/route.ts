@@ -46,12 +46,14 @@ export async function POST(request: Request, context: RouteContext) {
   const account = await requireClientAccount(auth.supabase, auth.user.id);
   if ("error" in account) return account.error;
 
+  const publishFirstWeek = input.publish_first_week === true;
   const { data, error } = await auth.supabase.rpc("start_own_program", {
     p_program_id: programId,
     p_starts_on: startsOn,
     p_goal_title: goalTitle,
     p_goal_type: goalType ?? "other",
     p_allow_overlap: input.confirmOverlap === true,
+    ...(publishFirstWeek ? { p_publish_first_week: true } : {}),
   });
 
   if (error) {

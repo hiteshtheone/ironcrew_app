@@ -9,6 +9,7 @@ import {
   readJson,
   requireUser,
 } from "@/lib/api/route-utils";
+import { reportError } from "@/lib/observability/report-error";
 import { isOnboardingStep } from "@/lib/onboarding/steps";
 
 type ProfileRow = {
@@ -389,7 +390,7 @@ async function updateClient(
   const profileError = await updateProfile(auth, firstName, lastName, timezone);
   if (profileError) return profileError;
 
-  // No trainer and goal update for now.
+  // v1 does not change the trainer link or goals from settings. Those stay as the coach set them.
 
   const { data: updated, error: readError } = await auth.supabase
     .from("clients")
@@ -499,23 +500,16 @@ async function getTrainer(
 
   let trainer_business_db
   if (clientTrainerError) {
-    console.log("Failed to get trainer Data. Not crashing. Moving on!")
-  } else {
-    if (trainerClient){
-      const { data:trainerData, error: trainerError } = await auth.supabase
-        .from("trainers")
-        .select("business_name")
-        .eq("id", trainerClient.trainer_id)
-        .maybeSingle();
+    reportError(clientTrainerError, { area: "trainer-lookup" });
+  } else if (trainerClient) {
+    const { data: trainerData, error: trainerError } = await auth.supabase
+      .from("trainers")
+      .select("business_name")
+      .eq("id", trainerClient.trainer_id)
+      .maybeSingle();
 
-      if (trainerData){
-        trainer_business_db = trainerData.business_name
-      } else {
-        console.log("Failed to get trainer Data. Not crashing. Moving on!")
-      }
-    } else {
-      console.log("No tainer associated with this client. Not crashing. Moving on!")
-    }
+    if (trainerError) reportError(trainerError, { area: "trainer-lookup" });
+    if (trainerData) trainer_business_db = trainerData.business_name;
   }
   const trainer_business_name = trainer_business_db?.trim() || "Trainer"
   return trainer_business_name

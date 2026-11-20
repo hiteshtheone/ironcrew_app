@@ -4,7 +4,12 @@ import type { ActiveProgramSummary } from "@/lib/api/active-programs";
 import { databaseErrorMessage } from "@/lib/api/route-utils";
 import { WORKOUT_SOURCE_COLUMNS, workoutSourceFromRow } from "@/lib/dashboard/workout-source";
 import { bodyPartsFromList, muscleFromField, musclesFromList } from "@/lib/exercises/muscle-group";
-import { isTrackingType, LEGACY_TRACKING_PARAMETERS, parametersFor } from "@/lib/exercises/tracking";
+import {
+  isTrackingType,
+  LEGACY_TRACKING_PARAMETERS,
+  parametersFor,
+  timeOnlyBlockParameters,
+} from "@/lib/exercises/tracking";
 import {
   type ClientDashboardData,
   type ClientExercise,
@@ -22,6 +27,7 @@ import {
   resolveTimeZone,
 } from "@/lib/dashboard/client-week";
 import { previousSetsForBlock, type PriorResult } from "@/lib/dashboard/workout-prefill";
+import { reportError } from "@/lib/observability/report-error";
 
 type ProfileInput = {
   userId: string;
@@ -50,7 +56,9 @@ const WORKOUT_EXECUTION_COLUMNS = `
   ),
   workouts (
     name,
+    owner_client_id,
     estimated_duration_minutes,
+    program_workouts ( id ),
     workout_blocks (
       id,
       exercise_id,
@@ -66,13 +74,14 @@ const WORKOUT_EXECUTION_COLUMNS = `
       prescribed_distance_meters,
       prescribed_height_cm,
       prescribed_heart_rate_bpm,
-      exercises ( name, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts )
+      exercises ( name, instructions, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts )
     )
   )
 `;
 
 const ASSIGNMENT_COLUMNS = `
   id,
+  client_id,
   scheduled_for,
   status,
   ${WORKOUT_SOURCE_COLUMNS},
@@ -173,14 +182,10 @@ export async function loadClientDashboard(
       .eq("id", trainerClient.trainer_id)
       .maybeSingle();
 
-    if (trainerData){
-      trainer_business_db = trainerData.business_name
-    } else {
-      console.log("Failed to get trainer Data. Not crashing. Moving on!")
-    }
-  } else {
-    console.log("No tainer associated with this client. Not crashing. Moving on!")
+    if (trainerError) reportError(trainerError, { area: "trainer-lookup" });
+    if (trainerData) trainer_business_db = trainerData.business_name;
   }
+  if (clientTrainerError) reportError(clientTrainerError, { area: "trainer-lookup" });
 
   const trainer_business_name = trainer_business_db?.trim() || "Trainer"
 
@@ -201,7 +206,7 @@ export async function loadClientDashboard(
         .order("scheduled_for", { ascending: true }),
       supabase
         .from("program_assignments")
-        .select("assigned_by_client_id, programs(name)")
+        .select("program_id, assigned_by_client_id, programs(name)")
         .eq("client_id", client.id)
         .in("status", ["scheduled", "in_progress"])
         .order("starts_on", { ascending: false }),
@@ -414,6 +419,8 @@ function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLogge
   const workout = asRecord(firstRelation(record.workouts));
   const source = workoutSourceFromRow(record);
   const session = asRecord(firstRelation(record.workout_sessions));
+  const ownerClientId = stringField(workout, "owner_client_id");
+  const clientId = stringField(record, "client_id");
   const setsByBlock = loggedSetsByBlock(session?.exercise_results);
   const blocks = relationList(workout?.workout_blocks)
     .map((block) => asRecord(block))
@@ -424,8 +431,11 @@ function normalizeWorkout(row: unknown, previousByBlock: Map<string, ClientLogge
     id,
     name: stringField(workout, "name") || "Workout",
     durationMinutes: positiveNumber(workout?.estimated_duration_minutes),
+    programId: source.programId ?? null,
     programName: source.programName,
     givenBy: source.givenBy,
+    ownedByClient: ownerClientId != null && ownerClientId === clientId,
+    onProgram: relationList(workout?.program_workouts).length > 0,
     status,
     sessionNote: stringField(session, "client_feedback"),
     calories: nonNegativeNumber(session?.calories),
@@ -483,7 +493,7 @@ function normalizeExercise(
   const name = stringField(exercise, "name") || stringField(block, "title") || labelForBlock(stringField(block, "block_type"));
   if (!name) return null;
 
-  const parameters = trackingParametersFor(exercise);
+  const parameters = trackingParametersFor(stringField(block, "block_type"), exercise);
   const repsMin = parameters.includes("reps") ? positiveNumber(block.prescribed_reps_min) : null;
   const repsMax = parameters.includes("reps") ? positiveNumber(block.prescribed_reps_max) : null;
   const load = parameters.includes("weight") ? nonNegativeNumber(block.prescribed_load) : null;
@@ -495,6 +505,7 @@ function normalizeExercise(
     id,
     exerciseId: stringField(block, "exercise_id"),
     name,
+    instructions: stringField(exercise, "instructions"),
     detail: prescriptionDetail(positiveNumber(block.prescribed_sets), repsMin, repsMax, {
       load,
       loadUnit: stringField(block, "load_unit"),
@@ -521,20 +532,23 @@ function normalizeExercise(
   };
 }
 
-function trackingParametersFor(exercise: Record<string, unknown> | null) {
+function trackingParametersFor(blockType: string | null, exercise: Record<string, unknown> | null) {
+  const timeOnly = timeOnlyBlockParameters(blockType);
+  if (timeOnly) return timeOnly;
   if (!exercise) return [...LEGACY_TRACKING_PARAMETERS];
   const trackingType = stringField(exercise, "tracking_type");
   return parametersFor(trackingType && isTrackingType(trackingType) ? trackingType : null, exercise.tracking_parameters);
 }
 
 function activeProgramSummaries(rows: unknown): ActiveProgramSummary[] {
-  return relationList(rows)
-    .map((row) => {
-      const record = asRecord(row);
-      const program = asRecord(firstRelation(record?.programs));
-      const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
-      return { name: stringField(program, "name") ?? "Program", source };
-    });
+  return relationList(rows).flatMap((row) => {
+    const record = asRecord(row);
+    const id = stringField(record, "program_id");
+    if (!id) return [];
+    const program = asRecord(firstRelation(record?.programs));
+    const source: ActiveProgramSummary["source"] = stringField(record, "assigned_by_client_id") ? "self" : "trainer";
+    return [{ id, name: stringField(program, "name") ?? "Program", source }];
+  });
 }
 
 function clientNameFrom(record: Record<string, unknown> | null) {

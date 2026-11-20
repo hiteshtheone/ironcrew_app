@@ -5,6 +5,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --experimental-test-module-mocks --import tsx --test \"lib/**/*.test.ts\" \"components/**/*.test.ts\" \"components/**/*.test.tsx\" \"scripts/**/*.test.ts\" \"db/**/*.test.ts\"",
+    "test:e2e": "playwright test",
     "catalog": "tsx scripts/catalog.ts",
     "purge-system": "tsx scripts/purge-system-catalog.ts",
     "shell": "PYTHONPATH=devshell python -m devshell"
@@ -26,22 +28,23 @@
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
-    "next": "latest",
+    "@electric-sql/pglite": "^0.3.14",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^20",
+    "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
+    "next": "latest",
+    "pg": "^8.16.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5",
-    "@electric-sql/pglite": "^0.3.14",
-    "@types/pg": "^8.15.5",
-    "pg": "^8.16.3",
     "tsx": "^4.20.6",
+    "typescript": "^5",
     "yaml": "^2.8.1"
   }
 }

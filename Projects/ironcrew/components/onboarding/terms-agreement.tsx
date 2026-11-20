@@ -28,6 +28,15 @@ export function TermsAgreement({
           className="font-medium underline underline-offset-2"
         >
           Terms and Conditions
+        </a>{" "}
+        and{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium underline underline-offset-2"
+        >
+          Privacy Policy
         </a>
         .
       </p>

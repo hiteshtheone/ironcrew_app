@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { AccountDataControls } from "@/components/dashboard/account-data-controls";
 import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -343,6 +344,7 @@ export function MyInfoForm() {
       {account?.role === "client" && account.linked ? (
         <ClientGoals trainerName={account.trainer_business_name} goals={account.goals ?? []} />
       ) : null}
+      <AccountDataControls />
     </div>
   );
 }
@@ -351,7 +353,9 @@ function ClientGoals({ trainerName, goals }: { trainerName: string | null; goals
   return (
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <h2 className="text-lg font-bold">Goals</h2>
-      <p className="mt-1 text-sm text-slate-500">Trainer · {trainerName ?? "Trainer"}</p>
+      <p className="mt-1 text-sm text-slate-500">
+        Trainer · {trainerName ?? "Trainer"}. Your trainer and goals stay as your coach set them.
+      </p>
       {goals.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">No goal yet.</p>
       ) : (

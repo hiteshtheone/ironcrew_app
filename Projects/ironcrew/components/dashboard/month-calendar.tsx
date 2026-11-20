@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { WorkoutAssignmentDetail } from "@/components/dashboard/workout-assignment-detail";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 import {
   formatDayNumber,
   formatLongDate,
@@ -31,6 +32,7 @@ export function MonthCalendar({
   endpoint,
   showClientName = false,
   enabled = true,
+  exercises = [],
 }: {
   today: string;
   endpoint: string;
@@ -38,6 +40,8 @@ export function MonthCalendar({
   showClientName?: boolean;
   /** Unlinked clients still see the month, with no request. */
   enabled?: boolean;
+  /** Exercises the client can add while training. */
+  exercises?: ExerciseOption[];
 }) {
   const [visibleMonth, setVisibleMonth] = useState(() => monthView(today).monthStart);
   const [selectedDate, setSelectedDate] = useState(today);
@@ -236,7 +240,11 @@ export function MonthCalendar({
                     <StatusPill status={workout.status} />
                   </button>
                   {open ? (
-                    <WorkoutAssignmentDetail assignmentId={workout.id} mode={showClientName ? "trainer" : "client"} />
+                    <WorkoutAssignmentDetail
+                      assignmentId={workout.id}
+                      mode={showClientName ? "trainer" : "client"}
+                      exercises={exercises}
+                    />
                   ) : null}
                 </li>
               );

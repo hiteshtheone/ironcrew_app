@@ -25,6 +25,7 @@ import { MonthCalendar } from "@/components/dashboard/month-calendar";
 import { ProgramsPanel } from "@/components/dashboard/programs-panel";
 import { MyInfoForm } from "@/components/dashboard/my-info-form";
 import { HeaderLogoutButton, LogoutButton, SidebarLogoutButton } from "@/components/logout-button";
+import { StartWorkout } from "@/components/dashboard/live-workout";
 import { AssignmentFacts } from "@/components/dashboard/workout-assignment-detail";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
 import {
@@ -39,7 +40,7 @@ import {
   type ClientWorkout,
 } from "@/lib/dashboard/client-week";
 import type { ActiveProgramSummary } from "@/lib/api/active-programs";
-import { libraryItemLabel, type TrainerProgramsData, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
+import { libraryItemLabel, type ExerciseOption, type TrainerProgramsData, type WorkoutOption } from "@/lib/dashboard/load-trainer-programs";
 import { workoutSourceLabel } from "@/lib/dashboard/workout-source";
 import type { ChecklistItem } from "@/lib/onboarding/checklist";
 import { stripWorkoutParams } from "@/lib/dashboard/workout-filters";
@@ -205,13 +206,14 @@ function ClientShell({
           <ClientWeek
             data={data}
             workouts={programs?.kind === "ready" ? programs.workouts : []}
+            exercises={programs?.kind === "ready" ? programs.exercises : []}
             checklist={checklist}
             homeNonce={homeNonce}
           />
         ) : section === "settings" ? (
           <MyInfoForm />
         ) : section === "workouts" ? (
-          <ClientWorkouts data={data} />
+          <ClientWorkouts data={data} exercises={programs?.kind === "ready" ? programs.exercises : []} />
         ) : section === "programs" ? (
           programs ? (
             <ProgramsPanel
@@ -225,7 +227,12 @@ function ClientShell({
         ) : section === "progress" ? (
           <ClientProgress data={data} />
         ) : section === "calendar" ? (
-          <MonthCalendar today={data.today} endpoint="/api/me/calendar" enabled={data.kind === "ready"} />
+          <MonthCalendar
+            today={data.today}
+            endpoint="/api/me/calendar"
+            enabled={data.kind === "ready"}
+            exercises={programs?.kind === "ready" ? programs.exercises : []}
+          />
         ) : (
           <EmptySection title={sectionTitle[section]} />
         )}
@@ -237,11 +244,13 @@ function ClientShell({
 function ClientWeek({
   data,
   workouts,
+  exercises,
   checklist,
   homeNonce,
 }: {
   data: Exclude<ClientDashboardData, { kind: "error" }>;
   workouts: WorkoutOption[];
+  exercises: ExerciseOption[];
   checklist: ChecklistItem[] | null;
   /** Bumps when Dashboard is opened again, which collapses the workout list. */
   homeNonce: number;
@@ -362,7 +371,7 @@ function ClientWeek({
             <Metric href={`${pathname}?section=workouts&when=this_week`} onNavigate={() => openView("section=workouts&when=this_week")} label="This week" value={String(scheduledCount)} detail="Workouts assigned" icon={Dumbbell} tone="bg-violet-50 text-violet-600" />
             <Metric href={`${pathname}?section=workouts&when=this_week&status=finished`} onNavigate={() => openView("section=workouts&when=this_week&status=finished")} label="Completed" value={String(completedCount)} detail="Marked done" icon={CheckCircle2} tone="bg-emerald-50 text-emerald-600" />
             <Metric href={`${pathname}?section=workouts&when=this_week&status=unfinished`} onNavigate={() => openView("section=workouts&when=this_week&status=unfinished")} label="Remaining" value={String(remainingCount)} detail="Still to do" icon={Clock3} tone="bg-amber-50 text-amber-600" />
-            <Metric href={`${pathname}?section=programs`} onNavigate={() => openView("section=programs")} label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
+            <Metric href={`${pathname}?${programQuery(data.activePrograms)}`} onNavigate={() => openView(programQuery(data.activePrograms))} label="Program" value={programSummary(data.activePrograms)} detail={programDetail(data.activePrograms)} icon={Activity} tone="bg-orange-50 text-orange-600" compact={data.activePrograms.length > 0} />
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.85fr)]">
@@ -371,7 +380,7 @@ function ClientWeek({
               <p className="mt-1 text-sm text-slate-500">Monday through Sunday</p>
               {days.every((day) => day.workouts.length === 0) ? (
                 <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Nothing is on your calendar this week. Add a workout from your library, or publish a program week.
+                  Nothing is on your calendar this week. Start a workout, add one from your library, or publish a program week.
                 </p>
               ) : null}
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
@@ -398,14 +407,34 @@ function ClientWeek({
                 <div className="h-full rounded-full bg-emerald-400" style={{ width: `${completion}%` }} />
               </div>
               <p className="mt-5 text-sm text-slate-300">
-                {data.activePrograms.length > 0
-                  ? `Following ${data.activePrograms.map((program) => program.name).join(", ")}`
-                  : "No active program"}
+                {data.activePrograms.length > 0 ? (
+                  <>
+                    Following{" "}
+                    {data.activePrograms.map((program, index) => (
+                      <span key={program.id}>
+                        {index > 0 ? ", " : null}
+                        <a
+                          href={`${pathname}?${programQuery([program])}`}
+                          onClick={(event) => {
+                            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                            event.preventDefault();
+                            openView(programQuery([program]));
+                          }}
+                          className="font-medium text-white underline-offset-2 hover:underline"
+                        >
+                          {program.name}
+                        </a>
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  "No active program"
+                )}
               </p>
             </section>
           </div>
 
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <section id="workout-of-the-day" className="mt-6 scroll-mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-lg font-bold">
               {selectedDay?.isToday ? "Workout of the day" : `${selectedDay?.weekday ?? "Selected"} workout`}
             </h2>
@@ -464,6 +493,7 @@ function ClientWeek({
                           <h3 className="mt-5 text-sm font-semibold text-slate-900">Execution</h3>
                           <WorkoutLog
                             workout={workout}
+                            exercises={exercises}
                             onLogged={(status) => {
                               if (status === "in_progress" && workout.status === "scheduled") {
                                 setStatusById((current) => ({ ...current, [workout.id]: "in_progress" }));
@@ -478,7 +508,13 @@ function ClientWeek({
               </div>
             )}
             {selectedDay ? (
-              <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+              <div className="mt-6 flex flex-wrap items-start gap-x-10 gap-y-4 border-t border-slate-100 pt-5">
+                <StartWorkout
+                  date={selectedDay.date}
+                  onStarted={(assignmentId) => setExpandedIds({ [assignmentId]: true })}
+                />
+                <ScheduleWorkout date={selectedDay.date} workouts={workouts} />
+              </div>
             ) : null}
           </section>
         </>
@@ -517,7 +553,7 @@ function ScheduleWorkout({ date, workouts }: { date: string; workouts: WorkoutOp
   };
 
   return (
-    <div className="mt-6 border-t border-slate-100 pt-5">
+    <div>
       <button
         type="button"
         aria-expanded={open}
@@ -576,6 +612,13 @@ function WorkoutCompletion({ workout }: { workout: ClientWorkout }) {
       </div>
     </div>
   );
+}
+
+/** Opens My programs on the program shown on the card. The list is newest first. */
+function programQuery(programs: ActiveProgramSummary[]) {
+  const program = programs[0];
+  if (!program) return "section=programs";
+  return `section=programs&program=${encodeURIComponent(program.id)}`;
 }
 
 function programSummary(programs: ActiveProgramSummary[]) {

@@ -36,6 +36,8 @@ export type ClientExercise = {
   id: string;
   exerciseId: string | null;
   name: string;
+  /** How to perform the movement. Null when the exercise has no instructions. */
+  instructions: string | null;
   detail: string | null;
   prescribedSets: number | null;
   /** Coach rep range. A single target is stored in both, or in whichever side was set. */
@@ -69,9 +71,15 @@ export type ClientWorkout = {
   /** Average heart rate in bpm for this session. Null when the client left it blank. */
   heartRateBpm: number | null;
   /** Program this session was published from. Null for a one-off workout. */
+  programId: string | null;
+  /** Name of that program. Null for a one-off workout. */
   programName: string | null;
   /** "Self" when the client scheduled it, otherwise the trainer's name. */
   givenBy: string;
+  /** True when this client owns the workout library row. */
+  ownedByClient: boolean;
+  /** True when the workout is placed on a program, so its exercises stay fixed. */
+  onProgram: boolean;
   exercises: ClientExercise[];
 };
 

@@ -6,7 +6,8 @@ export type OnboardingFlow = "trainer" | "client" | "invited";
 
 export const ONBOARDING_STEPS = {
   trainer: ["business", "first_client", "starter_program"],
-  client: ["goal", "training_days", "starter_program"],
+  // Training days are not collected. They were never stored and did not change the calendar.
+  client: ["goal", "starter_program"],
   invited: ["welcome", "goal"],
 } as const satisfies Record<OnboardingFlow, readonly string[]>;
 
@@ -25,7 +26,10 @@ export function stepsFor(flow: OnboardingFlow): readonly OnboardingStep[] {
 /** The saved step when it belongs to this flow, otherwise the flow's first step. */
 export function resumeStep(flow: OnboardingFlow, saved: string | null): OnboardingStep {
   const steps = stepsFor(flow);
-  return saved && steps.some((step) => step === saved) ? (saved as OnboardingStep) : steps[0];
+  if (saved && steps.some((step) => step === saved)) return saved as OnboardingStep;
+  // Accounts that stopped on the removed training-days step continue to the program.
+  if (flow === "client" && saved === "training_days") return "starter_program";
+  return steps[0];
 }
 
 /** "Step 2 of 4" counts the role step, which invited clients skip. */

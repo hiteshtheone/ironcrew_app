@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms and Conditions",
@@ -29,6 +30,11 @@ export default function TermsPage() {
       <h1 className="text-3xl font-bold tracking-tight">Terms and Conditions</h1>
       <p className="mt-3 text-sm text-muted-foreground">
         These terms cover training with Ironwill Fitness. By continuing, you agree to them.
+        How account data is stored, exported, and deleted is in the{" "}
+        <Link href="/privacy" className="font-medium underline underline-offset-2">
+          Privacy Policy
+        </Link>
+        .
       </p>
       <ol className="mt-10 flex list-decimal flex-col gap-8 pl-5">
         {SECTIONS.map((section) => (

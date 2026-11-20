@@ -10,11 +10,13 @@ import {
   jsonError,
   readJson,
   requireUser,
+  type ApiFailure,
 } from "@/lib/api/route-utils";
 import {
   isTrackingType,
   LEGACY_TRACKING_PARAMETERS,
   parametersFor,
+  timeOnlyBlockParameters,
   type TrackingParameter,
 } from "@/lib/exercises/tracking";
 
@@ -71,6 +73,7 @@ export async function PUT(request: Request, context: RouteContext) {
         workout_blocks (
           id,
           exercise_id,
+          block_type,
           exercises ( tracking_type, tracking_parameters )
         )
       )
@@ -264,7 +267,7 @@ async function markInProgress(
   assignmentId: string,
   currentStatus: string | null,
   hasLoggedSets: boolean,
-) {
+): Promise<ApiFailure | { status: string | null }> {
   if (!hasLoggedSets || currentStatus !== "scheduled") return { status: currentStatus };
 
   const { data, error } = await supabase
@@ -294,7 +297,7 @@ async function ensureSession(
     calories: number | null;
     heartRateBpm: number | null;
   },
-) {
+): Promise<ApiFailure | { id: string }> {
   if (!input.clientId || !input.workoutId) return { error: jsonError("Workout assignment not found", 404) };
 
   const { data: existing, error: existingError } = await supabase
@@ -358,7 +361,7 @@ function blocksForAssignment(assignment: { workouts: unknown }) {
     const exerciseId = asTrimmedString(block.exercise_id);
     blocks.set(id, {
       exerciseId: exerciseId ?? null,
-      parameters: parametersForBlock(block.exercises),
+      parameters: parametersForBlock(asTrimmedString(block.block_type) ?? null, block.exercises),
     });
   }
   return blocks;
@@ -369,7 +372,9 @@ type BlockTracking = {
   parameters: TrackingParameter[];
 };
 
-function parametersForBlock(exercise: unknown): TrackingParameter[] {
+function parametersForBlock(blockType: string | null, exercise: unknown): TrackingParameter[] {
+  const timeOnly = timeOnlyBlockParameters(blockType);
+  if (timeOnly) return timeOnly;
   const record = firstRelation(exercise);
   if (!isRecord(record)) return [...LEGACY_TRACKING_PARAMETERS];
   const trackingType = asTrimmedString(record.tracking_type);

@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
 import { WorkoutLog } from "@/components/dashboard/workout-log";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 import {
   formatLongDate,
   muscleGroupLabel,
@@ -18,9 +21,12 @@ const LOAD_ERROR = "Couldn't load this workout";
 export function WorkoutAssignmentDetail({
   assignmentId,
   mode,
+  exercises = [],
 }: {
   assignmentId: string;
   mode: "client" | "trainer";
+  /** Exercises the client can add while training. Ignored for a trainer view. */
+  exercises?: ExerciseOption[];
 }) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{
@@ -42,27 +48,29 @@ export function WorkoutAssignmentDetail({
       })
       .catch((caught: unknown) => {
         if (caught instanceof DOMException && caught.name === "AbortError") return;
-        setState({
-          id: assignmentId,
-          attempt,
-          detail: null,
-          error: caught instanceof Error ? caught.message : LOAD_ERROR,
+        const message = caught instanceof Error ? caught.message : LOAD_ERROR;
+        setState((current) => {
+          if (current?.id === assignmentId && current.detail) {
+            return { id: assignmentId, attempt, detail: current.detail, error: message };
+          }
+          return { id: assignmentId, attempt, detail: null, error: message };
         });
       });
 
     return () => controller.abort();
   }, [assignmentId, attempt]);
 
-  const settled = state?.id === assignmentId && state.attempt === attempt;
+  const showing = state?.id === assignmentId ? state : null;
+  const settled = showing?.attempt === attempt;
 
-  if (!settled) {
+  if (!showing?.detail && !settled) {
     return <p className="mt-4 text-sm text-slate-500">Loading workout…</p>;
   }
 
-  if (state.error || !state.detail) {
+  if (!showing?.detail) {
     return (
       <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-red-600">{state.error ?? LOAD_ERROR}</p>
+        <p className="text-sm text-red-600">{showing?.error ?? LOAD_ERROR}</p>
         <button
           type="button"
           onClick={() => setAttempt((current) => current + 1)}
@@ -74,7 +82,17 @@ export function WorkoutAssignmentDetail({
     );
   }
 
-  return <WorkoutDetailBody detail={state.detail} mode={mode} />;
+  return (
+    <>
+      {showing.error ? <p className="mt-4 text-sm text-red-600">{showing.error}</p> : null}
+      <WorkoutDetailBody
+        detail={showing.detail}
+        mode={mode}
+        exercises={exercises}
+        onStructureChange={() => setAttempt((current) => current + 1)}
+      />
+    </>
+  );
 }
 
 export function AssignmentFacts({
@@ -91,14 +109,32 @@ export function AssignmentFacts({
       {scheduledFor ? <Fact label="Scheduled" value={formatLongDate(scheduledFor)} /> : null}
       <Fact label="Status" value={statusLabel(workout.status)} />
       <Fact label="Duration" value={workout.durationMinutes ? `${workout.durationMinutes} min` : "—"} />
-      <Fact label="Program" value={workout.programName ?? "No program"} />
+      <Fact
+        label="Program"
+        value={workout.programName ?? "No program"}
+        href={
+          workout.programId
+            ? `/dashboard?section=programs&program=${encodeURIComponent(workout.programId)}`
+            : undefined
+        }
+      />
       <Fact label="Assigned by" value={workout.givenBy} />
       {clientName ? <Fact label="Client" value={clientName} /> : null}
     </dl>
   );
 }
 
-function WorkoutDetailBody({ detail, mode }: { detail: AssignmentDetail; mode: "client" | "trainer" }) {
+function WorkoutDetailBody({
+  detail,
+  mode,
+  exercises,
+  onStructureChange,
+}: {
+  detail: AssignmentDetail;
+  mode: "client" | "trainer";
+  exercises: ExerciseOption[];
+  onStructureChange: () => void;
+}) {
   return (
     <div className="mt-4 border-t border-slate-100 pt-4">
       <h3 className="text-sm font-semibold text-slate-900">Assignment</h3>
@@ -109,7 +145,7 @@ function WorkoutDetailBody({ detail, mode }: { detail: AssignmentDetail; mode: "
       />
       <h3 className="mt-5 text-sm font-semibold text-slate-900">Execution</h3>
       {mode === "client" ? (
-        <WorkoutLog workout={detail.workout} />
+        <WorkoutLog workout={detail.workout} exercises={exercises} onStructureChange={onStructureChange} />
       ) : (
         <ReadOnlyExecution workout={detail.workout} />
       )}
@@ -149,7 +185,10 @@ function ReadOnlyExecution({ workout }: { workout: ClientWorkout }) {
                     {index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{exercise.name}</p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="min-w-0 text-sm font-medium">{exercise.name}</p>
+                      <ExerciseDetailsButton name={exercise.name} instructions={exercise.instructions} />
+                    </div>
                     {muscles ? <p className="text-xs text-slate-500">{muscles}</p> : null}
                     <p className="text-xs text-slate-500">
                       {exercise.detail ? `Prescribed: ${exercise.detail}` : "No prescription"}
@@ -177,11 +216,19 @@ function ReadOnlyExecution({ workout }: { workout: ClientWorkout }) {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <div>
       <dt className="text-xs font-semibold text-slate-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-slate-900">{value}</dd>
+      <dd className="mt-0.5 font-medium text-slate-900">
+        {href ? (
+          <Link href={href} className="underline-offset-2 hover:underline">
+            {value}
+          </Link>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }

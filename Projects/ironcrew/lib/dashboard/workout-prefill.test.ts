@@ -166,6 +166,7 @@ function exercise(overrides: Partial<ClientExercise> = {}): ClientExercise {
     id: "block-1",
     exerciseId: "ex-1",
     name: "Squat",
+    instructions: null,
     detail: null,
     prescribedSets: 1,
     repsMin: null,

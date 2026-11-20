@@ -217,7 +217,7 @@ export function ProgramsPanel({
 
   const saveProgram = (event: FormEvent) => {
     event.preventDefault();
-    if (!selected || !editingProgram || !programDirty) return;
+    if (!selected || selected.readOnly || !editingProgram || !programDirty) return;
     const savedName = draftName;
     const savedDescription = draftDescription;
     void run("save-program", async () => {
@@ -456,7 +456,7 @@ export function ProgramsPanel({
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{isClient ? "My programs" : "Programs"}</h1>
         <p className="mt-2 text-sm text-slate-500">
           {isClient
-            ? "A program plans phases and weeks. A workout can stand on its own. System programs are available to everyone."
+            ? "A program plans phases and weeks. A workout can stand on its own. Programs your trainer assigns appear here and cannot be edited. System programs are available to everyone."
             : "A program is a shared plan: phases, then the workouts for each week. A workout can stand on its own. System programs are available to everyone."}
         </p>
       </div>
@@ -491,7 +491,9 @@ export function ProgramsPanel({
                   >
                     <span className="block truncate">{libraryItemLabel(program.name, program.isSystem)}</span>
                     <span className={`block truncate text-xs ${program.id === selected?.id ? "text-slate-300" : "text-slate-500"}`}>
-                      {program.phases.length} phases · {isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}
+                      {program.readOnly
+                        ? `${program.phases.length} phases · Assigned by your trainer`
+                        : `${program.phases.length} phases · ${isClient ? (program.assignedClients.length > 0 ? "Active" : "Not started") : `${program.assignedClients.length} clients`}`}
                     </span>
                   </button>
                 </li>
@@ -723,7 +725,8 @@ export function ProgramsPanel({
             <div className="space-y-6">
               <form onSubmit={saveProgram} className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program{selected.isSystem ? " · System" : ""}{selected.status === "draft" ? " · Draft copy" : ""}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Program{selected.isSystem ? " · System" : ""}{selected.readOnly ? " · Assigned" : ""}{selected.status === "draft" && !selected.readOnly ? " · Draft copy" : ""}</p>
+                  {selected.readOnly ? null : (
                   <button
                     type="button"
                     onClick={duplicateProgram}
@@ -732,22 +735,25 @@ export function ProgramsPanel({
                   >
                     {pending === "duplicate-program" ? "Duplicating..." : "Duplicate program"}
                   </button>
+                  )}
                 </div>
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-slate-600">Name</span>
-                  <input required maxLength={160} disabled={!editingProgram} value={draftName} onChange={(event) => setDraftName(event.target.value)} className={fieldClass} />
+                  <input required maxLength={160} disabled={selected.readOnly || !editingProgram} value={draftName} onChange={(event) => setDraftName(event.target.value)} className={fieldClass} />
                 </label>
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-slate-600">Description</span>
                   <textarea
                     value={draftDescription}
-                    disabled={!editingProgram}
+                    disabled={selected.readOnly || !editingProgram}
                     onChange={(event) => setDraftDescription(event.target.value)}
                     rows={2}
                     className="rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50"
                   />
                 </label>
-                {selected.isSystem ? (
+                {selected.readOnly ? (
+                  <p className="text-sm text-slate-500">Your trainer assigned this program. You can review it here.</p>
+                ) : selected.isSystem ? (
                   <p className="text-sm text-slate-500">This system program is available to everyone. Duplicate it to copy the schedule. The workouts stay the same.</p>
                 ) : (
                 <div className="flex flex-wrap items-center gap-2">
@@ -771,7 +777,7 @@ export function ProgramsPanel({
                 )}
               </form>
 
-              {isClient ? (
+              {isClient && !selected.readOnly ? (
                 isActive ? (
                   <div className="space-y-3">
                     <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">This program is active.</p>
@@ -822,7 +828,7 @@ export function ProgramsPanel({
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold">Phase</h3>
-                  {selected.isSystem || addingPhase ? null : (
+                  {selected.isSystem || selected.readOnly || addingPhase ? null : (
                     <button type="button" onClick={() => setAddingPhase(true)} className="text-sm font-semibold text-slate-700">
                       Add phase
                     </button>
@@ -841,7 +847,7 @@ export function ProgramsPanel({
                   ))}
                 </div>
                 {phase?.description ? <p className="mt-3 max-w-3xl text-sm text-slate-600">{phase.description}</p> : null}
-                {selected.isSystem ? null : addingPhase ? (
+                {selected.isSystem || selected.readOnly ? null : addingPhase ? (
                   <AddPhaseForm pending={pending === "phase"} onCreate={createPhase} onCancel={() => setAddingPhase(false)} />
                 ) : selected.phases.length === 0 ? (
                   <p className="mt-3 text-sm text-slate-500">Add a phase to plan its weeks.</p>
@@ -852,7 +858,7 @@ export function ProgramsPanel({
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold">Week in {phase.name}</h3>
-                    {selected.isSystem ? null : (
+                    {selected.isSystem || selected.readOnly ? null : (
                     <button type="button" onClick={createWeek} disabled={pending === "week"} className="text-sm font-semibold text-slate-700 disabled:opacity-60">
                       {pending === "week" ? "Adding..." : "Add week"}
                     </button>
@@ -873,24 +879,47 @@ export function ProgramsPanel({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">Add a phase before planning weeks.</p>
+                <p className="text-sm text-slate-500">{selected.readOnly ? "This program has no phases yet." : "Add a phase before planning weeks."}</p>
               )}
 
               {week ? (
                 <div>
                   <h3 className="text-sm font-semibold">Week {week.weekNumber} workouts</h3>
                   {week.notes ? <p className="mt-1 max-w-3xl text-sm text-slate-600">{week.notes}</p> : null}
-                  <p className="mt-1 text-xs text-slate-500">Day 1 is the start date you choose when you publish.</p>
-                  {data.workouts.length === 0 ? (
-                    <p className="mt-3 text-sm text-slate-500">Create a workout in Workouts before placing one on a day.</p>
-                  ) : (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {selected.readOnly
+                      ? "Day 1 is the first day of the week your trainer publishes."
+                      : "Day 1 is the start date you choose when you publish."}
+                  </p>
+                  {selected.readOnly || data.workouts.length > 0 ? (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {Array.from({ length: 7 }, (_, index) => index + 1).map((dayNumber) => {
                         const slot = week.workouts.find((item) => item.dayNumber === dayNumber && item.position === 1);
-                        const chosenId = dayOverrides[dayNumber] ?? slot?.workoutId ?? "";
-                        const workout = chosenId ? data.workouts.find((item) => item.id === chosenId) ?? null : null;
+                        const chosenId = selected.readOnly ? (slot?.workoutId ?? "") : (dayOverrides[dayNumber] ?? slot?.workoutId ?? "");
+                        const workoutLibrary = selected.readOnly ? [...data.workouts, ...data.assignedWorkouts] : data.workouts;
+                        const workout = chosenId ? workoutLibrary.find((item) => item.id === chosenId) ?? null : null;
+                        const dayBody = chosenId ? (
+                          workout ? (
+                            <DayWorkoutSummary
+                              workout={workout}
+                              onDetails={() => setDetail({ kind: "workout", workoutId: workout.id })}
+                            />
+                          ) : (
+                            <p className="mt-3 text-sm font-semibold text-slate-900">
+                              {slot && slot.workoutId === chosenId ? slot.workoutName : "Workout unavailable"}
+                            </p>
+                          )
+                        ) : (
+                          <p className="mt-3 text-xs text-slate-500">Rest</p>
+                        );
                         return (
                           <div key={dayNumber} className="rounded-xl border border-slate-100 p-3">
+                            {selected.readOnly ? (
+                              <div>
+                                <span className="text-xs font-semibold text-slate-500">Day {dayNumber}</span>
+                                {dayBody}
+                              </div>
+                            ) : (
                             <label className="block">
                               <span className="text-xs font-semibold text-slate-500">Day {dayNumber}</span>
                               <select
@@ -910,26 +939,17 @@ export function ProgramsPanel({
                                 ))}
                               </select>
                             </label>
-                            {chosenId ? (
-                              workout ? (
-                                <DayWorkoutSummary
-                                  workout={workout}
-                                  onDetails={() => setDetail({ kind: "workout", workoutId: workout.id })}
-                                />
-                              ) : (
-                                <p className="mt-3 text-sm font-semibold text-slate-900">
-                                  {slot && slot.workoutId === chosenId ? slot.workoutName : "Workout unavailable"}
-                                </p>
-                              )
-                            ) : (
-                              <p className="mt-3 text-xs text-slate-500">Rest</p>
                             )}
+                            {selected.readOnly ? null : dayBody}
                           </div>
                         );
                       })}
                     </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">Create a workout in Workouts before placing one on a day.</p>
                   )}
 
+                  {selected.readOnly ? null : (
                   <form onSubmit={publishWeek} className="mt-6 rounded-xl bg-slate-50 p-4">
                     <h3 className="text-sm font-semibold">Publish this week</h3>
                     <p className="mt-1 text-xs text-slate-500">
@@ -977,6 +997,7 @@ export function ProgramsPanel({
                       {pending === "publish" ? "Publishing..." : "Publish week"}
                     </button>
                   </form>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -988,8 +1009,8 @@ export function ProgramsPanel({
       </div>
       <LibraryDetailDialog
         detail={detail}
-        workouts={data.workouts}
-        exercises={data.exercises}
+        workouts={[...data.workouts, ...data.assignedWorkouts]}
+        exercises={[...data.exercises, ...data.assignedExercises]}
         onClose={() => setDetail(null)}
         onOpenExercise={(exerciseId, workoutId) => setDetail({ kind: "exercise", exerciseId, workoutId })}
         onBackToWorkout={(workoutId) => setDetail({ kind: "workout", workoutId })}

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { EditSaveActions, useEditMode, valuesEqual } from "@/components/edit-save-actions";
+import { valuesEqual } from "@/components/edit-save-actions";
+import { ExerciseDetailsButton } from "@/components/dashboard/exercise-instructions";
+import { AddExercise } from "@/components/dashboard/live-workout";
 import { muscleGroupLabel, type ClientExercise, type ClientLoggedSet, type ClientWorkout } from "@/lib/dashboard/client-week";
+import { canEditLiveWorkout, mergeDraftBlocks } from "@/lib/dashboard/live-workout";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 import {
   draftSets,
   fieldsFromCoach,
@@ -20,6 +24,7 @@ type DraftSet = SetDraft;
 type DraftBlock = {
   id: string;
   name: string;
+  instructions: string | null;
   detail: string | null;
   muscleGroups: string | null;
   parameters: TrackingParameter[];
@@ -33,85 +38,265 @@ const MAX_SETS = MAX_PREFILL_SETS;
 
 export function WorkoutLog({
   workout,
+  exercises = [],
   onLogged,
+  onStructureChange,
 }: {
   workout: ClientWorkout;
+  exercises?: ExerciseOption[];
   onLogged?: (status: string) => void;
+  /** Reloads a client-fetched assignment after an exercise is added or removed. */
+  onStructureChange?: () => void;
 }) {
   const router = useRouter();
+  const canEdit = canEditLiveWorkout(workout);
   const [openBlockId, setOpenBlockId] = useState<string | null>(null);
   const [note, setNote] = useState(workout.sessionNote ?? "");
-  const [noteBaseline, setNoteBaseline] = useState(workout.sessionNote ?? "");
   const [calories, setCalories] = useState(() => wholeNumberText(workout.calories));
-  const [caloriesBaseline, setCaloriesBaseline] = useState(() => wholeNumberText(workout.calories));
   const [heartRate, setHeartRate] = useState(() => wholeNumberText(workout.heartRateBpm));
-  const [heartRateBaseline, setHeartRateBaseline] = useState(() => wholeNumberText(workout.heartRateBpm));
-  const { editing: editingNote, startEditing: startNoteEdit, stopEditing: stopNoteEdit } = useEditMode(workout.id);
   const [blocks, setBlocks] = useState<DraftBlock[]>(() => workout.exercises.map(draftBlock));
   const [setBaselines, setSetBaselines] = useState<Record<string, DraftSet[]>>(() => baselineSetsFrom(workout.exercises.map(draftBlock)));
   const [loadedWorkoutId, setLoadedWorkoutId] = useState(workout.id);
-  const [pendingBlockId, setPendingBlockId] = useState<string | null>(null);
+  const structureKey = workout.exercises.map((exercise) => exercise.id).join("\n");
+  const [loadedStructure, setLoadedStructure] = useState(structureKey);
+  const [pendingNote, setPendingNote] = useState(false);
+  const [savingBlockIds, setSavingBlockIds] = useState<string[]>([]);
+  const [removingBlockId, setRemovingBlockId] = useState<string | null>(null);
   const [errorByBlock, setErrorByBlock] = useState<Record<string, string>>({});
+  const blocksRef = useRef(blocks);
+  const baselinesRef = useRef(setBaselines);
+  const sessionRef = useRef({
+    note,
+    noteBaseline: note,
+    calories,
+    caloriesBaseline: calories,
+    heartRate,
+    heartRateBaseline: heartRate,
+  });
+  const assignmentIdRef = useRef(workout.id);
+  const saveQueue = useRef({ running: false, follow: null as SaveKind | null, focusId: null as string | null });
+  assignmentIdRef.current = workout.id;
 
   if (workout.id !== loadedWorkoutId) {
     const nextBlocks = workout.exercises.map(draftBlock);
+    const nextNote = workout.sessionNote ?? "";
+    const nextCalories = wholeNumberText(workout.calories);
+    const nextHeartRate = wholeNumberText(workout.heartRateBpm);
+    blocksRef.current = nextBlocks;
+    baselinesRef.current = baselineSetsFrom(nextBlocks);
+    sessionRef.current = {
+      note: nextNote,
+      noteBaseline: nextNote,
+      calories: nextCalories,
+      caloriesBaseline: nextCalories,
+      heartRate: nextHeartRate,
+      heartRateBaseline: nextHeartRate,
+    };
+    saveQueue.current = { running: false, follow: null, focusId: null };
     setLoadedWorkoutId(workout.id);
-    setNote(workout.sessionNote ?? "");
-    setNoteBaseline(workout.sessionNote ?? "");
-    setCalories(wholeNumberText(workout.calories));
-    setCaloriesBaseline(wholeNumberText(workout.calories));
-    setHeartRate(wholeNumberText(workout.heartRateBpm));
-    setHeartRateBaseline(wholeNumberText(workout.heartRateBpm));
+    setNote(nextNote);
+    setCalories(nextCalories);
+    setHeartRate(nextHeartRate);
     setBlocks(nextBlocks);
-    setSetBaselines(baselineSetsFrom(nextBlocks));
+    setSetBaselines(baselinesRef.current);
+    setLoadedStructure(structureKey);
     setOpenBlockId(null);
+    setPendingNote(false);
+    setSavingBlockIds([]);
+    setRemovingBlockId(null);
+    setErrorByBlock({});
+  } else if (structureKey !== loadedStructure) {
+    const incoming = workout.exercises.map(draftBlock);
+    const nextBlocks = mergeDraftBlocks(blocksRef.current, incoming);
+    const copied = baselineSetsFrom(nextBlocks);
+    const nextBaselines: Record<string, DraftSet[]> = {};
+    for (const block of nextBlocks) {
+      nextBaselines[block.id] = baselinesRef.current[block.id] ?? copied[block.id];
+    }
+    const previousIds = new Set(blocksRef.current.map((block) => block.id));
+    const added = nextBlocks.filter((block) => !previousIds.has(block.id));
+    blocksRef.current = nextBlocks;
+    baselinesRef.current = nextBaselines;
+    setLoadedStructure(structureKey);
+    setBlocks(nextBlocks);
+    setSetBaselines(nextBaselines);
+    if (added.length === 1) setOpenBlockId(added[0].id);
   }
 
-  const save = (blockId: string) => {
-    const block = blocks.find((item) => item.id === blockId);
-    const blockDirty = block ? !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets) : false;
-    const sessionDirty = note !== noteBaseline || calories !== caloriesBaseline || heartRate !== heartRateBaseline;
-    if (blockId === "note") {
-      if (!editingNote || !sessionDirty) return;
-    } else if (!blockDirty) {
+  const changeNote = (value: string) => {
+    sessionRef.current = { ...sessionRef.current, note: value };
+    setNote(value);
+  };
+  const changeCalories = (value: string) => {
+    sessionRef.current = { ...sessionRef.current, calories: value };
+    setCalories(value);
+  };
+  const changeHeartRate = (value: string) => {
+    sessionRef.current = { ...sessionRef.current, heartRate: value };
+    setHeartRate(value);
+  };
+
+  const requestSessionSave = () => {
+    if (!sessionIsDirty(sessionRef.current)) return;
+    setPendingNote(true);
+    enqueue("note", null);
+  };
+
+  const requestBlockSave = (blockId: string) => {
+    if (!blockIsDirty(blockId, blocksRef.current, baselinesRef.current)) return;
+    setSavingBlockIds((current) => (current.includes(blockId) ? current : [...current, blockId]));
+    enqueue("blocks", blockId);
+  };
+
+  function enqueue(kind: SaveKind, focusId: string | null) {
+    if (saveQueue.current.running) {
+      saveQueue.current.follow = saveQueue.current.follow === "note" || kind === "note" ? "note" : "blocks";
+      if (focusId) saveQueue.current.focusId = focusId;
       return;
     }
-    const payload = buildPayload(note, calories, heartRate, blocks);
-    if ("error" in payload) {
-      setErrorByBlock((current) => ({ ...current, [payload.session ? "note" : blockId]: payload.error }));
+    void runSave(kind, focusId);
+  }
+
+  async function runSave(kind: SaveKind, focusId: string | null) {
+    const startedFor = assignmentIdRef.current;
+    saveQueue.current.running = true;
+    saveQueue.current.follow = null;
+    saveQueue.current.focusId = null;
+    const session = sessionRef.current;
+    const includeSession = kind === "note";
+    const noteValue = includeSession ? session.note : session.noteBaseline;
+    const caloriesValue = includeSession ? session.calories : session.caloriesBaseline;
+    const heartRateValue = includeSession ? session.heartRate : session.heartRateBaseline;
+    const prepared = blocksToSave(blocksRef.current, baselinesRef.current, focusId);
+    if ("error" in prepared) {
+      if (assignmentIdRef.current === startedFor) {
+        setErrorByBlock((current) => ({ ...current, [prepared.blockId]: prepared.error }));
+      }
+      finishSave(startedFor, false);
       return;
     }
 
-    setPendingBlockId(blockId);
+    const payload = buildPayload(noteValue, caloriesValue, heartRateValue, prepared.blocks);
+    if ("error" in payload) {
+      if (assignmentIdRef.current === startedFor) {
+        const key = payload.session ? "note" : payload.blockId ?? focusId ?? "note";
+        setErrorByBlock((current) => ({ ...current, [key]: payload.error }));
+      }
+      finishSave(startedFor, false);
+      return;
+    }
+
+    if (assignmentIdRef.current === startedFor) {
+      setErrorByBlock((current) => {
+        const next = { ...current };
+        if (includeSession) delete next.note;
+        for (const block of prepared.blocks) {
+          const live = blocksRef.current.find((item) => item.id === block.id);
+          if (live && valuesEqual(live.sets, block.sets)) delete next[block.id];
+        }
+        return next;
+      });
+    }
+
+    try {
+      const response = await fetch(`/api/workout-assignments/${startedFor}/log`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string; status?: string } | null;
+      if (assignmentIdRef.current !== startedFor) return;
+      if (!response.ok) throw new Error(body?.error || "Couldn't save these details");
+      const savedBaselines = baselineSetsFrom(prepared.blocks);
+      baselinesRef.current = { ...baselinesRef.current, ...savedBaselines };
+      setSetBaselines(baselinesRef.current);
+      if (includeSession) {
+        sessionRef.current = {
+          ...sessionRef.current,
+          noteBaseline: noteValue,
+          caloriesBaseline: caloriesValue,
+          heartRateBaseline: heartRateValue,
+        };
+      }
+      if (body?.status) onLogged?.(body.status);
+      router.refresh();
+      finishSave(startedFor, true);
+    } catch (caught: unknown) {
+      if (assignmentIdRef.current !== startedFor) return;
+      const message = caught instanceof Error ? caught.message : "Couldn't save these details";
+      const key = focusId ?? "note";
+      setErrorByBlock((current) => ({ ...current, [key]: message }));
+      finishSave(startedFor, true);
+    }
+  }
+
+  function firstDirtyBlockId() {
+    return blocksRef.current.find((block) => blockIsDirty(block.id, blocksRef.current, baselinesRef.current))?.id ?? null;
+  }
+
+  function finishSave(startedFor: string, allowFollowUp: boolean) {
+    if (assignmentIdRef.current !== startedFor) return;
+    const follow = allowFollowUp ? saveQueue.current.follow : null;
+    const focusId = saveQueue.current.focusId;
+    saveQueue.current.follow = null;
+    saveQueue.current.focusId = null;
+    saveQueue.current.running = false;
+    if (follow === "note" && (sessionIsDirty(sessionRef.current) || firstDirtyBlockId())) {
+      void runSave("note", focusId);
+      return;
+    }
+    if (follow === "blocks") {
+      const nextId = focusId && blockIsDirty(focusId, blocksRef.current, baselinesRef.current) ? focusId : firstDirtyBlockId();
+      if (nextId) {
+        void runSave("blocks", nextId);
+        return;
+      }
+    }
+    setPendingNote(false);
+    setSavingBlockIds([]);
+  }
+
+  function refreshStructure() {
+    router.refresh();
+    onStructureChange?.();
+  }
+
+  function dropBlock(blockId: string) {
+    const next = blocksRef.current.filter((block) => block.id !== blockId);
+    const nextBaselines = { ...baselinesRef.current };
+    delete nextBaselines[blockId];
+    blocksRef.current = next;
+    baselinesRef.current = nextBaselines;
+    setBlocks(next);
+    setSetBaselines(nextBaselines);
+    setOpenBlockId((current) => (current === blockId ? null : current));
+  }
+
+  function removeExercise(blockId: string) {
+    if (removingBlockId) return;
+    setRemovingBlockId(blockId);
     setErrorByBlock((current) => {
-      const rest = { ...current };
-      delete rest[blockId];
-      return rest;
+      const next = { ...current };
+      delete next[blockId];
+      return next;
     });
-    void fetch(`/api/workout-assignments/${workout.id}/log`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
+    void fetch(`/api/workout-assignments/${workout.id}/blocks/${blockId}`, { method: "DELETE" })
       .then(async (response) => {
-        const body = (await response.json().catch(() => null)) as { error?: string; status?: string } | null;
-        if (!response.ok) throw new Error(body?.error || "Couldn't save these details");
-        setNoteBaseline(note);
-        setCaloriesBaseline(calories);
-        setHeartRateBaseline(heartRate);
-        setSetBaselines(baselineSetsFrom(blocks));
-        stopNoteEdit();
-        if (body?.status) onLogged?.(body.status);
-        router.refresh();
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error || "Couldn't remove that exercise");
+        dropBlock(blockId);
+        refreshStructure();
       })
       .catch((caught: unknown) => {
         setErrorByBlock((current) => ({
           ...current,
-          [blockId]: caught instanceof Error ? caught.message : "Couldn't save these details",
+          [blockId]: caught instanceof Error ? caught.message : "Couldn't remove that exercise",
         }));
       })
-      .finally(() => setPendingBlockId((current) => (current === blockId ? null : current)));
-  };
+      .finally(() => {
+        setRemovingBlockId(null);
+      });
+  }
 
   return (
     <div className="mt-4 space-y-4">
@@ -120,25 +305,25 @@ export function WorkoutLog({
           Workout note
           <textarea
             value={note}
-            disabled={!editingNote}
-            onChange={(event) => setNote(event.target.value)}
+            onChange={(event) => changeNote(event.target.value)}
+            onBlur={requestSessionSave}
             rows={2}
             maxLength={10000}
             placeholder="How did this session go?"
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
           />
         </label>
-        <div className="mt-3 flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="block text-sm font-medium text-slate-700">
             Calories
             <input
               type="text"
               inputMode="numeric"
               value={calories}
-              disabled={!editingNote}
-              onChange={(event) => setCalories(event.target.value)}
+              onChange={(event) => changeCalories(event.target.value)}
+              onBlur={requestSessionSave}
               placeholder="Optional"
-              className="mt-1 w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
@@ -147,44 +332,26 @@ export function WorkoutLog({
               type="text"
               inputMode="numeric"
               value={heartRate}
-              disabled={!editingNote}
-              onChange={(event) => setHeartRate(event.target.value)}
+              onChange={(event) => changeHeartRate(event.target.value)}
+              onBlur={requestSessionSave}
               placeholder="Optional"
-              className="mt-1 w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-36 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
             />
           </label>
+          {pendingNote ? <span className="pb-2 text-xs font-semibold text-slate-500">Saving…</span> : null}
         </div>
-        <EditSaveActions
-          className="mt-2 flex flex-wrap items-center gap-2"
-          editing={editingNote}
-          dirty={note !== noteBaseline || calories !== caloriesBaseline || heartRate !== heartRateBaseline}
-          pending={pendingBlockId === "note"}
-          saveLabel="Save"
-          pendingLabel="Saving…"
-          saveType="button"
-          onSave={() => save("note")}
-          saveClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-          editClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-          onEdit={startNoteEdit}
-          onCancel={() => {
-            setNote(noteBaseline);
-            setCalories(caloriesBaseline);
-            setHeartRate(heartRateBaseline);
-            stopNoteEdit();
-          }}
-        />
         {errorByBlock.note && <p className="mt-2 text-sm text-red-600">{errorByBlock.note}</p>}
       </div>
 
       {blocks.length === 0 ? (
-        <p className="text-sm text-slate-500">No blocks listed for this workout.</p>
+        <p className="text-sm text-slate-500">
+          {canEdit ? "No exercises yet. Add the one you are doing." : "No blocks listed for this workout."}
+        </p>
       ) : (
         <ol className="divide-y divide-slate-100">
           {blocks.map((block, blockIndex) => {
             const open = openBlockId === block.id;
-            const saved = blockHasSavedSets(workout, block.id);
-            const pending = pendingBlockId === block.id;
-            const blockDirty = !valuesEqual(block.sets, setBaselines[block.id] ?? block.sets);
+            const saving = savingBlockIds.includes(block.id);
             return (
               <li key={block.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3">
@@ -193,28 +360,40 @@ export function WorkoutLog({
                       {blockIndex + 1}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{block.name}</p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="min-w-0 truncate text-sm font-medium">{block.name}</p>
+                        <ExerciseDetailsButton name={block.name} instructions={block.instructions} />
+                      </div>
                       {block.muscleGroups ? <p className="text-xs text-slate-500">{block.muscleGroups}</p> : null}
                       {block.detail && <p className="text-xs text-slate-500">{block.detail}</p>}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setOpenBlockId(open ? null : block.id)}
-                    className="shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    {open ? "Hide details" : saved ? "Edit details" : "Add details"}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {saving || removingBlockId === block.id ? (
+                      <span className="text-xs font-semibold text-slate-500">{removingBlockId === block.id ? "Removing…" : "Saving…"}</span>
+                    ) : null}
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        disabled={removingBlockId !== null}
+                        onClick={() => removeExercise(block.id)}
+                        className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setOpenBlockId(open ? null : block.id)}
+                      className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      {open ? "Hide" : "Log"}
+                    </button>
+                  </div>
                 </div>
 
                 {open && (
-                  <form
-                    className="mt-3 space-y-3 rounded-xl bg-slate-50 p-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      save(block.id);
-                    }}
-                  >
+                  <div className="mt-3 space-y-3 rounded-xl bg-slate-50 p-3">
                     {block.sets.map((set, index) => (
                       <div key={`${block.id}-${index}`} className="space-y-2 rounded-lg bg-white p-2">
                         <div className="flex items-center justify-between gap-2">
@@ -235,7 +414,9 @@ export function WorkoutLog({
                           values={set.current}
                           parameters={block.parameters}
                           disabled={false}
-                          onChange={(patch) => updateSet(block.id, index, patch)}
+                          onChange={(patch) => updateSet(block.id, index, patch, false)}
+                          onCommit={(patch) => updateSet(block.id, index, patch, true)}
+                          onBlur={() => requestBlockSave(block.id)}
                         />
                       </div>
                     ))}
@@ -248,99 +429,120 @@ export function WorkoutLog({
                       >
                         Add set
                       </button>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => {
-                          setBlocks((current) =>
-                            current.map((item) =>
-                              item.id === block.id
-                                ? { ...item, sets: (setBaselines[block.id] ?? item.sets).map((set) => ({ ...set })) }
-                                : item,
-                            ),
-                          );
-                        }}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={!blockDirty || pending}
-                        className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                      >
-                        {pending ? "Saving…" : "Save details"}
-                      </button>
                     </div>
-                    {errorByBlock[block.id] && <p className="text-sm text-red-600">{errorByBlock[block.id]}</p>}
-                  </form>
+                  </div>
                 )}
+                {errorByBlock[block.id] ? <p className="mt-2 text-sm text-red-600">{errorByBlock[block.id]}</p> : null}
               </li>
             );
           })}
         </ol>
       )}
+      {canEdit ? <AddExercise assignmentId={workout.id} exercises={exercises} onAdded={refreshStructure} /> : null}
     </div>
   );
 
-  function updateSet(blockId: string, index: number, patch: Partial<SetFields>) {
-    setBlocks((current) =>
-      current.map((block) =>
-        block.id === blockId
-          ? {
-              ...block,
-              sets: block.sets.map((set, setIndex) =>
-                setIndex === index ? { ...set, current: { ...set.current, ...patch } } : set,
-              ),
-            }
-          : block,
-      ),
+  function updateSet(blockId: string, index: number, patch: Partial<SetFields>, commit: boolean) {
+    const next = blocksRef.current.map((block) =>
+      block.id === blockId
+        ? {
+            ...block,
+            sets: block.sets.map((set, setIndex) =>
+              setIndex === index ? { ...set, current: { ...set.current, ...patch } } : set,
+            ),
+          }
+        : block,
     );
+    blocksRef.current = next;
+    setBlocks(next);
+    if (commit) requestBlockSave(blockId);
   }
 
   function addSet(blockId: string) {
-    setBlocks((current) =>
-      current.map((block) => {
-        if (block.id !== blockId || block.sets.length >= MAX_SETS) return block;
-        const setNumber = block.sets.length + 1;
-        const previous = block.previousSets.find((set) => set.setNumber === setNumber);
-        return {
-          ...block,
-          sets: [
-            ...block.sets,
-            {
-              trainer: block.trainer,
-              previous: fieldsFromLog(previous, block.fallbackUnit),
-              current: fieldsFromLog(undefined, block.fallbackUnit),
-            },
-          ],
-        };
-      }),
-    );
+    const next = blocksRef.current.map((block) => {
+      if (block.id !== blockId || block.sets.length >= MAX_SETS) return block;
+      const setNumber = block.sets.length + 1;
+      const previous = block.previousSets.find((set) => set.setNumber === setNumber);
+      return {
+        ...block,
+        sets: [
+          ...block.sets,
+          {
+            trainer: block.trainer,
+            previous: fieldsFromLog(previous, block.fallbackUnit),
+            current: fieldsFromLog(undefined, block.fallbackUnit),
+          },
+        ],
+      };
+    });
+    blocksRef.current = next;
+    setBlocks(next);
+    requestBlockSave(blockId);
   }
 
   function removeSet(blockId: string, index: number) {
-    setBlocks((current) =>
-      current.map((block) => {
-        if (block.id !== blockId || block.sets.length === 1) return block;
-        return { ...block, sets: block.sets.filter((_, setIndex) => setIndex !== index) };
-      }),
-    );
+    const next = blocksRef.current.map((block) => {
+      if (block.id !== blockId || block.sets.length === 1) return block;
+      return { ...block, sets: block.sets.filter((_, setIndex) => setIndex !== index) };
+    });
+    blocksRef.current = next;
+    setBlocks(next);
+    requestBlockSave(blockId);
   }
 }
 
+type SaveKind = "note" | "blocks";
+
+type SessionDraft = {
+  note: string;
+  noteBaseline: string;
+  calories: string;
+  caloriesBaseline: string;
+  heartRate: string;
+  heartRateBaseline: string;
+};
+
 function baselineSetsFrom(drafts: DraftBlock[]) {
-  return Object.fromEntries(drafts.map((block) => [block.id, block.sets.map((set) => ({ ...set }))]));
+  return Object.fromEntries(drafts.map((block) => [block.id, block.sets.map((set) => ({ ...set, current: { ...set.current } }))]));
 }
 
-function blockHasSavedSets(workout: ClientWorkout, blockId: string) {
-  return workout.exercises.some((exercise) => exercise.id === blockId && exercise.sets.length > 0);
+function sessionIsDirty(session: SessionDraft) {
+  return (
+    session.note !== session.noteBaseline ||
+    session.calories !== session.caloriesBaseline ||
+    session.heartRate !== session.heartRateBaseline
+  );
+}
+
+function blockIsDirty(blockId: string, blocks: DraftBlock[], baselines: Record<string, DraftSet[]>) {
+  const block = blocks.find((item) => item.id === blockId);
+  if (!block) return false;
+  return !valuesEqual(block.sets, baselines[blockId] ?? block.sets);
+}
+
+function blocksToSave(
+  live: DraftBlock[],
+  baselines: Record<string, DraftSet[]>,
+  focusId: string | null,
+): { blocks: DraftBlock[] } | { error: string; blockId: string } {
+  const blocks: DraftBlock[] = [];
+  for (const block of live) {
+    const parsed = buildPayload("", "", "", [block]);
+    if (!("error" in parsed)) {
+      blocks.push(block);
+      continue;
+    }
+    if (block.id === focusId) return { error: parsed.error, blockId: block.id };
+    blocks.push({ ...block, sets: baselines[block.id] ?? block.sets });
+  }
+  return { blocks };
 }
 
 function draftBlock(exercise: ClientExercise): DraftBlock {
   return {
     id: exercise.id,
     name: exercise.name,
+    instructions: exercise.instructions,
     detail: exercise.detail,
     muscleGroups: muscleGroupLabel(exercise.primaryMuscleGroup, exercise.secondaryMuscleGroups, exercise.bodyParts),
     parameters: exercise.trackingParameters,
@@ -360,7 +562,7 @@ function buildPayload(
   caloriesText: string,
   heartRateText: string,
   blocks: DraftBlock[],
-): { error: string; session?: boolean } | {
+): { error: string; session?: boolean; blockId?: string } | {
   note: string | null;
   calories: number | null;
   heart_rate_bpm: number | null;
@@ -404,7 +606,10 @@ function buildPayload(
         heightCm === undefined ||
         heartRateBpm === undefined
       ) {
-        return { error: "Use whole numbers for reps, time, and heart rate, and a weight, distance, or height that is zero or greater." };
+        return {
+          error: "Use whole numbers for reps, time, and heart rate, and a weight, distance, or height that is zero or greater.",
+          blockId: block.id,
+        };
       }
       sets.push({
         set_number: index + 1,
@@ -444,12 +649,16 @@ function ValueRow({
   parameters,
   disabled,
   onChange,
+  onCommit,
+  onBlur,
 }: {
   title: string;
   values: SetFields;
   parameters: TrackingParameter[];
   disabled: boolean;
   onChange?: (patch: Partial<SetFields>) => void;
+  onCommit?: (patch: Partial<SetFields>) => void;
+  onBlur?: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-end gap-2">
@@ -464,6 +673,7 @@ function ValueRow({
               readOnly={disabled}
               value={values.load}
               onChange={(event) => onChange?.({ load: event.target.value })}
+              onBlur={onBlur}
               className={fieldClass}
             />
           </Field>
@@ -471,7 +681,7 @@ function ValueRow({
             <select
               disabled={disabled}
               value={values.loadUnit}
-              onChange={(event) => onChange?.({ loadUnit: event.target.value === "lb" ? "lb" : "kg" })}
+              onChange={(event) => onCommit?.({ loadUnit: event.target.value === "lb" ? "lb" : "kg" })}
               className={fieldClass}
             >
               <option value="kg">kg</option>
@@ -489,6 +699,7 @@ function ValueRow({
             readOnly={disabled}
             value={values.repetitions}
             onChange={(event) => onChange?.({ repetitions: event.target.value })}
+            onBlur={onBlur}
             className={fieldClass}
           />
         </Field>
@@ -502,6 +713,7 @@ function ValueRow({
             readOnly={disabled}
             value={values.durationSeconds}
             onChange={(event) => onChange?.({ durationSeconds: event.target.value })}
+            onBlur={onBlur}
             className={fieldClass}
           />
         </Field>
@@ -515,6 +727,7 @@ function ValueRow({
             readOnly={disabled}
             value={values.distanceKm}
             onChange={(event) => onChange?.({ distanceKm: event.target.value })}
+            onBlur={onBlur}
             className={fieldClass}
           />
         </Field>
@@ -528,6 +741,7 @@ function ValueRow({
             readOnly={disabled}
             value={values.heightCm}
             onChange={(event) => onChange?.({ heightCm: event.target.value })}
+            onBlur={onBlur}
             className={fieldClass}
           />
         </Field>
@@ -541,6 +755,7 @@ function ValueRow({
             readOnly={disabled}
             value={values.heartRateBpm}
             onChange={(event) => onChange?.({ heartRateBpm: event.target.value })}
+            onBlur={onBlur}
             className={fieldClass}
           />
         </Field>

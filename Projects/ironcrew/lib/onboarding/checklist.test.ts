@@ -44,6 +44,15 @@ test("dismissing hides the checklist even with open items", () => {
   assert.equal(isChecklistVisible(trainerChecklist(newTrainer), "2026-11-13T07:00:00Z"), false);
 });
 
+test("logging the first workout opens the workout of the day", () => {
+  const workout = clientChecklist({
+    hasGoal: true,
+    hasStartedProgram: true,
+    hasLoggedWorkout: false,
+  }).find((item) => item.id === "workout");
+  assert.equal(workout?.href, "/dashboard#workout-of-the-day");
+});
+
 test("a client goal is only done when a goal exists", () => {
   const facts = { hasGoal: false, hasStartedProgram: true, hasLoggedWorkout: true };
   const open = clientChecklist(facts).filter((item) => !item.done).map((item) => item.id);
@@ -72,10 +81,11 @@ test("programs matching the goal are suggested first", () => {
 test("a saved step resumes only inside its own flow", () => {
   assert.equal(resumeStep("trainer", "first_client"), "first_client");
   assert.equal(resumeStep("trainer", "training_days"), "business");
+  assert.equal(resumeStep("client", "training_days"), "starter_program");
   assert.equal(resumeStep("invited", null), "welcome");
 });
 
 test("step numbers count the role step except for invited clients", () => {
-  assert.deepEqual(stepPosition("client", "goal"), { current: 2, total: 4 });
+  assert.deepEqual(stepPosition("client", "goal"), { current: 2, total: 3 });
   assert.deepEqual(stepPosition("invited", "goal"), { current: 2, total: 2 });
 });

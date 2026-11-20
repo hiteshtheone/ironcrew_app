@@ -92,6 +92,8 @@ export type TrainerProgram = {
   description: string | null;
   status: string;
   isSystem: boolean;
+  /** True when a trainer owns this program and assigned it to the signed-in client. */
+  readOnly: boolean;
   phases: ProgramPhase[];
   assignedClients: AssignedClient[];
 };
@@ -101,6 +103,10 @@ export type TrainerProgramsReady = {
   programs: TrainerProgram[];
   workouts: LibraryWorkout[];
   exercises: ExerciseOption[];
+  /** Workouts placed on trainer-assigned programs. Not part of the client's library. */
+  assignedWorkouts: LibraryWorkout[];
+  /** Exercises on those workouts that are not already in the client's library. */
+  assignedExercises: ExerciseOption[];
 };
 
 export type TrainerProgramsData = TrainerProgramsReady | { kind: "error"; message: string };
@@ -112,9 +118,73 @@ export function loadTrainerPrograms(supabase: SupabaseClient, trainerId: string)
   return loadOwnedPrograms(supabase, { kind: "trainer", trainerId });
 }
 
-/** Programs a client built for themselves (not trainer-assigned ones). */
-export function loadClientPrograms(supabase: SupabaseClient, clientId: string): Promise<TrainerProgramsData> {
-  return loadOwnedPrograms(supabase, { kind: "client", clientId });
+/** Programs a client built, plus trainer programs currently assigned to them. */
+export async function loadClientPrograms(supabase: SupabaseClient, clientId: string): Promise<TrainerProgramsData> {
+  const owned = await loadOwnedPrograms(supabase, { kind: "client", clientId });
+  if (owned.kind === "error") return owned;
+
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from("program_assignments")
+    .select("program_id")
+    .eq("client_id", clientId)
+    .in("status", ["scheduled", "in_progress"]);
+
+  if (assignmentError) return { kind: "error", message: assignmentError.message };
+
+  const ownedIds = new Set(owned.programs.map((program) => program.id));
+  const assignedIds = assignedProgramIds(assignmentRows ?? [], ownedIds);
+  if (assignedIds.length === 0) return owned;
+
+  const { data: programRows, error: programError } = await supabase
+    .from("programs")
+    .select(PROGRAM_SELECT)
+    .in("id", assignedIds)
+    .not("trainer_id", "is", null);
+
+  if (programError) return { kind: "error", message: programError.message };
+
+  const assignedPrograms = (programRows ?? [])
+    .map(normalizeProgram)
+    .filter((program): program is TrainerProgram => program !== null);
+
+  const programs = mergeAssignedPrograms(owned.programs, assignedPrograms);
+  const workoutIds = workoutIdsOnPrograms(programs.filter((program) => program.readOnly));
+  if (workoutIds.length === 0) return { ...owned, programs };
+
+  const { data: workoutRows, error: workoutError } = await supabase.from("workouts").select(WORKOUT_SELECT).in("id", workoutIds);
+  if (workoutError) return { kind: "error", message: workoutError.message };
+
+  const assignedWorkouts = (workoutRows ?? [])
+    .map(normalizeWorkout)
+    .filter((workout): workout is LibraryWorkout => workout !== null)
+    .sort(compareLibrary);
+
+  const knownExercises = new Set(owned.exercises.map((exercise) => exercise.id));
+  const exerciseIds = exerciseIdsOnWorkouts(assignedWorkouts).filter((id) => !knownExercises.has(id));
+  if (exerciseIds.length === 0) return { ...owned, programs, assignedWorkouts };
+
+  const { data: exerciseRows, error: exerciseError } = await supabase.from("exercises").select(EXERCISE_SELECT).in("id", exerciseIds);
+  if (exerciseError) return { kind: "error", message: exerciseError.message };
+
+  const assignedExercises = (exerciseRows ?? [])
+    .map(normalizeExercise)
+    .filter((exercise): exercise is ExerciseOption => exercise !== null)
+    .sort(compareLibrary);
+
+  return { ...owned, programs, assignedWorkouts, assignedExercises };
+}
+
+/**
+ * Owned programs stay editable. Trainer programs assigned to the client are
+ * read-only and are not listed again when the client already has that id.
+ */
+export function mergeAssignedPrograms(owned: TrainerProgram[], assigned: TrainerProgram[]): TrainerProgram[] {
+  const ownedIds = new Set(owned.map((program) => program.id));
+  const extras = assigned
+    .filter((program) => !ownedIds.has(program.id))
+    .map((program) => ({ ...program, readOnly: true, assignedClients: [] as AssignedClient[] }));
+  const editable = owned.map((program) => ({ ...program, readOnly: false }));
+  return [...editable, ...extras].sort(compareLibrary);
 }
 
 export async function loadOwnedPrograms(supabase: SupabaseClient, owner: ProgramOwner): Promise<TrainerProgramsData> {
@@ -125,73 +195,9 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
 
   const [{ data: programRows, error: programError }, { data: workoutRows, error: workoutError }, { data: exerciseRows, error: exerciseError }] =
     await Promise.all([
-      supabase
-        .from("programs")
-        .select(
-          `
-          id,
-          name,
-          description,
-          status,
-          trainer_id,
-          owner_client_id,
-          program_phases (
-            id,
-            name,
-            description,
-            position,
-            program_weeks (
-              id,
-              week_number,
-              name,
-              notes,
-              program_workouts (
-                id,
-                workout_id,
-                day_number,
-                position,
-                workouts ( name )
-              )
-            )
-          )
-        `,
-        )
-        .or(visibleFilter),
-      supabase
-        .from("workouts")
-        .select(
-          `
-          id,
-          name,
-          description,
-          estimated_duration_minutes,
-          trainer_id,
-          owner_client_id,
-          workout_blocks (
-            id,
-            position,
-            block_type,
-            title,
-            exercise_id,
-            prescribed_sets,
-            prescribed_reps_min,
-            prescribed_reps_max,
-            prescribed_load,
-            load_unit,
-            rest_seconds,
-            prescribed_duration_seconds,
-            prescribed_distance_meters,
-            prescribed_height_cm,
-            prescribed_heart_rate_bpm,
-            exercises ( name )
-          )
-        `,
-        )
-        .or(visibleFilter),
-      supabase
-        .from("exercises")
-        .select("id, name, description, instructions, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts")
-        .or(visibleFilter),
+      supabase.from("programs").select(PROGRAM_SELECT).or(visibleFilter),
+      supabase.from("workouts").select(WORKOUT_SELECT).or(visibleFilter),
+      supabase.from("exercises").select(EXERCISE_SELECT).or(visibleFilter),
     ]);
 
   if (programError) return { kind: "error", message: programError.message };
@@ -241,7 +247,7 @@ export async function loadOwnedPrograms(supabase: SupabaseClient, owner: Program
     .filter((exercise): exercise is ExerciseOption => exercise !== null)
     .sort(compareLibrary);
 
-  return { kind: "ready", programs, workouts, exercises };
+  return { kind: "ready", programs, workouts, exercises, assignedWorkouts: [], assignedExercises: [] };
 }
 
 function normalizeProgram(row: unknown): TrainerProgram | null {
@@ -262,6 +268,7 @@ function normalizeProgram(row: unknown): TrainerProgram | null {
     description: stringField(record, "description"),
     status,
     isSystem: isSystemRow(record),
+    readOnly: false,
     phases,
     assignedClients: [],
   };
@@ -388,6 +395,95 @@ function normalizeExercise(row: unknown): ExerciseOption | null {
     secondaryMuscleGroups: musclesFromList(record.secondary_muscle_groups),
     bodyParts: bodyPartsFromList(record.body_parts),
   };
+}
+
+const PROGRAM_SELECT = `
+  id,
+  name,
+  description,
+  status,
+  trainer_id,
+  owner_client_id,
+  program_phases (
+    id,
+    name,
+    description,
+    position,
+    program_weeks (
+      id,
+      week_number,
+      name,
+      notes,
+      program_workouts (
+        id,
+        workout_id,
+        day_number,
+        position,
+        workouts ( name )
+      )
+    )
+  )
+`;
+
+const WORKOUT_SELECT = `
+  id,
+  name,
+  description,
+  estimated_duration_minutes,
+  trainer_id,
+  owner_client_id,
+  workout_blocks (
+    id,
+    position,
+    block_type,
+    title,
+    exercise_id,
+    prescribed_sets,
+    prescribed_reps_min,
+    prescribed_reps_max,
+    prescribed_load,
+    load_unit,
+    rest_seconds,
+    prescribed_duration_seconds,
+    prescribed_distance_meters,
+    prescribed_height_cm,
+    prescribed_heart_rate_bpm,
+    exercises ( name )
+  )
+`;
+
+const EXERCISE_SELECT =
+  "id, name, description, instructions, trainer_id, owner_client_id, tracking_type, tracking_parameters, primary_muscle_group, secondary_muscle_groups, body_parts";
+
+function assignedProgramIds(rows: unknown[], ownedIds: Set<string>) {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const id = stringField(asRecord(row), "program_id");
+    if (id && !ownedIds.has(id)) ids.add(id);
+  }
+  return [...ids];
+}
+
+function workoutIdsOnPrograms(programs: TrainerProgram[]) {
+  const ids = new Set<string>();
+  for (const program of programs) {
+    for (const phase of program.phases) {
+      for (const week of phase.weeks) {
+        for (const slot of week.workouts) ids.add(slot.workoutId);
+      }
+    }
+  }
+  return [...ids];
+}
+
+function exerciseIdsOnWorkouts(workouts: LibraryWorkout[]) {
+  const ids = new Set<string>();
+  for (const workout of workouts) {
+    for (const block of workout.blocks) {
+      if (block.exerciseId) ids.add(block.exerciseId);
+    }
+  }
+  return [...ids];
 }
 
 function isSystemRow(record: Record<string, unknown> | null) {

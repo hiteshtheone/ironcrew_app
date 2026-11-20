@@ -2,8 +2,15 @@
 
 import { WorkoutsBrowser } from "@/components/dashboard/workouts/workouts-browser";
 import type { ClientDashboardData } from "@/lib/dashboard/client-week";
+import type { ExerciseOption } from "@/lib/dashboard/load-trainer-programs";
 
-export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { kind: "error" }> }) {
+export function ClientWorkouts({
+  data,
+  exercises = [],
+}: {
+  data: Exclude<ClientDashboardData, { kind: "error" }>;
+  exercises?: ExerciseOption[];
+}) {
   const ready = data.kind === "ready";
 
   return (
@@ -21,6 +28,7 @@ export function ClientWorkouts({ data }: { data: Exclude<ClientDashboardData, { 
             endpoint="/api/me/workouts"
             emptyMessage="Workouts you schedule, or that your trainer assigns, show up here."
             mode="client"
+            exercises={exercises}
           />
         </div>
       )}

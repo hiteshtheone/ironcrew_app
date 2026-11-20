@@ -79,7 +79,7 @@ async function AuthenticatedDashboard() {
       fullName: activeProfile.full_name,
       timezone: activeProfile.timezone,
     });
-    // Clients build their own programs; trainer-assigned ones are not loaded here.
+    // Own programs, system programs, and trainer programs assigned to this client.
     const programs =
       dashboard.kind === "ready" ? await loadClientPrograms(supabase, dashboard.clientId) : null;
     const items =
