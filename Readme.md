@@ -27,6 +27,37 @@ More details about seeding in projects' readme.
 
 Then sign in as a new account and confirm the starter program is offered during onboarding.
 
+## Tests
+
+From `Projects/ironcrew`. None of these need a database password.
+
+```sh
+npm test
+```
+
+That runs the domain, component, catalog, API, and database tests. The database tests apply `db/migrations` in memory. They do not use a Supabase project.
+
+```sh
+npm run test:e2e
+```
+
+That opens the app in a browser. A case is skipped when the environment variable it needs is unset:
+
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for the login redirect and a rejected password
+- `E2E_TRAINER_EMAIL` and `E2E_TRAINER_PASSWORD` for the trainer dashboard
+- `E2E_CLIENT_EMAIL` and `E2E_CLIENT_PASSWORD` for the client dashboard
+- `SUPABASE_SERVICE_ROLE_KEY` to create and delete the throwaway onboarding user
+
+```sh
+cd devshell
+python -m pip install -e '.[dev]'
+python -m pytest
+```
+
+The shell tests use SQLite. They do not read `DATABASE_URL`.
+
+CI runs `npm test`, `npm run lint`, `next build`, and `python -m pytest` on every push and pull request. The browser job runs only when the `E2E_TRAINER_EMAIL` repository secret is set. The other secret names are `E2E_TRAINER_PASSWORD`, `E2E_CLIENT_EMAIL`, `E2E_CLIENT_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+
 ## App hosting
 
 Set these on Vercel:

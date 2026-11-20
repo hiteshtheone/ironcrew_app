@@ -1,3 +1,27 @@
+# How to run tests
+
+From this directory:
+
+```sh
+npm test
+```
+
+Domain, component, catalog, API, and in-memory database tests. No database password and no Supabase project.
+
+```sh
+npm run test:e2e
+```
+
+Browser flows for login, onboarding, and both dashboards. Each case skips when its environment variables are unset. See the repository `Readme.md` for the names.
+
+```sh
+cd devshell && python -m pytest
+```
+
+Shell, seed, and catalog helper tests. Install with `python -m pip install -e '.[dev]'` from `devshell`. Uses SQLite.
+
+CI runs `npm test`, lint, the production build, and pytest on every push and pull request. Playwright runs in CI only when the repository secret `E2E_TRAINER_EMAIL` is set.
+
 # How to run pythonshell 
 # Get DATABASE_URL from supabase portal ... settings>>Infrastructure>>connect
 # python -m pip install -e 'devshell[dev]'
