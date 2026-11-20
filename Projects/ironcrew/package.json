@@ -5,7 +5,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --experimental-test-module-mocks --import tsx --test lib components scripts db \"components/**/*.test.tsx\"",
+    "test": "node --experimental-test-module-mocks --import tsx --test \"lib/**/*.test.ts\" \"components/**/*.test.ts\" \"components/**/*.test.tsx\" \"scripts/**/*.test.ts\" \"db/**/*.test.ts\"",
     "test:e2e": "playwright test",
     "catalog": "tsx scripts/catalog.ts",
     "purge-system": "tsx scripts/purge-system-catalog.ts",
